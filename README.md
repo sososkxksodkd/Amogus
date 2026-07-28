@@ -1,15 +1,14 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SEA 1)
---// Platform: PC & Mobile (UGPhone Optimized)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -56,15 +55,12 @@ end
 SortNPCs()
 
 if #DynamicEnemies == 0 then DynamicEnemies = {"Shell's Bandit", "Bandit", "Corrupt Marine"} end
-if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson", "Gozen"} end
+if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
 
 --// RYU CONFIGURATION
 local RyuConfig = {
     SpeedHack = false, SpeedValue = 35, 
     HighJump = false, JumpValue = 50, 
-    LowGravity = false, GravityValue = 100,
-    FOVChanger = false, FOVValue = 90,
-    ESP = false, ESPTransparency = 50,
     
     AutoFarm = false,
     AutoQuest = false,
@@ -83,13 +79,11 @@ local RyuConfig = {
 local GPOIslands = {
     "Town of Beginnings", "Sandora", "Shell's Town", "Orange Town", 
     "Restaurant Baratie", "Roca Island", "Sphinx Island", "Marine Fort F-1", 
-    "Fishman Island", "Colosseum", "Land of the Sky", "Marine Base G-1",
-    "Logue Town", "Kori Island", "Island Of Zou", "Gravito's Fort",
-    "Shark Park"
+    "Fishman Island", "Colosseum", "Land of the Sky", "Marine Base G-1"
 }
 
 local GPOWeapons = { "Melee", "Sword", "Katana", "Rifle", "Pistol" }
-local FarmPositions = { "Above (Max 12)", "Behind (Safe)", "Distance (Gun)" } -- Underground entfernt wegen Overlap-Kick
+local FarmPositions = { "Above (Max 12)", "Behind (Safe)" }
 local TPMethods = { "Sky Tween", "Ground Tween" }
 
 --// RAINBOW OVERHEAD TITLE
@@ -124,7 +118,17 @@ end
 if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
 
---// ULTRA SAFE ANTI-LAG TWEEN ENGINE
+--// MODULE HOOKING: PC COMBAT ENGINE (Bypasses AC perfectly)
+local function GetInputCallbacks()
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack and backpack:FindFirstChild("InputCallbacks") then
+        local success, module = pcall(function() return require(backpack.InputCallbacks) end)
+        if success and module then return module end
+    end
+    return nil
+end
+
+--// SAFE PC TWEEN ENGINE
 local function CustomSafeTween(targetCFrame)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -140,14 +144,13 @@ local function CustomSafeTween(targetCFrame)
             return
         end
         
-        -- Ignoriert Lag-Spikes komplett! 
-        dt = math.min(dt, 0.03)
-
+        dt = math.min(dt, 0.05)
         local currentPos = root.Position
         local targetPos = targetCFrame.Position
         local dist = (targetPos - currentPos).Magnitude
 
-        if dist <= 4 then
+        -- Soft Landing (verhindert TP Check Kick am Ende)
+        if dist <= 3 then
             reached = true
             return
         end
@@ -157,29 +160,23 @@ local function CustomSafeTween(targetCFrame)
         local stepZ = dir.Z * RyuConfig.TweenSpeed * dt
         local stepY = dir.Y * RyuConfig.TweenSpeed * dt
 
-        -- HARD LIMITS FÜR ANTI CHEAT (Verhindert 1821 und 54 Kicks)
-        if stepY > 0 then
-            stepY = math.min(stepY, 12 * dt) -- MAX 12 Studs hoch pro Sekunde
-        elseif stepY < 0 then
-            stepY = math.max(stepY, -60 * dt) -- MAX 60 Studs runter pro Sekunde
-        end
+        -- PC Hard Limits (17 Studs/s Y-Axis, 36 Studs/Frame TP)
+        if stepY > 0 then stepY = math.min(stepY, 14 * dt)
+        elseif stepY < 0 then stepY = math.min(stepY, -60 * dt) end
 
         local stepVec = Vector3.new(stepX, stepY, stepZ)
-        
-        -- Absoluter TP Check Blocker (Max 20 Studs pro Frame, Limit ist 36)
-        if stepVec.Magnitude > 20 then
-            stepVec = stepVec.Unit * 20
-        end
+        if stepVec.Magnitude > 25 then stepVec = stepVec.Unit * 25 end
 
         root.CFrame = root.CFrame + stepVec
-        root.Velocity = Vector3.new(0, 0, 0) -- Stoppt Fallen/Gravity Check
+        root.Velocity = Vector3.new(0, 0, 0)
     end)
 
     repeat task.wait() until reached
     if connection then connection:Disconnect() end
 
     if root then 
-        root.Velocity = Vector3.new(0, 0, 0) 
+        root.Velocity = Vector3.new(0, 0, 0)
+        task.wait(0.1) -- Soft Landing Pause
     end
     RyuConfig.IsTweening = false 
 end
@@ -191,10 +188,8 @@ local function SkyTween(targetCFrame)
     
     local upPos = root.Position + Vector3.new(0, 300, 0)
     CustomSafeTween(CFrame.new(upPos))
-    
     local overPos = Vector3.new(targetCFrame.Position.X, upPos.Y, targetCFrame.Position.Z)
     CustomSafeTween(CFrame.new(overPos))
-    
     CustomSafeTween(targetCFrame)
 end
 
@@ -219,12 +214,12 @@ RunService.Heartbeat:Connect(function()
             if not plat then
                 plat = Instance.new("Part", Workspace)
                 plat.Name = "RyuSafePlatform"
-                plat.Size = Vector3.new(50, 5, 50) -- Riesig für den Laser-Check
+                plat.Size = Vector3.new(50, 5, 50)
                 plat.Anchored = true
                 plat.Transparency = 1
                 plat.CanCollide = true 
             end
-            plat.CFrame = root.CFrame * CFrame.new(0, -5, 0)
+            plat.CFrame = root.CFrame * CFrame.new(0, -3.5, 0)
         end
     else
         local plat = Workspace:FindFirstChild("RyuSafePlatform")
@@ -257,7 +252,6 @@ function RyuNotify:Send(title, text, duration)
     local TitleLabel = Instance.new("TextLabel", NotifFrame); TitleLabel.Size = UDim2.new(1, -20, 0, 20); TitleLabel.Position = UDim2.new(0, 15, 0, 8); TitleLabel.BackgroundTransparency = 1; TitleLabel.Text = title; TitleLabel.TextColor3 = Color3.fromRGB(250, 250, 250); TitleLabel.TextTransparency = 1; TitleLabel.Font = Enum.Font.GothamBold; TitleLabel.TextSize = 13; TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
     local DescLabel = Instance.new("TextLabel", NotifFrame); DescLabel.Size = UDim2.new(1, -20, 0, 20); DescLabel.Position = UDim2.new(0, 15, 0, 28); DescLabel.BackgroundTransparency = 1; DescLabel.Text = text; DescLabel.TextColor3 = Color3.fromRGB(130, 130, 135); DescLabel.TextTransparency = 1; DescLabel.Font = Enum.Font.Gotham; DescLabel.TextSize = 11; DescLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-    local TweenService = game:GetService("TweenService")
     TweenService:Create(NotifFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0.1}):Play()
     TweenService:Create(Stroke, TweenInfo.new(0.3), {Transparency = 0.5}):Play()
     TweenService:Create(AccentLine, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
@@ -281,8 +275,8 @@ local RyuHub = Instance.new("ScreenGui"); RyuHub.Name = "RyuHubPremium"; RyuHub.
 
 local function AddClickPop(element)
     local orig = element.Size
-    element.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then game:GetService("TweenService"):Create(element, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(orig.X.Scale, orig.X.Offset-4, orig.Y.Scale, orig.Y.Offset-4)}):Play() end end)
-    element.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then game:GetService("TweenService"):Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = orig}):Play() end end)
+    element.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then TweenService:Create(element, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(orig.X.Scale, orig.X.Offset-4, orig.Y.Scale, orig.Y.Offset-4)}):Play() end end)
+    element.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = orig}):Play() end end)
 end
 
 local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = ""; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
@@ -295,18 +289,18 @@ Instance.new("UICorner", Blade).CornerRadius = UDim.new(1, 0); Instance.new("UIC
 AddClickPop(ToggleBtn)
 
 local tDragStart, tStartPos, isDraggingBtn = nil, nil, false
-ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingBtn = false; tDragStart = input.Position; tStartPos = ToggleBtn.Position end end)
-UserInputService.InputChanged:Connect(function(input) if tDragStart and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - tDragStart; if delta.Magnitude > 5 then isDraggingBtn = true; ToggleBtn.Position = UDim2.new(tStartPos.X.Scale, tStartPos.X.Offset + delta.X, tStartPos.Y.Scale, tStartPos.Y.Offset + delta.Y) end end end)
+ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then isDraggingBtn = false; tDragStart = input.Position; tStartPos = ToggleBtn.Position end end)
+UserInputService.InputChanged:Connect(function(input) if tDragStart and input.UserInputType == Enum.UserInputType.MouseMovement then local delta = input.Position - tDragStart; if delta.Magnitude > 5 then isDraggingBtn = true; ToggleBtn.Position = UDim2.new(tStartPos.X.Scale, tStartPos.X.Offset + delta.X, tStartPos.Y.Scale, tStartPos.Y.Offset + delta.Y) end end end)
 
 local MainFrame = Instance.new("Frame"); MainFrame.Size = UDim2.new(0, 0, 0, 0); MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0); MainFrame.BackgroundColor3 = Theme.Background; MainFrame.BorderSizePixel = 0; MainFrame.Active = true; MainFrame.Visible = false; MainFrame.ClipsDescendants = true; MainFrame.Parent = RyuHub; Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 local mainStroke = Instance.new("UIStroke", MainFrame); mainStroke.Color = Theme.Stroke; mainStroke.Transparency = 0.2; mainStroke.Thickness = 1.5
 
 UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
         if tDragStart then
             if not isDraggingBtn then
-                if MainFrame.Visible then game:GetService("TweenService"):Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
-                else MainFrame.Visible = true; game:GetService("TweenService"):Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = MainSize, Position = UDim2.new(0.5, -MainSize.X.Offset/2, 0.5, -MainSize.Y.Offset/2)}):Play() end
+                if MainFrame.Visible then TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
+                else MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = MainSize, Position = UDim2.new(0.5, -MainSize.X.Offset/2, 0.5, -MainSize.Y.Offset/2)}):Play() end
             end
             tDragStart = nil
         end
@@ -315,14 +309,14 @@ end)
 
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextXAlignment = Enum.TextXAlignment.Left
-local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1; SubTitle.Text = "Battle Royale & GPO Edition"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1; SubTitle.Text = "PC Exclusive Edition"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 14; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", CloseBtn).Color = Theme.Stroke
-CloseBtn.Activated:Connect(function() game:GetService("TweenService"):Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
+CloseBtn.Activated:Connect(function() TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
 
 local mDragging, mDragStart, mStartPos
-Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = true; mDragStart = input.Position; mStartPos = MainFrame.Position end end)
-Topbar.InputChanged:Connect(function(input) if mDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - mDragStart; MainFrame.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y) end end)
-Topbar.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = false end end)
+Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then mDragging = true; mDragStart = input.Position; mStartPos = MainFrame.Position end end)
+Topbar.InputChanged:Connect(function(input) if mDragging and input.UserInputType == Enum.UserInputType.MouseMovement then local delta = input.Position - mDragStart; MainFrame.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y) end end)
+Topbar.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then mDragging = false end end)
 
 local Line = Instance.new("Frame", MainFrame); Line.Size = UDim2.new(1, -40, 0, 1); Line.Position = UDim2.new(0, 20, 0, 65); Line.BackgroundColor3 = Theme.Stroke; Line.BorderSizePixel = 0
 local Sidebar = Instance.new("ScrollingFrame", MainFrame); Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0
@@ -352,9 +346,9 @@ local function CreateMainTab(name)
     tabBtn.Activated:Connect(function()
         tabObj.IsOpen = not tabObj.IsOpen
         local targetSize = tabObj.IsOpen and UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) or UDim2.new(1, 0, 0, 0)
-        game:GetService("TweenService"):Create(subContainer, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-        if tabObj.IsOpen then arrow.Text = "^"; game:GetService("TweenService"):Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.Text, BackgroundColor3 = Theme.SectionBG}):Play(); game:GetService("TweenService"):Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.Text}):Play()
-        else arrow.Text = "v"; game:GetService("TweenService"):Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.SubText, BackgroundColor3 = Theme.Sidebar}):Play(); game:GetService("TweenService"):Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.SubText}):Play() end
+        TweenService:Create(subContainer, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+        if tabObj.IsOpen then arrow.Text = "^"; TweenService:Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.Text, BackgroundColor3 = Theme.SectionBG}):Play(); TweenService:Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.Text}):Play()
+        else arrow.Text = "v"; TweenService:Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.SubText, BackgroundColor3 = Theme.Sidebar}):Play(); TweenService:Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.SubText}):Play() end
         task.delay(0.26, UpdateSidebarCanvas); UpdateSidebarCanvas()
     end)
     subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() if tabObj.IsOpen then subContainer.Size = UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) end; UpdateSidebarCanvas() end)
@@ -371,8 +365,8 @@ local function CreateSubTab(tabObj, subName)
     pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20) end)
 
     subBtn.Activated:Connect(function()
-        for _, t in pairs(Tabs) do for _, st in pairs(t.SubTabs) do st.Page.Visible = false; game:GetService("TweenService"):Create(st.Btn, TweenInfo.new(0.2), {TextColor3 = Theme.SubText}):Play(); game:GetService("TweenService"):Create(st.Indicator, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play() end end
-        page.Visible = true; game:GetService("TweenService"):Create(subBtn, TweenInfo.new(0.2), {TextColor3 = Theme.Text}):Play(); game:GetService("TweenService"):Create(indicator, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
+        for _, t in pairs(Tabs) do for _, st in pairs(t.SubTabs) do st.Page.Visible = false; TweenService:Create(st.Btn, TweenInfo.new(0.2), {TextColor3 = Theme.SubText}):Play(); TweenService:Create(st.Indicator, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play() end end
+        page.Visible = true; TweenService:Create(subBtn, TweenInfo.new(0.2), {TextColor3 = Theme.Text}):Play(); TweenService:Create(indicator, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
     end)
     table.insert(tabObj.SubTabs, subObj)
     return page
@@ -401,8 +395,8 @@ local function CreateToggle(section, text, descText, defaultState, callback)
     local isOn = defaultState or false
     tBtn.Activated:Connect(function()
         isOn = not isOn
-        if isOn then game:GetService("TweenService"):Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOn}):Play(); game:GetService("TweenService"):Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(1, -19, 0.5, -8), BackgroundColor3 = Theme.Background}):Play(); game:GetService("TweenService"):Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.Text}):Play(); bStroke.Color = Theme.ToggleOn
-        else game:GetService("TweenService"):Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOff}):Play(); game:GetService("TweenService"):Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(0, 3, 0.5, -8), BackgroundColor3 = Color3.fromRGB(150, 150, 150)}):Play(); game:GetService("TweenService"):Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.SubText}):Play(); bStroke.Color = Theme.Stroke end
+        if isOn then TweenService:Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOn}):Play(); TweenService:Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(1, -19, 0.5, -8), BackgroundColor3 = Theme.Background}):Play(); TweenService:Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.Text}):Play(); bStroke.Color = Theme.ToggleOn
+        else TweenService:Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOff}):Play(); TweenService:Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(0, 3, 0.5, -8), BackgroundColor3 = Color3.fromRGB(150, 150, 150)}):Play(); TweenService:Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.SubText}):Play(); bStroke.Color = Theme.Stroke end
         if callback then callback(isOn) end
     end)
 end
@@ -416,10 +410,10 @@ local function CreateSlider(section, text, min, max, default, callback)
     local knob = Instance.new("TextButton", sliderFill); knob.Size = UDim2.new(0, 14, 0, 14); knob.Position = UDim2.new(1, -7, 0.5, -7); knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); knob.Text = ""; Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
     
     local dragging = false
-    local function setSlider(value) local relative = math.clamp((value - min) / (max - min), 0, 1); valLabel.Text = tostring(value); game:GetService("TweenService"):Create(sliderFill, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {Size = UDim2.new(relative, 0, 1, 0)}):Play(); if callback then callback(value) end end
-    knob.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; game:GetService("TweenService"):Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -9, 0.5, -9)}):Play() end end)
-    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false; game:GetService("TweenService"):Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(1, -7, 0.5, -7)}):Play() end end)
-    UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
+    local function setSlider(value) local relative = math.clamp((value - min) / (max - min), 0, 1); valLabel.Text = tostring(value); TweenService:Create(sliderFill, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {Size = UDim2.new(relative, 0, 1, 0)}):Play(); if callback then callback(value) end end
+    knob.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true; TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -9, 0.5, -9)}):Play() end end)
+    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false; TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(1, -7, 0.5, -7)}):Play() end end)
+    UserInputService.InputChanged:Connect(function(input) if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
 end
 
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey, callback)
@@ -446,39 +440,28 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// 7. POPULATING TABS (LEVELING -> SEA 1 / SEA 2)
+--// 7. NEW TABS: FARM -> LEVELING -> SEA 1 / SEA 2
 --// ============================================================================
 
-local TabBattleRoyale = CreateMainTab("Battle Royale")
-local SubCharacter = CreateSubTab(TabBattleRoyale, "Character")
+local TabFarm = CreateMainTab("Farm")
+local SubLeveling1 = CreateSubTab(TabFarm, "Leveling - Sea 1")
 
-local SecMovement = CreateSection(SubCharacter, "Movement Settings")
-CreateToggle(SecMovement, "Speed Hack", "Locks walk speed", RyuConfig.SpeedHack, function(state) RyuConfig.SpeedHack = state; PlayerMods:SetSpeed(RyuConfig.SpeedValue, state) end)
-CreateSlider(SecMovement, "Speed Value", 16, 150, RyuConfig.SpeedValue, function(val) RyuConfig.SpeedValue = val; if RyuConfig.SpeedHack then PlayerMods:SetSpeed(val, true) end end)
-
--- =======================
--- CATEGORY: LEVELING
--- =======================
-local TabLeveling = CreateMainTab("Leveling")
-local SubSea1 = CreateSubTab(TabLeveling, "Sea 1")
-
-local SecAutoFarmMain = CreateSection(SubSea1, "Farm Controls")
+local SecAutoFarmMain = CreateSection(SubLeveling1, "Farm Controls")
 CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
-local SecAutoFarmConfig = CreateSection(SubSea1, "Farm Configuration")
+local SecAutoFarmConfig = CreateSection(SubLeveling1, "Farm Configuration")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
-local SecFarmAdvanced = CreateSection(SubSea1, "Advanced Bypass Settings")
+local SecFarmAdvanced = CreateSection(SubLeveling1, "Advanced Settings")
 CreateDropdown(SecFarmAdvanced, "Farm Position", FarmPositions, "FarmPosition")
-CreateSlider(SecFarmAdvanced, "Farm Offset / Distance", 0, 35, RyuConfig.FarmOffset, function(val) RyuConfig.FarmOffset = val end)
-CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 400, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
+CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 200, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 
-local SecTeleports = CreateSection(SubSea1, "Safe Teleports")
+local SecTeleports = CreateSection(SubLeveling1, "Safe Teleports")
 CreateDropdown(SecTeleports, "Select TP Method", TPMethods, "TPMethod")
 CreateDropdown(SecTeleports, "Select Island", GPOIslands, "TargetIsland")
 
@@ -487,11 +470,7 @@ CreateButton(SecTeleports, "Teleport To Island", function()
     if target then
         local pos = target:IsA("Model") and target:GetPivot() or target.CFrame
         task.spawn(function()
-            if RyuConfig.TPMethod == "Sky Tween" then
-                SkyTween(pos * CFrame.new(0, 50, 0))
-            else
-                CustomSafeTween(pos * CFrame.new(0, 10, 0))
-            end
+            if RyuConfig.TPMethod == "Sky Tween" then SkyTween(pos * CFrame.new(0, 50, 0)) else CustomSafeTween(pos * CFrame.new(0, 10, 0)) end
             RyuNotify:Send("Teleport", "Arrived at " .. RyuConfig.TargetIsland, 3)
         end)
     end
@@ -502,23 +481,18 @@ CreateButton(SecTeleports, "Teleport To NPC", function()
     if target then
         local pos = target:IsA("Model") and target:GetPivot() or target.CFrame
         task.spawn(function()
-            if RyuConfig.TPMethod == "Sky Tween" then
-                SkyTween(pos * CFrame.new(0, 0, 5))
-            else
-                CustomSafeTween(pos * CFrame.new(0, 0, 5))
-            end
+            if RyuConfig.TPMethod == "Sky Tween" then SkyTween(pos * CFrame.new(0, 0, 5)) else CustomSafeTween(pos * CFrame.new(0, 0, 5)) end
             RyuNotify:Send("Teleport", "Arrived at " .. RyuConfig.TargetNPC, 3)
         end)
     end
 end)
 
--- SEA 2
-local SubSea2 = CreateSubTab(TabLeveling, "Sea 2")
+local SubSea2 = CreateSubTab(TabFarm, "Leveling - Sea 2")
 local SecComingSoon = CreateSection(SubSea2, "Work in Progress")
 CreateButton(SecComingSoon, "Sea 2 is currently in development", function() end)
 
 --// ============================================================================
---// 8. GPO AUTO FARM ENGINE (EMULATOR COMBAT FIX)
+--// 8. PC EXCLUSIVE GPO AUTO FARM ENGINE (USING NATIVE GAME CODE)
 --// ============================================================================
 
 local function GetCurrentQuest()
@@ -550,9 +524,6 @@ local function GetGPOMob(mobName)
     return closestTarget
 end
 
-local lastAttackTick = 0
-local lastReloadTick = 0
-
 -- Workflow Loop
 task.spawn(function()
     while true do
@@ -575,7 +546,7 @@ task.spawn(function()
                     if questEvent then 
                         pcall(function() questEvent:InvokeServer("getNPCQuestLocations") end)
                         task.wait(0.2)
-                        pcall(function() questEvent:InvokeServer({"npcChat", true}) end)
+                        pcall(function() questEvent:InvokeServer({{"npcChat", true}}) end)
                         task.wait(0.2)
                         pcall(function() questEvent:InvokeServer("takequest") end)
                     end
@@ -583,7 +554,7 @@ task.spawn(function()
             end
         end
 
-        -- 2. Auto Farm Loop 
+        -- 2. PC Auto Farm Loop (MODULE HOOKING)
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local target = GetGPOMob(RyuConfig.TargetMob)
             local char = LocalPlayer.Character
@@ -599,7 +570,6 @@ task.spawn(function()
                         local packWeap = LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
                         if packWeap then hum:EquipTool(packWeap) end
                     end
-                    weapon = char:FindFirstChild(RyuConfig.TargetWeapon)
                     
                     local farmPos
                     if RyuConfig.FarmPosition == "Above (Max 12)" then
@@ -607,8 +577,6 @@ task.spawn(function()
                         farmPos = targetRoot.CFrame * CFrame.new(0, safeY, 0)
                     elseif RyuConfig.FarmPosition == "Behind (Safe)" then
                         farmPos = targetRoot.CFrame * CFrame.new(0, 0, RyuConfig.FarmOffset)
-                    elseif RyuConfig.FarmPosition == "Distance (Gun)" then
-                        farmPos = targetRoot.CFrame * CFrame.new(0, 0, RyuConfig.FarmOffset + 15)
                     end
                     
                     if RyuConfig.TPMethod == "Sky Tween" then
@@ -617,12 +585,10 @@ task.spawn(function()
                         CustomSafeTween(farmPos)
                     end
                     
-                    if targetRoot.Size.Y < 8 then
-                        targetRoot.Size = Vector3.new(8, 8, 8)
-                        targetRoot.CanCollide = false
-                    end
+                    -- Lade das PC Combat Modul
+                    local inputModule = GetInputCallbacks()
 
-                    -- Attack Spam (Emulator Fix & Knockback Protect)
+                    -- Attack Spam
                     while target and target.Parent and targetRoot and targetRoot.Parent and RyuConfig.AutoFarm and hum.Health > 0 do
                         if (root.Position - targetRoot.Position).Magnitude > (RyuConfig.FarmOffset + 25) then
                             break
@@ -632,29 +598,15 @@ task.spawn(function()
                         root.CFrame = CFrame.lookAt(root.Position, lookPos)
                         root.Velocity = Vector3.new(0,0,0)
                         
+                        -- Nutze die GPO-Interne PC Funktion!
                         pcall(function()
-                            if tick() - lastAttackTick > 0.4 then 
-                                lastAttackTick = tick()
-                                
-                                -- 100% Garantierte Emulator Attacke (Tool.Activate & VirtualInputManager)
-                                if weapon and weapon:IsA("Tool") then weapon:Activate() end
-                                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 0)
-                                task.wait(0.05)
-                                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 0)
-                            end
-                            
-                            if weapon and weapon:FindFirstChild("Muzzle") and (tick() - lastReloadTick > 4) then
-                                lastReloadTick = tick()
-                                task.spawn(function()
-                                    local args = { "reload", { Gun = weapon.Name } }
-                                    ReplicatedStorage:WaitForChild("Events"):WaitForChild("GunManager"):WaitForChild("gunFunctions"):InvokeServer(unpack(args))
-                                end)
+                            if inputModule and inputModule.Utils.canAutoM1() then
+                                inputModule.Callbacks.Attack:PC_Activate()
                             end
                         end)
+                        
                         task.wait(0.1)
                     end
-                    
-                    if targetRoot then targetRoot.Size = Vector3.new(2, 2, 1) end
                 end
             end
         end
@@ -662,4 +614,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "Emulator Edition loaded! Ready to Farm.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Direct Hook Active.", 4)
