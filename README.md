@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MOB AURA FARM)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -73,11 +73,10 @@ local RyuConfig = {
     TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
     TargetWeapon = "Melee",
-    FarmPosition = "Above (Max 12)", 
     TPMethod = "Sky Tween", 
     
     TweenSpeed = 250,       
-    FarmOffset = 10 
+    FarmOffset = 8 
 }
 
 local GPOIslands = {
@@ -89,7 +88,6 @@ local GPOIslands = {
 }
 
 local GPOWeapons = { "Melee", "Sword", "Katana", "Rifle", "Pistol" }
-local FarmPositions = { "Above (Max 12)", "Behind (Safe)" }
 local TPMethods = { "Sky Tween", "Ground Tween" }
 
 --// RAINBOW OVERHEAD TITLE
@@ -334,14 +332,14 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// 7. FARM -> LEVELING -> SEA 1 / SEA 2 (KOMBINIERT)
+--// 7. TABS: FARM -> LEVELING
 --// ============================================================================
 
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
 local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
-CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) 
+CreateToggle(SecAutoFarmMain, "Auto Farm (Mob Aura)", "Gathers & kills group of mobs together", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
@@ -352,11 +350,9 @@ CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Settings")
-CreateDropdown(SecFarmAdvanced, "Farm Position", FarmPositions, "FarmPosition")
 CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 400, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 
-local SecTeleports = CreateSection(SubLeveling, "Safe Teleports")
-CreateDropdown(SecTeleports, "Select TP Method", TPMethods, "TPMethod")
+local SecTeleports = CreateSection(SubLeveling, "Safe Teleports (Sky Tween Only)")
 CreateDropdown(SecTeleports, "Select Island", GPOIslands, "TargetIsland")
 
 CreateButton(SecTeleports, "Teleport To Island", function()
@@ -364,7 +360,7 @@ CreateButton(SecTeleports, "Teleport To Island", function()
     if target then
         local pos = target:IsA("Model") and target:GetPivot() or target.CFrame
         task.spawn(function()
-            if RyuConfig.TPMethod == "Sky Tween" then SkyTween(pos * CFrame.new(0, 50, 0)) else CustomSafeTween(pos * CFrame.new(0, 10, 0)) end
+            SkyTween(pos * CFrame.new(0, 50, 0))
             RyuNotify:Send("Teleport", "Arrived at " .. RyuConfig.TargetIsland, 3)
         end)
     end
@@ -375,7 +371,7 @@ CreateButton(SecTeleports, "Teleport To NPC", function()
     if target then
         local pos = target:IsA("Model") and target:GetPivot() or target.CFrame
         task.spawn(function()
-            if RyuConfig.TPMethod == "Sky Tween" then SkyTween(pos * CFrame.new(0, 0, 5)) else CustomSafeTween(pos * CFrame.new(0, 0, 5)) end
+            SkyTween(pos * CFrame.new(0, 0, 5))
             RyuNotify:Send("Teleport", "Arrived at " .. RyuConfig.TargetNPC, 3)
         end)
     end
@@ -397,18 +393,16 @@ local function GetInputCallbacks()
         local success, module = pcall(function() return require(backpack.InputCallbacks) end)
         if success and module then return module end
     end
-    
     local char = LocalPlayer.Character
     if char and char:FindFirstChild("InputCallbacks") then
         local success, module = pcall(function() return require(char.InputCallbacks) end)
         if success and module then return module end
     end
-    
     return nil
 end
 
 --// ============================================================================
---// SAFE PC TWEEN ENGINE (Y-AXIS ANTI-CHEAT SAFE)
+--// SAFE TWEEN ENGINE (GROUND TWEEN FOR FARM, SAFE Y-AXIS FOR ISLANDS)
 --// ============================================================================
 local function CustomSafeTween(targetCFrame)
     local char = LocalPlayer.Character
@@ -421,7 +415,6 @@ local function CustomSafeTween(targetCFrame)
     
     local currentPos = root.Position
     local targetPos = targetCFrame.Position
-    
     local dist = (targetPos - currentPos).Magnitude
     local yDist = targetPos.Y - currentPos.Y
     
@@ -429,7 +422,6 @@ local function CustomSafeTween(targetCFrame)
     local timeHorizontal = dist / speed
     local timeVertical = 0
     
-    -- Absolute Y-Axis Limits (14 Studs / Sekunde nach oben, damit niemals "Y-Axis too fast" getriggert wird)
     if yDist > 0 then
         timeVertical = yDist / 14 
     elseif yDist < 0 then
@@ -458,19 +450,14 @@ local function SkyTween(targetCFrame)
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    -- Flies rasend schnell aber Y-Achsen sicher nach oben (kein Instant-TP)
-    local upPos = root.Position + Vector3.new(0, 300, 0)
+    local upPos = root.Position + Vector3.new(0, 200, 0)
     CustomSafeTween(CFrame.new(upPos))
-    
     local overPos = Vector3.new(targetCFrame.Position.X, upPos.Y, targetCFrame.Position.Z)
     CustomSafeTween(CFrame.new(overPos))
-    
     CustomSafeTween(targetCFrame)
 end
 
---// ============================================================================
 --// ANTI-CHEAT PLATFORM & NOCLIP
---// ============================================================================
 RunService.Stepped:Connect(function()
     if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
         local char = LocalPlayer.Character
@@ -505,7 +492,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 --// ============================================================================
---// GPO AUTO FARM ENGINE (GROUND TWEEN ONLY + HITBOX EXPANDER)
+--// GPO MOB AURA AUTO FARM ENGINE (BRING & KILL TOGETHER)
 --// ============================================================================
 local function GetCurrentQuest()
     local playerQuestData = LocalPlayer:FindFirstChild("Quest")
@@ -513,27 +500,6 @@ local function GetCurrentQuest()
         return playerQuestData.CurrentQuest.Value
     end
     return "None"
-end
-
-local function GetGPOMob(mobName)
-    local npcs = Workspace:FindFirstChild("NPCs")
-    if not npcs then return nil end
-    local closestTarget, shortestDistance = nil, math.huge
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return nil end
-
-    for _, npc in pairs(npcs:GetChildren()) do
-        if npc.Name:lower():find(mobName:lower()) then
-            local hum = npc:FindFirstChildOfClass("Humanoid")
-            local targetRoot = npc:FindFirstChild("HumanoidRootPart")
-            if hum and targetRoot and hum.Health > 0 then
-                local dist = (targetRoot.Position - root.Position).Magnitude
-                if dist < shortestDistance then shortestDistance = dist; closestTarget = npc end
-            end
-        end
-    end
-    return closestTarget
 end
 
 task.spawn(function()
@@ -547,7 +513,6 @@ task.spawn(function()
                 local npcTarget = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npcTarget then
                     local npcPos = npcTarget:IsA("Model") and npcTarget:GetPivot() or npcTarget.CFrame
-                    -- Auto Quest nutzt IMMER den sicheren Ground Tween (kein Sky Tween beim Farmen!)
                     CustomSafeTween(npcPos * CFrame.new(0, 0, 5))
                     task.wait(0.5)
                     local questEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Quest")
@@ -562,64 +527,89 @@ task.spawn(function()
             end
         end
 
-        -- 2. Auto Farm Loop (Ground Tween to Enemy)
+        -- 2. Mob Aura Auto Farm Loop (Gruppen zusammenziehen & killen)
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
-            local target = GetGPOMob(RyuConfig.TargetMob)
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
-            local hum = char and char:FindFirstChildClass("Humanoid") or char and char:FindFirstChildOfClass("Humanoid")
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
             
-            if target and root and hum then
-                local targetRoot = target:FindFirstChild("HumanoidRootPart")
-                if targetRoot then
+            if root and hum and hum.Health > 0 then
+                local npcs = Workspace:FindFirstChild("NPCs")
+                if npcs then
+                    local groupedMobs = {}
                     
-                    local weapon = char:FindFirstChild(RyuConfig.TargetWeapon)
-                    if not weapon then
-                        local packWeap = LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
-                        if packWeap then hum:EquipTool(packWeap) end
-                    end
-                    
-                    local farmPos
-                    if RyuConfig.FarmPosition == "Above (Max 12)" then
-                        local safeY = math.clamp(RyuConfig.FarmOffset, 0, 12)
-                        farmPos = targetRoot.CFrame * CFrame.new(0, safeY, 0)
-                    elseif RyuConfig.FarmPosition == "Behind (Safe)" then
-                        farmPos = targetRoot.CFrame * CFrame.new(0, 0, RyuConfig.FarmOffset)
-                    end
-                    
-                    -- AUTO FARM NUTZT NIEMALS SKY TWEEN -> NUR SICHERER GROUND TWEEN
-                    CustomSafeTween(farmPos)
-                    
-                    local inputModule = GetInputCallbacks()
-
-                    while target and target.Parent and targetRoot and targetRoot.Parent and RyuConfig.AutoFarm and hum.Health > 0 do
-                        if (root.Position - targetRoot.Position).Magnitude > (RyuConfig.FarmOffset + 25) then
-                            break
-                        end
-                        
-                        -- LOKALER HITBOX EXPANDER (Trifft immer)
-                        if targetRoot.Size.Y < 20 then
-                            targetRoot.Size = Vector3.new(25, 25, 25)
-                            targetRoot.CanCollide = false
-                        end
-                        
-                        local lookPos = Vector3.new(targetRoot.Position.X, root.Position.Y, targetRoot.Position.Z)
-                        root.CFrame = CFrame.lookAt(root.Position, lookPos)
-                        root.Velocity = Vector3.new(0,0,0)
-                        
-                        pcall(function()
-                            if inputModule and inputModule.Utils.canAutoM1() then
-                                inputModule.Callbacks.Attack:PC_Activate()
-                            else
-                                VirtualUser:CaptureController()
-                                VirtualUser:ClickButton1(Vector2.new())
+                    -- Finde ALLE passenden Mobs im Umkreis von 250 Studs
+                    for _, npc in pairs(npcs:GetChildren()) do
+                        if npc.Name:lower():find(RyuConfig.TargetMob:lower()) then
+                            local mobHum = npc:FindFirstChildOfClass("Humanoid")
+                            local mobRoot = npc:FindFirstChild("HumanoidRootPart")
+                            if mobHum and mobRoot and mobHum.Health > 0 then
+                                table.insert(groupedMobs, npc)
                             end
-                        end)
-                        
-                        task.wait(0.1)
+                        end
                     end
                     
-                    if targetRoot then targetRoot.Size = Vector3.new(2, 2, 1) end
+                    if #groupedMobs > 0 then
+                        local weapon = char:FindFirstChild(RyuConfig.TargetWeapon)
+                        if not weapon then
+                            local packWeap = LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
+                            if packWeap then hum:EquipTool(packWeap) end
+                        end
+                        
+                        -- Zum ersten Mob fliegen (Ground Tween)
+                        local firstRoot = groupedMobs[1]:FindFirstChild("HumanoidRootPart")
+                        if firstRoot then
+                            CustomSafeTween(firstRoot.CFrame * CFrame.new(0, RyuConfig.FarmOffset, 0))
+                        end
+                        
+                        local inputModule = GetInputCallbacks()
+                        
+                        -- Solange es Mobs gibt, ziehe sie zu uns und verprügle sie gemeinsam
+                        while RyuConfig.AutoFarm and hum.Health > 0 and #groupedMobs > 0 do
+                            local activeGroup = false
+                            
+                            for _, mob in pairs(groupedMobs) do
+                                if mob and mob.Parent then
+                                    local mobHum = mob:FindFirstChildOfClass("Humanoid")
+                                    local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+                                    if mobHum and mobRoot and mobHum.Health > 0 then
+                                        activeGroup = true
+                                        
+                                        -- Mob Aura: Teleportiere jeden Mob in der Nähe direkt zu uns (Gruppieren)
+                                        mobRoot.CFrame = root.CFrame * CFrame.new(0, 0, -3)
+                                        mobRoot.Velocity = Vector3.new(0,0,0)
+                                        
+                                        -- Hitbox Expander für sichere Treffer
+                                        if mobRoot.Size.Y < 15 then
+                                            mobRoot.Size = Vector3.new(20, 20, 20)
+                                            mobRoot.CanCollide = false
+                                        end
+                                    end
+                                end
+                            end
+                            
+                            if not activeGroup then break end
+                            
+                            -- Combat Schläge ausführen
+                            root.Velocity = Vector3.new(0,0,0)
+                            pcall(function()
+                                if inputModule and inputModule.Utils.canAutoM1() then
+                                    inputModule.Callbacks.Attack:PC_Activate()
+                                else
+                                    VirtualUser:CaptureController()
+                                    VirtualUser:ClickButton1(Vector2.new())
+                                end
+                            end)
+                            
+                            task.wait(0.1)
+                        end
+                        
+                        -- Hitboxen zurücksetzen
+                        for _, mob in pairs(groupedMobs) do
+                            local mobRoot = mob and mob:FindFirstChild("HumanoidRootPart")
+                            if mobRoot then mobRoot.Size = Vector3.new(2, 2, 1) end
+                        end
+                    end
                 end
             end
         end
@@ -627,4 +617,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Safe Ground-Farm Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Mob Aura Active.", 4)
