@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - DYNAMIC HEIGHT)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - ANTI-FLING PHYSICS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -64,7 +64,7 @@ local RyuConfig = {
     
     AutoFarm = false,
     AutoQuest = false,
-    DynamicHeight = false, -- NEU: Geht höher, wenn man getroffen wird
+    DynamicHeight = false, 
     
     TargetMob = DynamicEnemies[1],
     TargetIsland = "Town of Beginnings",
@@ -266,24 +266,27 @@ local function CreateSlider(section, text, min, max, default, callback)
     UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
 end
 
---// ANTI-FALL HOVER SYSTEM
+--// ANTI-FLING HOVER SYSTEM (BodyPosition statt starrer CFrame/Velocity Updates)
 local function ToggleHover(state)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
     if state then
-        local bv = root:FindFirstChild("RyuHover")
-        if not bv then
-            bv = Instance.new("BodyVelocity")
-            bv.Name = "RyuHover"
-            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bv.Velocity = Vector3.new(0, 0, 0)
-            bv.Parent = root
+        local bp = root:FindFirstChild("RyuHover")
+        if not bp then
+            bp = Instance.new("BodyPosition")
+            bp.Name = "RyuHover"
+            -- Hält den Charakter sanft in der Luft fest, gibt aber bei M1 leicht nach (Anti-Fling)
+            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bp.D = 500
+            bp.P = 50000
+            bp.Parent = root
         end
+        bp.Position = root.Position
     else
-        local bv = root:FindFirstChild("RyuHover")
-        if bv then bv:Destroy() end
+        local bp = root:FindFirstChild("RyuHover")
+        if bp then bp:Destroy() end
     end
 end
 
@@ -297,7 +300,6 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     if not state then ToggleHover(false) end 
 end)
 
--- NEU: Dynamic Height Option!
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
     RyuConfig.DynamicHeight = state 
 end)
@@ -384,10 +386,17 @@ local function SafeTween(targetCFrame)
         local alpha = (tick() - startTime) / timeToTake
         
         local intermediatePos = startPos:Lerp(targetPos, alpha)
+        
+        -- Updaten des BodyPosition statt hartem CFrame zwingen (falls aktiv)
+        local bp = root:FindFirstChild("RyuHover")
+        if bp then bp.Position = intermediatePos end
+        
         root.CFrame = CFrame.lookAt(intermediatePos, targetPos)
         RunService.Heartbeat:Wait()
     end
     
+    local bpFinal = root:FindFirstChild("RyuHover")
+    if bpFinal then bpFinal.Position = targetPos end
     root.CFrame = targetCFrame
 end
 
@@ -403,7 +412,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// GPO MASTER KITE FARM (7 STUDS + DYNAMIC ANTI-HIT)
+--// GPO MASTER KITE FARM (7 STUDS + DYNAMIC ANTI-HIT + NO FLING)
 --// ============================================================================
 local function GetCurrentQuest()
     local q = LocalPlayer:FindFirstChild("Quest")
@@ -470,7 +479,6 @@ task.spawn(function()
                             local flatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             
-                            -- Anflug fürs Aggro bleibt bei 2 Studs davor (damit Hit connected)
                             local attackPos = mRoot.Position + (flatDir.Unit * 2)
                             SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
                             
@@ -480,7 +488,11 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
                                 if tick() - timeout > 3 then break end 
                                 
-                                root.CFrame = CFrame.lookAt(mRoot.Position + (flatDir.Unit * 2), mRoot.Position)
+                                -- BodyPosition hält die Position, CFrame dreht nur den Charakter
+                                local bp = root:FindFirstChild("RyuHover")
+                                if bp then bp.Position = mRoot.Position + (flatDir.Unit * 2) end
+                                root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                                
                                 PerformAttack()
                                 task.wait(0.05)
                             end
@@ -491,13 +503,13 @@ task.spawn(function()
                         end
                     end
                     
-                    -- PHASE 2: TÖTEN (Start bei 7 Studs + Dynamic Height Option)
+                    -- PHASE 2: TÖTEN
                     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
                         EquipCombat()
                         
                         local firstMobRoot = aggroedMobs[1]:FindFirstChild("HumanoidRootPart")
                         if firstMobRoot then
-                            local currentHeightOffset = 7 -- STANDARD: 7 Studs über dem Feind
+                            local currentHeightOffset = 7 
                             local skyPos = firstMobRoot.Position + Vector3.new(0, currentHeightOffset, 0)
                             
                             SafeTween(CFrame.new(skyPos))
@@ -511,15 +523,14 @@ task.spawn(function()
                                 -- DYNAMIC HEIGHT CHECK
                                 if hum.Health < myLastHealth then
                                     if RyuConfig.DynamicHeight then
-                                        currentHeightOffset = currentHeightOffset + 1.5 -- Drückt dich 1.5 Studs höher wenn getroffen
+                                        currentHeightOffset = currentHeightOffset + 1.5
                                         RyuNotify:Send("Anti-Hit", "Schaden erkannt! Gehe höher: " .. currentHeightOffset .. " Studs", 2)
                                     end
                                     myLastHealth = hum.Health
                                 elseif hum.Health > myLastHealth then
-                                    myLastHealth = hum.Health -- HP Reset (z.B. durch Regeneration)
+                                    myLastHealth = hum.Health 
                                 end
                                 
-                                -- Update Position mit aktuellem Height Offset
                                 skyPos = firstMobRoot.Position + Vector3.new(0, currentHeightOffset, 0)
 
                                 local aliveCount = 0
@@ -534,7 +545,6 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
-                                            -- Hitbox anpassen, damit man alle von oben trifft
                                             if mRoot.Size.Y < 30 then
                                                 mRoot.Size = Vector3.new(30, 30, 30)
                                                 mRoot.CanCollide = false
@@ -545,8 +555,12 @@ task.spawn(function()
                                 
                                 if aliveCount == 0 then break end 
                                 
+                                -- Update BodyPosition (Verhindert M1 Fling)
+                                local bp = root:FindFirstChild("RyuHover")
+                                if bp then bp.Position = skyPos end
+                                
                                 if targetLook then
-                                    root.CFrame = CFrame.lookAt(skyPos, Vector3.new(targetLook.X, skyPos.Y, targetLook.Z))
+                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetLook.X, root.Position.Y, targetLook.Z))
                                 end
                                 
                                 PerformAttack()
@@ -567,4 +581,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Dynamic Anti-Hit System Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Anti-Fling Physics Active!", 4)
