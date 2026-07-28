@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FALLING BYPASS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FINAL AUTO FARM)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART NPC & ENEMY SORTER
+--// SMART NPC & ENEMY SORTER (Basierend auf workspace.NPCs)
 local KnownQuests = {
     "Ash the Tailor", "Tyson", "Robo", "Robert", "Kevin", "Helen", "Gozen", 
     "Axe Hand Logan", "Captain Zhen", "Pharaoh Akshan", "Moria", "Coby", "Bomi", "Haku"
@@ -55,7 +55,7 @@ local function SortNPCs()
 end
 SortNPCs()
 
-if #DynamicEnemies == 0 then DynamicEnemies = {"Shell's Bandit", "Bandit", "Corrupt Marine"} end
+if #DynamicEnemies == 0 then DynamicEnemies = {"Bandit", "Bandit Boss", "Corrupt Marine"} end
 if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
 
 --// RYU CONFIGURATION
@@ -332,7 +332,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// 7. TABS: FARM -> LEVELING (SEA 1 & SEA 2 KOMBINIERT)
+--// 7. TABS: FARM -> LEVELING
 --// ============================================================================
 
 local TabFarm = CreateMainTab("Farm")
@@ -402,7 +402,7 @@ local function GetInputCallbacks()
 end
 
 --// ============================================================================
---// FALLING TWEEN ENGINE (BYPASSES Y-AXIS CHECK)
+--// SAFE TWEEN ENGINE (GROUND TWEEN FOR FARM, SAFE Y-AXIS FOR ISLANDS)
 --// ============================================================================
 local function CustomSafeTween(targetCFrame)
     local char = LocalPlayer.Character
@@ -527,7 +527,7 @@ task.spawn(function()
             end
         end
 
-        -- 2. Auto Farm Loop (Natural Aggro & Combat)
+        -- 2. Auto Farm Loop (Natural Aggro & Combat - NO TELEPORTING MOBS)
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -565,12 +565,12 @@ task.spawn(function()
                                 if packWeap then hum:EquipTool(packWeap) end
                             end
                             
-                            -- Ground Tween zum Feind (Niemals Sky Tween beim Farmen)
+                            -- Ground Tween zum Feind (Sicherer Anflug)
                             CustomSafeTween(mobRoot.CFrame * CFrame.new(0, RyuConfig.FarmOffset, 0))
                             
                             local inputModule = GetInputCallbacks()
                             
-                            -- Natürlicher Kampf mit Hitbox-Garantie
+                            -- Natürlicher Kampf: Mobs laufen selbst zu dir, du schlägst sie normal mit Combat
                             while RyuConfig.AutoFarm and targetMobObj and targetMobObj.Parent and mobHum.Health > 0 and hum.Health > 0 do
                                 local currentMobRoot = targetMobObj:FindFirstChild("HumanoidRootPart")
                                 if not currentMobRoot then break end
@@ -578,7 +578,7 @@ task.spawn(function()
                                 -- Lass das Spiel denken, wir fallen (simulierter Fall-Zustand für Anti-Cheat Bypass)
                                 root.AssemblyLinearVelocity = Vector3.new(0, -25, 0)
                                 
-                                -- Hitbox vergrößern, damit jeder Schlag garantiert trifft
+                                -- Hitbox vergrößern, damit deine Combat-Schläge garantiert treffen
                                 if currentMobRoot.Size.Y < 20 then
                                     currentMobRoot.Size = Vector3.new(25, 25, 25)
                                     currentMobRoot.CanCollide = false
@@ -609,4 +609,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Natural Farming Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Natural Falling Farm Active.", 4)
