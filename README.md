@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NO OVER-NPC BUG)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - SAFE RANGE FARM)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -76,7 +76,7 @@ local RyuConfig = {
     TPMethod = "Sky Tween", 
     
     TweenSpeed = 250,       
-    FarmOffset = 4 
+    FarmOffset = 12 -- SICHERER ABSTAND: Hält dich 12 Studs auf Distanz (keine Kollisionen!)
 }
 
 local GPOIslands = {
@@ -339,7 +339,7 @@ local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
 local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
-CreateToggle(SecAutoFarmMain, "Auto Farm (Safe Height)", "Natural combat farm without vertical bugs", RyuConfig.AutoFarm, function(state) 
+CreateToggle(SecAutoFarmMain, "Auto Farm (Safe Distance)", "Fights mobs safely from 12 Studs distance", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
@@ -492,7 +492,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 --// ============================================================================
---// GPO AUTO FARM ENGINE (FIXED HEIGHT - BEHIND/BESIDE NPC)
+--// GPO AUTO FARM ENGINE (SAFE RANGE & NO COLLISION TELEPORT)
 --// ============================================================================
 local function GetCurrentQuest()
     local playerQuestData = LocalPlayer:FindFirstChild("Quest")
@@ -527,7 +527,7 @@ task.spawn(function()
             end
         end
 
-        -- 2. Auto Farm Loop (Fixed Safe Height - Behind Target)
+        -- 2. Auto Farm Loop (Safe Distance 12 Studs Away - No Collision)
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -564,8 +564,8 @@ task.spawn(function()
                                 if packWeap then hum:EquipTool(packWeap) end
                             end
                             
-                            -- FIX: Positioniere den Charakter SEITLICH/HINTER den Mob, NIEMALS DIREKT DARÜBER (verhindert Höhen-Bugs)
-                            CustomSafeTween(mobRoot.CFrame * CFrame.new(0, 0, 4))
+                            -- FIX: Bleibt 12 Studs vor dem Feind stehen (verhindert den Kollisions-Teleport ins Nichts)
+                            CustomSafeTween(mobRoot.CFrame * CFrame.new(0, 0, RyuConfig.FarmOffset))
                             
                             local inputModule = GetInputCallbacks()
                             
@@ -573,17 +573,17 @@ task.spawn(function()
                                 local currentMobRoot = targetMobObj:FindFirstChild("HumanoidRootPart")
                                 if not currentMobRoot then break end
                                 
-                                -- Fall-Modus für Anti-Cheat Bypass
                                 root.AssemblyLinearVelocity = Vector3.new(0, -25, 0)
                                 
-                                -- Hitbox vergrößern für treffsichere Combat-Schläge
-                                if currentMobRoot.Size.Y < 20 then
-                                    currentMobRoot.Size = Vector3.new(25, 25, 25)
+                                -- Hitbox massiv erweitern, damit deine Schläge aus 12 Studs Entfernung treffen
+                                if currentMobRoot.Size.Y < 30 then
+                                    currentMobRoot.Size = Vector3.new(30, 30, 30)
                                     currentMobRoot.CanCollide = false
                                 end
                                 
-                                -- Bleibe stabil hinter/neben dem Feind auf exakter Bodenhöhe
-                                root.CFrame = currentMobRoot.CFrame * CFrame.new(0, 0, 4)
+                                -- Halte exakt 12 Studs Abstand, drehe dich zum Feind
+                                local lookPos = Vector3.new(currentMobRoot.Position.X, root.Position.Y, currentMobRoot.Position.Z)
+                                root.CFrame = CFrame.new((currentMobRoot.CFrame * CFrame.new(0, 0, RyuConfig.FarmOffset)).Position, lookPos)
                                 
                                 pcall(function()
                                     if inputModule and inputModule.Utils.canAutoM1() then
@@ -607,4 +607,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! No-Over-NPC Fix Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Safe Range Farm Active.", 4)
