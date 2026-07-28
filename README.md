@@ -27,6 +27,21 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
+--// DYNAMIC NPC & ENEMY SCANNER
+local DynamicNPCs = {}
+if Workspace:FindFirstChild("NPCs") then
+    for _, npc in pairs(Workspace.NPCs:GetChildren()) do
+        if not table.find(DynamicNPCs, npc.Name) then
+            table.insert(DynamicNPCs, npc.Name)
+        end
+    end
+end
+table.sort(DynamicNPCs)
+if #DynamicNPCs == 0 then
+    -- Fallback, falls die Map noch nicht geladen ist
+    DynamicNPCs = {"Shell's Bandit", "Ash the Tailor", "Tyson", "Gozen", "Corrupt Marine", "Bandit"}
+end
+
 --// RYU CONFIGURATION (GLOBAL STATE)
 local RyuConfig = {
     -- Player Mods
@@ -40,9 +55,9 @@ local RyuConfig = {
     AutoFarm = false,
     AutoQuest = false,
     IsTweening = false, 
-    TargetMob = "Shell's Bandit",
+    TargetMob = DynamicNPCs[1] or "Shell's Bandit",
     TargetIsland = "Town of Beginnings",
-    TargetNPC = "Ash the Tailor",
+    TargetNPC = DynamicNPCs[1] or "Ash the Tailor",
     TargetWeapon = "Melee",
     FarmPosition = "Behind (Safe)", 
     TPMethod = "Ground Tween",
@@ -53,7 +68,6 @@ local RyuConfig = {
     FarmOffset = 5          
 }
 
---// GPO DATA LISTS
 local GPOIslands = {
     "Town of Beginnings", "Sandora", "Shell's Town", "Orange Town", 
     "Restaurant Baratie", "Roca Island", "Sphinx Island", "Marine Fort F-1", 
@@ -63,27 +77,41 @@ local GPOIslands = {
     "Reverse Mountain", "Shark Park"
 }
 
-local GPOEnemies = {
-    "Bandit", "Shell's Bandit", "Corrupt Marine", "Fishman", "Chess Soldier", 
-    "Marine Scout", "Monkey", "Gorilla", "Yeti"
-}
+local GPOWeapons = { "Melee", "Sword", "Katana", "Rifle", "Pistol" }
+local FarmPositions = { "Behind (Safe)", "Distance (Gun)", "Below (Underground)", "Above (Max 12)" }
+local TPMethods = { "Ground Tween", "Sky Tween" }
 
-local GPONPCs = {
-    "Ash the Tailor", "Tyson", "Robo", "Robert", "Kevin", "Helen", "Gozen", 
-    "Axe Hand Logan", "Captain Zhen", "Pharaoh Akshan", "Moria"
-}
-
-local GPOWeapons = {
-    "Melee", "Sword", "Katana", "Rifle", "Pistol"
-}
-
-local FarmPositions = {
-    "Behind (Safe)", "Distance (Gun)", "Below (Underground)", "Above (Max 12)"
-}
-
-local TPMethods = {
-    "Ground Tween", "Sky Tween"
-}
+--// RAINBOW OVERHEAD TITLE
+local function AddRainbowTag(character)
+    local head = character:WaitForChild("Head", 5)
+    if head then
+        if head:FindFirstChild("RyuHubTag") then head.RyuHubTag:Destroy() end
+        local bg = Instance.new("BillboardGui")
+        bg.Name = "RyuHubTag"
+        bg.Size = UDim2.new(0, 200, 0, 50)
+        bg.StudsOffset = Vector3.new(0, 3, 0)
+        bg.AlwaysOnTop = true
+        bg.Parent = head
+        
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, 0, 1, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = "RYUHUB"
+        txt.Font = Enum.Font.GothamBlack
+        txt.TextSize = 22
+        txt.TextStrokeTransparency = 0
+        txt.Parent = bg
+        
+        task.spawn(function()
+            while bg.Parent do
+                txt.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                task.wait()
+            end
+        end)
+    end
+end
+if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
 
 --// TWEEN ENGINE 1: SMOOTH SKY TWEEN (Youtube Method)
 local function SmoothTween(targetCFrame, speed)
@@ -92,10 +120,13 @@ local function SmoothTween(targetCFrame, speed)
     if not root then return end
 
     RyuConfig.IsTweening = true 
+    local oldAnchor = root.Anchored
+    root.Anchored = true -- WICHTIG: Verhindert Velocity Kicks beim Tweenen!
     
     local dist = (root.Position - targetCFrame.Position).Magnitude
     if dist <= RyuConfig.TPDistance then
         root.CFrame = targetCFrame
+        root.Anchored = oldAnchor
         RyuConfig.IsTweening = false
         return
     end
@@ -112,7 +143,6 @@ local function SmoothTween(targetCFrame, speed)
             checkLoop:Disconnect()
             return
         end
-        
         local currentDist = (root.Position - targetCFrame.Position).Magnitude
         if currentDist <= RyuConfig.TPDistance then
             tween:Cancel()
@@ -123,7 +153,10 @@ local function SmoothTween(targetCFrame, speed)
     
     tween.Completed:Wait()
     if checkLoop then checkLoop:Disconnect() end
-    if root then root.CFrame = targetCFrame end
+    if root then 
+        root.CFrame = targetCFrame 
+        root.Anchored = oldAnchor
+    end
     RyuConfig.IsTweening = false 
 end
 
@@ -132,15 +165,10 @@ local function SkyTween(targetCFrame)
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    -- 1. Unauffällig in die Luft steigen
     local upCFrame = root.CFrame + Vector3.new(0, 350, 0)
     SmoothTween(upCFrame, RyuConfig.TweenSpeed)
-    
-    -- 2. Über die Zielinsel fliegen
     local overTargetCFrame = CFrame.new(targetCFrame.Position.X, upCFrame.Position.Y, targetCFrame.Position.Z)
     SmoothTween(overTargetCFrame, RyuConfig.TweenSpeed)
-    
-    -- 3. Zur Zielposition absinken (mit Auto-TP am Ende)
     SmoothTween(targetCFrame, RyuConfig.TweenSpeed)
 end
 
@@ -151,21 +179,21 @@ local function SafeGroundTween(targetCFrame, speed)
     if not root then return end
 
     RyuConfig.IsTweening = true 
+    local oldAnchor = root.Anchored
+    root.Anchored = true
     
     local currentPos = root.Position
     local targetPos = targetCFrame.Position
     local dist = (currentPos - targetPos).Magnitude
-    
-    -- Berechne die Y-Achsen-Differenz (nur nach oben relevant für Kick)
     local yDist = math.max(0, targetPos.Y - currentPos.Y) 
     
-    -- GPO +Y Axis Limit ist 17. Wir nutzen max 14 Studs/Sekunde nach oben, um 100% sicher zu sein.
     local timeHorizontal = dist / speed
     local timeVertical = yDist / 14 
     local finalTweenTime = math.max(timeHorizontal, timeVertical)
     
     if dist <= RyuConfig.TPDistance then
         root.CFrame = targetCFrame
+        root.Anchored = oldAnchor
         RyuConfig.IsTweening = false
         return
     end
@@ -182,7 +210,6 @@ local function SafeGroundTween(targetCFrame, speed)
             checkLoop:Disconnect()
             return
         end
-        
         local currentDist = (root.Position - targetCFrame.Position).Magnitude
         if currentDist <= RyuConfig.TPDistance then
             tween:Cancel()
@@ -193,12 +220,14 @@ local function SafeGroundTween(targetCFrame, speed)
     
     tween.Completed:Wait()
     if checkLoop then checkLoop:Disconnect() end
-    
-    if root then root.CFrame = targetCFrame end
+    if root then 
+        root.CFrame = targetCFrame 
+        root.Anchored = oldAnchor
+    end
     RyuConfig.IsTweening = false 
 end
 
---// NOCLIP ENGINE (Für Durchqueren von Bergen/Wänden während des Tweens)
+--// NOCLIP ENGINE 
 RunService.Stepped:Connect(function()
     if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
         local char = LocalPlayer.Character
@@ -212,15 +241,12 @@ RunService.Stepped:Connect(function()
     end
 end)
 
---// ANTI-CHEAT PLATFORM ENGINE (Velocity Reset & Fester Boden)
+--// ANTI-CHEAT PLATFORM ENGINE 
 RunService.Heartbeat:Connect(function()
     if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if root then
-            -- Tötet Momentum: Verhindert, dass das Anti-Cheat einen Fall/Flug berechnet
-            root.Velocity = Vector3.new(0, 0, 0)
-            
             local plat = Workspace:FindFirstChild("RyuSafePlatform")
             if not plat then
                 plat = Instance.new("Part", Workspace)
@@ -474,9 +500,6 @@ end
 --// 7. POPULATING TABS
 --// ============================================================================
 
--- =======================
--- CATEGORY 1: BATTLE ROYALE
--- =======================
 local TabBattleRoyale = CreateMainTab("Battle Royale")
 local SubCharacter = CreateSubTab(TabBattleRoyale, "Character")
 
@@ -502,24 +525,27 @@ CreateSlider(SecVisuals, "ESP Transparency", 0, 90, RyuConfig.ESPTransparency, f
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
--- Controls (Top)
 local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
-CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) RyuConfig.AutoFarm = state end)
+CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) 
+    RyuConfig.AutoFarm = state
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not state and root then
+        root.Anchored = false 
+    end
+end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
--- Configurations (Bottom)
 local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Configuration")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon", GPOWeapons, "TargetWeapon")
-CreateDropdown(SecAutoFarmConfig, "Select Enemy", GPOEnemies, "TargetMob")
-CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", GPONPCs, "TargetNPC")
+CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicNPCs, "TargetMob")
+CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicNPCs, "TargetNPC")
 
--- Farm Positioning
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Bypass Settings")
 CreateDropdown(SecFarmAdvanced, "Farm Position", FarmPositions, "FarmPosition")
 CreateSlider(SecFarmAdvanced, "Farm Offset / Distance", 0, 35, RyuConfig.FarmOffset, function(val) RyuConfig.FarmOffset = val end)
 CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 400, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 
--- Teleports
 local SecTeleports = CreateSection(SubLeveling, "Safe Teleports")
 CreateDropdown(SecTeleports, "Select TP Method", TPMethods, "TPMethod")
 CreateDropdown(SecTeleports, "Select Island", GPOIslands, "TargetIsland")
@@ -589,6 +615,7 @@ local function GetGPOMob(mobName)
 end
 
 local lastReloadTick = 0
+local lastAttackTick = 0
 
 -- Workflow Loop
 task.spawn(function()
@@ -602,13 +629,11 @@ task.spawn(function()
                 local npcTarget = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npcTarget then
                     local npcPos = npcTarget:IsA("Model") and npcTarget:GetPivot() or npcTarget.CFrame
-                    -- 100% Sicherer Boden-Tween zur Quest
                     SafeGroundTween(npcPos * CFrame.new(0, 0, 5), RyuConfig.TweenSpeed)
                     task.wait(0.5)
                     pcall(function()
                         local questEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Quest")
                         if questEvent then 
-                            -- NEU: npcChat Bypass für die Quest-Sicherheit
                             questEvent:InvokeServer(unpack({{"npcChat", true}}))
                             task.wait(0.2)
                             questEvent:InvokeServer("takequest") 
@@ -629,21 +654,18 @@ task.spawn(function()
                 local targetRoot = target:FindFirstChild("HumanoidRootPart")
                 if targetRoot then
                     
-                    -- Auto Equip Weapon
                     local weapon = char:FindFirstChild(RyuConfig.TargetWeapon)
                     if not weapon then
                         local packWeap = LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
                         if packWeap then hum:EquipTool(packWeap) end
                     end
-                    
                     weapon = char:FindFirstChild(RyuConfig.TargetWeapon)
                     
-                    -- Sicheres Farm Positioning ermitteln
                     local farmPos
                     if RyuConfig.FarmPosition == "Behind (Safe)" then
                         farmPos = targetRoot.CFrame * CFrame.new(0, 0, RyuConfig.FarmOffset)
                     elseif RyuConfig.FarmPosition == "Distance (Gun)" then
-                        farmPos = targetRoot.CFrame * CFrame.new(0, 0, RyuConfig.FarmOffset + 15) -- Fest auf Distanz + Offset
+                        farmPos = targetRoot.CFrame * CFrame.new(0, 0, RyuConfig.FarmOffset + 15)
                     elseif RyuConfig.FarmPosition == "Below (Underground)" then
                         farmPos = targetRoot.CFrame * CFrame.new(0, -RyuConfig.FarmOffset, 0)
                     elseif RyuConfig.FarmPosition == "Above (Max 12)" then
@@ -653,52 +675,42 @@ task.spawn(function()
                     
                     SafeGroundTween(farmPos, RyuConfig.TweenSpeed)
                     
-                    -- Auto Aim
-                    camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
-                    root.CFrame = CFrame.new(root.Position, Vector3.new(targetRoot.Position.X, root.Position.Y, targetRoot.Position.Z))
+                    if not RyuConfig.AutoFarm then break end
                     
-                    -- Attack Spam & Reload
-                    while target and target.Parent and targetRoot and targetRoot.Parent and RyuConfig.AutoFarm do
+                    root.Anchored = true 
+                    
+                    -- Smooth Gyro Aim
+                    local bg = root:FindFirstChild("FarmGyro") or Instance.new("BodyGyro", root)
+                    bg.Name = "FarmGyro"
+                    bg.MaxTorque = Vector3.new(0, math.huge, 0)
+                    bg.P = 100000
+                    bg.CFrame = CFrame.lookAt(root.Position, targetRoot.Position)
+                    
+                    while target and target.Parent and targetRoot and targetRoot.Parent and hum.Health > 0 and RyuConfig.AutoFarm do
+                        bg.CFrame = CFrame.lookAt(root.Position, targetRoot.Position)
+                        
                         pcall(function()
-                            if weapon and weapon:FindFirstChild("Muzzle") then
-                                local args = {
-                                    "fire",
-                                    {
-                                        Start = weapon.Muzzle.CFrame,
-                                        Gun = weapon.Name,
-                                        joe = "true",
-                                        Position = targetRoot.Position
-                                    }
-                                }
-                                ReplicatedStorage:WaitForChild("Events"):WaitForChild("GunManager"):FireServer(unpack(args))
-                            else
-                                -- NEU: 100% Sicherer Melee Combat Register
-                                local combatReg = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("CombatRegister")
-                                if combatReg and (not weapon or weapon.Name == "Melee") then
-                                    local animFolder = ReplicatedStorage:FindFirstChild("CombatAnimations")
-                                    local punchAnim = animFolder and animFolder:FindFirstChild("Melee") and animFolder.Melee:FindFirstChild("Punch2")
-                                    if punchAnim then
-                                        local meleeArgs = {
-                                            {
-                                                "swingsfx",
-                                                "Melee",
-                                                2,
-                                                "Ground",
-                                                false,
-                                                punchAnim,
-                                                2,
-                                                1.5
-                                            }
-                                        }
-                                        combatReg:InvokeServer(unpack(meleeArgs))
-                                    end
-                                end
+                            if tick() - lastAttackTick > 0.4 then 
+                                lastAttackTick = tick()
                                 
-                                VirtualUser:CaptureController()
-                                VirtualUser:ClickButton1(Vector2.new())
+                                if weapon and weapon:FindFirstChild("Muzzle") then
+                                    local args = { "fire", { Start = weapon.Muzzle.CFrame, Gun = weapon.Name, joe = "true", Position = targetRoot.Position } }
+                                    ReplicatedStorage:WaitForChild("Events"):WaitForChild("GunManager"):FireServer(unpack(args))
+                                else
+                                    local combatReg = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("CombatRegister")
+                                    if combatReg and (not weapon or weapon.Name == "Melee") then
+                                        local animFolder = ReplicatedStorage:FindFirstChild("CombatAnimations")
+                                        local punchAnim = animFolder and animFolder:FindFirstChild("Melee") and animFolder.Melee:FindFirstChild("Punch2")
+                                        if punchAnim then
+                                            local meleeArgs = { { "swingsfx", "Melee", 2, "Ground", false, punchAnim, 2, 1.5 } }
+                                            combatReg:InvokeServer(unpack(meleeArgs))
+                                        end
+                                    end
+                                    VirtualUser:CaptureController()
+                                    VirtualUser:ClickButton1(Vector2.new())
+                                end
                             end
                             
-                            -- RELOAD SIMULATOR (Alle 4s)
                             if tick() - lastReloadTick > 4 then
                                 lastReloadTick = tick()
                                 task.spawn(function()
@@ -709,16 +721,15 @@ task.spawn(function()
                                 end)
                             end
                         end)
-                        task.wait(0.1)
+                        task.wait()
                     end
+                    
+                    if bg then bg:Destroy() end
                 end
             end
         end
     end
 end)
 
---// ============================================================================
---// 9. INITIALIZATION / STARTUP
---// ============================================================================
 task.wait(0.5)
 RyuNotify:Send("RYU HUB", "Battle Royale & GPO Edition loaded! Stay safe.", 4)
