@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - PERFECT HOVER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - UNDERGROUND & 2-STUD)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -64,10 +64,14 @@ local RyuConfig = {
     
     AutoFarm = false,
     AutoQuest = false,
+    UndergroundFarm = false, -- NEU: Option für unter der Erde
+    
     TargetMob = DynamicEnemies[1],
     TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
-    TargetWeapon = "Combat"
+    TargetWeapon = "Combat",
+    
+    TweenSpeed = 55, -- NEU: Wird jetzt vom Slider gesteuert!
 }
 
 local GPOIslands = {
@@ -131,7 +135,6 @@ local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
 local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1; SubTitle.Text = "PC Exclusive Edition"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 
--- Reskalierungs-Button
 local ResizeGrip = Instance.new("TextButton", MainFrame)
 ResizeGrip.Size = UDim2.new(0, 20, 0, 20)
 ResizeGrip.Position = UDim2.new(1, -20, 1, -20)
@@ -249,7 +252,21 @@ local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
 end
 
---// ANTI-FALL HOVER SYSTEM (Verhindert jegliches Stottern & Runterfallen)
+local function CreateSlider(section, text, min, max, default, callback)
+    local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 50); frame.BackgroundTransparency = 1
+    local label = Instance.new("TextLabel", frame); label.Size = UDim2.new(1, 0, 0, 20); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Theme.SubText; label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
+    local valLabel = Instance.new("TextLabel", frame); valLabel.Size = UDim2.new(0, 40, 0, 20); valLabel.Position = UDim2.new(1, -40, 0, 0); valLabel.BackgroundTransparency = 1; valLabel.Text = tostring(default); valLabel.TextColor3 = Theme.Accent; valLabel.Font = Enum.Font.GothamBold; valLabel.TextSize = 13; valLabel.TextXAlignment = Enum.TextXAlignment.Right
+    local sliderBg = Instance.new("Frame", frame); sliderBg.Size = UDim2.new(1, 0, 0, 4); sliderBg.Position = UDim2.new(0, 0, 0, 32); sliderBg.BackgroundColor3 = Theme.ToggleOff; Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(1, 0)
+    local sliderFill = Instance.new("Frame", sliderBg); local percentage = (default - min) / (max - min); sliderFill.Size = UDim2.new(percentage, 0, 1, 0); sliderFill.BackgroundColor3 = Theme.Accent; Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
+    local knob = Instance.new("TextButton", sliderFill); knob.Size = UDim2.new(0, 14, 0, 14); knob.Position = UDim2.new(1, -7, 0.5, -7); knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); knob.Text = ""; Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+    local dragging = false
+    local function setSlider(value) local relative = math.clamp((value - min) / (max - min), 0, 1); valLabel.Text = tostring(value); TweenService:Create(sliderFill, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {Size = UDim2.new(relative, 0, 1, 0)}):Play(); if callback then callback(value) end end
+    knob.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -9, 0.5, -9)}):Play() end end)
+    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false; TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(1, -7, 0.5, -7)}):Play() end end)
+    UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
+end
+
+--// ANTI-FALL HOVER SYSTEM
 local function ToggleHover(state)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -260,7 +277,6 @@ local function ToggleHover(state)
         if not bv then
             bv = Instance.new("BodyVelocity")
             bv.Name = "RyuHover"
-            -- Hält den Charakter absolut stabil auf Y=0 Beschleunigung (keine Gravitation)
             bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
             bv.Velocity = Vector3.new(0, 0, 0)
             bv.Parent = root
@@ -274,17 +290,29 @@ end
 -- UI AUFBAU
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
+
 local SecAutoFarmMain = CreateSection(SubLeveling, "Master Auto Farm (Kite & Kill)")
 CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
-CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
+CreateToggle(SecAutoFarmMain, "Underground Farm", RyuConfig.UndergroundFarm, function(state) 
+    RyuConfig.UndergroundFarm = state 
+end)
+CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) 
+    RyuConfig.AutoQuest = state 
+end)
 
 local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
+
+local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
+-- NEU: Echter, funktionierender Slider für die Anfluggeschwindigkeit!
+CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) 
+    RyuConfig.TweenSpeed = val 
+end)
 
 --// ============================================================================
 --// MODULE HOOKING: PC COMBAT ENGINE
@@ -329,7 +357,7 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (NO TP CHECK)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (GEKOPPELT AN UI SLIDER)
 --// ============================================================================
 local function SafeTween(targetCFrame)
     local char = LocalPlayer.Character
@@ -340,7 +368,8 @@ local function SafeTween(targetCFrame)
     local targetPos = targetCFrame.Position
     local dist = (targetPos - startPos).Magnitude
     
-    local speed = 55 
+    -- Nutzt jetzt den Speed vom GUI Slider!
+    local speed = RyuConfig.TweenSpeed 
     local timeToTake = dist / speed
     
     if timeToTake < 0.1 then 
@@ -373,7 +402,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// GPO MASTER KITE FARM (PERFECT HOVER & 30x30x30 HITBOX)
+--// GPO MASTER KITE FARM (2 STUDS ABOVE OR 7 STUDS UNDERGROUND)
 --// ============================================================================
 local function GetCurrentQuest()
     local q = LocalPlayer:FindFirstChild("Quest")
@@ -384,7 +413,6 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         
-        -- 1. Auto Quest
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
                 local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
@@ -404,14 +432,13 @@ task.spawn(function()
             end
         end
 
-        -- 2. Master Farm Loop
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             
             if root and hum and hum.Health > 0 then
-                ToggleHover(true) -- BodyVelocity aktivieren, damit wir NIE wieder runterfallen!
+                ToggleHover(true) 
                 
                 local npcs = Workspace:FindFirstChild("NPCs")
                 if npcs then
@@ -462,14 +489,17 @@ task.spawn(function()
                         end
                     end
                     
-                    -- PHASE 2: 10 STUDS HOCH & ALLE PERFEKT GLEICHZEITIG KILLEN
+                    -- PHASE 2: TÖTEN (2 Studs drüber ODER Underground)
                     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
                         EquipCombat()
                         
                         local firstMobRoot = aggroedMobs[1]:FindFirstChild("HumanoidRootPart")
                         if firstMobRoot then
-                            local skyPos = firstMobRoot.Position + Vector3.new(0, 10, 0)
-                            SafeTween(CFrame.lookAt(skyPos, skyPos - Vector3.new(0, 1, 0)))
+                            -- Bestimme die Y-Höhe (2 drüber oder 7 drunter)
+                            local hoverYOffset = RyuConfig.UndergroundFarm and -7 or 2
+                            local skyPos = firstMobRoot.Position + Vector3.new(0, hoverYOffset, 0)
+                            
+                            SafeTween(CFrame.new(skyPos))
                             
                             local killTimeout = tick()
                             
@@ -488,7 +518,7 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
-                                            -- PERFEKTE HITBOX: Berührt alle 5 Mobs absolut gleichzeitig!
+                                            -- 30x30x30 Hitbox erfasst alle Feinde sofort, egal ob du drüber oder drunter bist
                                             if mRoot.Size.Y < 30 then
                                                 mRoot.Size = Vector3.new(30, 30, 30)
                                                 mRoot.CanCollide = false
@@ -499,8 +529,8 @@ task.spawn(function()
                                 
                                 if aliveCount == 0 then break end 
                                 
-                                -- BodyVelocity hält uns automatisch auf Y = 0 (Kein Fallen!)
                                 if targetLook then
+                                    -- Schaut flach zum Gegner, vermeidet Kamera/Charakter-Bugs
                                     root.CFrame = CFrame.lookAt(skyPos, Vector3.new(targetLook.X, skyPos.Y, targetLook.Z))
                                 end
                                 
@@ -522,4 +552,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Perfect Hover Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Underground & 2-Stud Mode Active!", 4)
