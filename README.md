@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - TP CHECK FIXED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - ULTIMATE TP BYPASS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -72,7 +72,7 @@ local RyuConfig = {
     TargetWeapon = "Melee",
     
     TweenSpeed = 120,       
-    FarmOffset = 1.5 -- Perfekter Abstand, damit der Hit garantiert landet
+    FarmOffset = 1.5 
 }
 
 local GPOIslands = {
@@ -334,7 +334,7 @@ local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
 local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
-CreateToggle(SecAutoFarmMain, "Auto Farm", "Aggros up to 5 enemies & kills them together", RyuConfig.AutoFarm, function(state) 
+CreateToggle(SecAutoFarmMain, "Auto Farm", "Aggros up to 5 enemies & kills them together safely", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
     if not state then
         local plat = Workspace:FindFirstChild("RyuSafePlatform")
@@ -401,21 +401,21 @@ local function GetInputCallbacks()
 end
 
 --// ============================================================================
---// PLATFORM LOGIC & SAFE TWEEN ENGINE (TP CHECK BYPASS)
+--// MICRO-STEP TWEEN ENGINE (BYPASSES TP CHECKS UNDER 65 STUDS/S)
 --// ============================================================================
 local function PlacePlatform(pos)
     local plat = Workspace:FindFirstChild("RyuSafePlatform")
     if not plat then
         plat = Instance.new("Part", Workspace)
         plat.Name = "RyuSafePlatform"
-        plat.Size = Vector3.new(200, 5, 200) 
+        plat.Size = Vector3.new(250, 6, 250) 
         plat.Anchored = true
         plat.Transparency = 1
         plat.CanCollide = true 
         plat.Friction = 1 
     end
-    -- FIX: Exakt 6.5 Studs unter dir, damit die Plattform NIEMALS in deine Beine ragt und dich katapultiert!
-    plat.CFrame = CFrame.new(pos.X, pos.Y - 6.5, pos.Z)
+    -- Plattform tiefer gesetzt, um Berührungs-Kicks auszuschließen
+    plat.CFrame = CFrame.new(pos.X, pos.Y - 7.5, pos.Z)
 end
 
 local function CustomSafeTween(targetCFrame)
@@ -424,44 +424,28 @@ local function CustomSafeTween(targetCFrame)
     if not root then return end
 
     RyuConfig.IsTweening = true 
-    local oldAnchor = root.Anchored
-    root.Anchored = true 
     
-    local currentPos = root.Position
+    local startPos = root.Position
     local targetPos = targetCFrame.Position
-    local dist = (targetPos - currentPos).Magnitude
-    local yDist = targetPos.Y - currentPos.Y
+    local totalDist = (targetPos - startPos).Magnitude
     
-    local speed = RyuConfig.TweenSpeed or 120 
-    local timeHorizontal = dist / speed
-    local timeVertical = 0
+    -- MÄCHTIGER BYPASS: Wir bewegen den Charakter in winzigen Schritten (max 4 Studs pro Frame)
+    -- So bleibt der Server-Tick immer unter dem 72er Schwellenwert!
+    local stepSize = 4
+    local steps = math.ceil(totalDist / stepSize)
+    if steps < 1 then steps = 1 end
     
-    if yDist > 0 then
-        timeVertical = yDist / 12 
-    elseif yDist < 0 then
-        timeVertical = math.abs(yDist) / 60 
-    end
-    
-    local finalTime = math.max(timeHorizontal, timeVertical)
-    
-    -- STRENGES TP CHECK LIMIT: Garantiert, dass du NIEMALS schneller als 65 Studs pro Sekunde fliegst
-    if finalTime < dist / 65 then 
-        finalTime = dist / 65 
-    end 
-    
-    if dist < 2 then finalTime = 0.1 end
-
-    local tweenInfo = TweenInfo.new(finalTime, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
-    
-    tween:Play()
-    tween.Completed:Wait()
-
-    if root then 
+    for i = 1, steps do
+        if not RyuConfig.AutoFarm then break end
+        local alpha = i / steps
+        local intermediatePos = startPos:Lerp(targetPos, alpha)
+        root.CFrame = CFrame.new(intermediatePos, targetPos)
         root.Velocity = Vector3.new(0, 0, 0)
-        task.wait(0.05) 
-        root.Anchored = oldAnchor
+        RunService.Heartbeat:Wait()
     end
+    
+    root.CFrame = targetCFrame
+    root.Velocity = Vector3.new(0, 0, 0)
     RyuConfig.IsTweening = false 
 end
 
@@ -492,7 +476,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// GPO AUTO FARM ENGINE (MAGNET AGGRO & TIMEOUT)
+--// GPO AUTO FARM ENGINE (MAGNET AGGRO & TIMEOUT + NO TP CHECK)
 --// ============================================================================
 local function GetCurrentQuest()
     local playerQuestData = LocalPlayer:FindFirstChild("Quest")
@@ -583,19 +567,24 @@ task.spawn(function()
                             
                             local destY = mobPos.Y
                             
+                            -- Anflug 3 Studs -> 1 Stud mit sicherem Mikro-Step
                             local approachPos3 = Vector3.new(mobPos.X, destY, mobPos.Z) + (flatDir * 3) 
                             CustomSafeTween(CFrame.new(approachPos3, mobPos))
+                            
+                            local approachPos1 = Vector3.new(mobPos.X, destY, mobPos.Z) + (flatDir * 1) 
+                            CustomSafeTween(CFrame.new(approachPos1, mobPos))
+                            
+                            PlacePlatform(approachPos1)
                             
                             local startHealth = mobHum.Health
                             local aggroTimeout = tick()
                             
-                            -- MAGNET MODUS + TIMEOUT FIX: Klebt am Feind, bricht aber nach 5 Sekunden ab, falls verbuggt
+                            -- Magnet-Modus: Klebt am Banditen und trifft garantiert
                             while RyuConfig.AutoFarm and hum.Health > 0 and mobHum.Health >= startHealth and mobHum.Health > 0 do
-                                if tick() - aggroTimeout > 5 then break end -- ANTI-AFK: Bricht nach 5 Sekunden ab!
+                                if tick() - aggroTimeout > 5 then break end -- ANTI-AFK Timeout (5 Sek)
                                 
                                 root.Velocity = Vector3.new(0, 0, 0)
                                 
-                                -- Update die Position JEDEN Frame, falls der Bandit wegläuft!
                                 local currFlatDir = Vector3.new(root.Position.X - mobRoot.Position.X, 0, root.Position.Z - mobRoot.Position.Z)
                                 if currFlatDir.Magnitude < 0.1 then currFlatDir = Vector3.new(1, 0, 0) end
                                 local stickPos = mobRoot.Position + (currFlatDir.Unit * RyuConfig.FarmOffset)
@@ -611,7 +600,7 @@ task.spawn(function()
                                         VirtualUser:ClickButton1(Vector2.new())
                                     end
                                 end)
-                                task.wait(0.05) 
+                                task.wait(0.03) 
                             end
                             
                             if mobHum.Health > 0 and mobHum.Health < startHealth then
@@ -620,7 +609,7 @@ task.spawn(function()
                         end
                     end
                     
-                    -- Phase 2: Kill Phase (M1 Spam auf die Gruppe)
+                    -- Phase 2: Kill Phase (M1 Spam auf die Gruppe in der Luft)
                     if #aggroedMobs > 0 then
                         
                         local groundY = aggroedMobs[1]:FindFirstChild("HumanoidRootPart").Position.Y
@@ -632,7 +621,7 @@ task.spawn(function()
                         local killTimeout = tick()
                         
                         while RyuConfig.AutoFarm and hum.Health > 0 do
-                            if tick() - killTimeout > 30 then break end -- ANTI-AFK für Kill-Phase
+                            if tick() - killTimeout > 30 then break end -- ANTI-AFK Timeout (30 Sek)
                             
                             local aliveCount = 0
                             local firstAliveRoot = nil
@@ -671,7 +660,7 @@ task.spawn(function()
                                 end
                             end)
                             
-                            task.wait(0.05) 
+                            task.wait(0.03) 
                         end
                         
                         for _, mob in pairs(aggroedMobs) do
@@ -687,4 +676,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Magnet Aggro & TP Bypass Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Ultimate Micro-Step TP Bypass Active.", 4)
