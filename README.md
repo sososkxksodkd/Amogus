@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MASTER KITE FARM)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NO FLY BUG)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -71,7 +71,6 @@ local RyuConfig = {
     TargetNPC = DynamicQuests[1],
     TargetWeapon = "Melee",
     
-    -- Anti-Cheat sichere Standardwerte
     TweenSpeed = 120,       
     FarmOffset = 1 
 }
@@ -337,6 +336,10 @@ local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
 CreateToggle(SecAutoFarmMain, "Auto Farm (Group Kill)", "Aggros up to 5 enemies & kills them together", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
+    -- FIX: Löse die Verankerung (Anchored = false), sobald Auto-Farm ausgeschaltet wird!
+    if not state then
+        pcall(function() LocalPlayer.Character.HumanoidRootPart.Anchored = false end)
+    end
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
@@ -414,11 +417,10 @@ local function CustomSafeTween(targetCFrame)
     local dist = (targetPos - currentPos).Magnitude
     local yDist = targetPos.Y - currentPos.Y
     
-    local speed = RyuConfig.TweenSpeed or 120 -- SICHERER PC STANDARD!
+    local speed = RyuConfig.TweenSpeed or 120 
     local timeHorizontal = dist / speed
     local timeVertical = 0
     
-    -- STRENGES ANTI CHEAT LIMIT (Maximal 12 Studs pro Sekunde nach oben)
     if yDist > 0 then
         timeVertical = yDist / 12 
     elseif yDist < 0 then
@@ -489,7 +491,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 --// ============================================================================
---// GPO AUTO FARM ENGINE (KITE & GROUP KILL - NO ARTIFICIAL FALLING)
+--// GPO AUTO FARM ENGINE (NO FLY BUG / 15 STUDS UP / 40x40 HITBOX)
 --// ============================================================================
 local function GetCurrentQuest()
     local playerQuestData = LocalPlayer:FindFirstChild("Quest")
@@ -550,10 +552,9 @@ task.spawn(function()
 
                     local inputModule = GetInputCallbacks()
 
-                    -- Finde alle Mobs mit EXAKTEM NAMEN (Verhindert Angriffe auf Bosse)
                     local validMobs = {}
                     for _, npc in pairs(npcs:GetChildren()) do
-                        if npc.Name == RyuConfig.TargetMob then -- EXAKTER MATCH!
+                        if npc.Name == RyuConfig.TargetMob then
                             local mobHum = npc:FindFirstChildOfClass("Humanoid")
                             local mobRoot = npc:FindFirstChild("HumanoidRootPart")
                             if mobHum and mobRoot and mobHum.Health == mobHum.MaxHealth then
@@ -579,14 +580,15 @@ task.spawn(function()
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             flatDir = flatDir.Unit
                             
-                            -- PHASE 1: EXACTLY 1 STUD DISTANCE! (Antippen)
-                            local safeTargetPos = mobPos + (flatDir * RyuConfig.FarmOffset) 
+                            -- FIX: Die Y-Koordinate wird fest auf die des Gegners gesetzt (kein Stacking!)
+                            local destY = mobPos.Y
+                            local safeTargetPos = Vector3.new(mobPos.X, destY, mobPos.Z) + (flatDir * RyuConfig.FarmOffset) 
                             CustomSafeTween(CFrame.new(safeTargetPos, mobPos))
                             
                             local startHealth = mobHum.Health
                             
-                            -- Schlagen, bis das Leben sinkt (Ultra-schneller PC M1 Spam)
                             while RyuConfig.AutoFarm and hum.Health > 0 and mobHum.Health >= startHealth and mobHum.Health > 0 do
+                                root.Anchored = true -- FIX THE FLY BUG
                                 root.Velocity = Vector3.new(0, 0, 0)
                                 
                                 local lookPos = Vector3.new(mobRoot.Position.X, root.Position.Y, mobRoot.Position.Z)
@@ -600,7 +602,7 @@ task.spawn(function()
                                         VirtualUser:ClickButton1(Vector2.new())
                                     end
                                 end)
-                                task.wait(0.03) -- EXTREM SCHNELL!
+                                task.wait(0.03) 
                             end
                             
                             if mobHum.Health > 0 then
@@ -612,12 +614,13 @@ task.spawn(function()
                     -- Phase 2: Kill Phase (M1 Spam auf die Gruppe)
                     if #aggroedMobs > 0 then
                         
-                        -- PHASE 2: BISSCHEN HOCH (Sichere Ebene über den Gegnern)
-                        -- Die RyuSafePlatform wandert mit uns mit. Der Server denkt, wir stehen auf festem Grund!
-                        local safeKillPos = root.Position + Vector3.new(0, 15, 0)
+                        -- FIX: Berechne die 15 Studs Höhe IMMER vom festen Boden des ersten Gegners!
+                        local groundY = aggroedMobs[1]:FindFirstChild("HumanoidRootPart").Position.Y
+                        local safeKillPos = Vector3.new(root.Position.X, groundY + 15, root.Position.Z)
                         CustomSafeTween(CFrame.new(safeKillPos))
                         
                         while RyuConfig.AutoFarm and hum.Health > 0 do
+                            root.Anchored = true -- FIX THE FLY BUG
                             local aliveCount = 0
                             local firstAliveRoot = nil
                             
@@ -629,7 +632,6 @@ task.spawn(function()
                                         aliveCount = aliveCount + 1
                                         if not firstAliveRoot then firstAliveRoot = mobRoot end
                                         
-                                        -- RIESIGE 40x40x40 HITBOX! Du triffst alle mühelos von oben!
                                         if mobRoot.Size.Y < 40 then
                                             mobRoot.Size = Vector3.new(40, 40, 40)
                                             mobRoot.CanCollide = false
@@ -638,7 +640,7 @@ task.spawn(function()
                                 end
                             end
                             
-                            if aliveCount == 0 then break end -- Alle 5 sind tot!
+                            if aliveCount == 0 then break end 
                             
                             root.Velocity = Vector3.new(0, 0, 0)
                             
@@ -647,7 +649,6 @@ task.spawn(function()
                                 root.CFrame = CFrame.lookAt(root.Position, lookPos)
                             end
                             
-                            -- Spam Schläge mit maximaler Geschwindigkeit
                             pcall(function()
                                 if inputModule and inputModule.Utils.canAutoM1() then
                                     inputModule.Callbacks.Attack:PC_Activate()
@@ -657,10 +658,9 @@ task.spawn(function()
                                 end
                             end)
                             
-                            task.wait(0.03) -- EXTREM SCHNELL!
+                            task.wait(0.03) 
                         end
                         
-                        -- Reset Hitboxen nach dem Tod
                         for _, mob in pairs(aggroedMobs) do
                             local mobRoot = mob and mob:FindFirstChild("HumanoidRootPart")
                             if mobRoot then mobRoot.Size = Vector3.new(2, 2, 1); mobRoot.CanCollide = true end
@@ -674,4 +674,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Group Kiting Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Elevator Bug Fixed.", 4)
