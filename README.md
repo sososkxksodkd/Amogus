@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NO FLING / SMOOTH FLY)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - AGGRO/KITE FARM)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -62,6 +62,9 @@ if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
 local RyuConfig = {
     SpeedHack = false, SpeedValue = 35, 
     HighJump = false, JumpValue = 50, 
+    LowGravity = false, GravityValue = 100,
+    FOVChanger = false, FOVValue = 90,
+    ESP = false, ESPTransparency = 50,
     
     AutoFarm = false,
     AutoQuest = false,
@@ -69,11 +72,11 @@ local RyuConfig = {
     TargetMob = DynamicEnemies[1],
     TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
-    TargetWeapon = "Melee", 
+    TargetWeapon = "Melee",
     TPMethod = "Sky Tween", 
     
     TweenSpeed = 250,       
-    FarmOffset = 12 -- Bleibt angenehm 12 Studs entfernt (ohne Berührung)
+    FarmOffset = 12 
 }
 
 local GPOIslands = {
@@ -336,7 +339,7 @@ local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
 local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
-CreateToggle(SecAutoFarmMain, "Auto Farm (Smooth & Safe)", "Fights mobs safely from 12 Studs distance", RyuConfig.AutoFarm, function(state) 
+CreateToggle(SecAutoFarmMain, "Auto Farm (Group Kill)", "Aggros up to 5 enemies & kills them together", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
@@ -467,7 +470,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// GPO AUTO FARM ENGINE (NO FLING / ROTATION INDEPENDENT)
+--// GPO AUTO FARM ENGINE (KITE & GROUP KILL - NO ARTIFICIAL FALLING)
 --// ============================================================================
 local function GetCurrentQuest()
     local playerQuestData = LocalPlayer:FindFirstChild("Quest")
@@ -488,12 +491,7 @@ task.spawn(function()
                 local npcTarget = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npcTarget then
                     local npcPos = npcTarget:IsA("Model") and npcTarget:GetPivot() or npcTarget.CFrame
-                    -- FIX: Stabiler Anflug an den Quest-NPC
-                    local flatDir = Vector3.new(LocalPlayer.Character.HumanoidRootPart.Position.X - npcPos.Position.X, 0, LocalPlayer.Character.HumanoidRootPart.Position.Z - npcPos.Position.Z)
-                    if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
-                    local targetApproach = CFrame.new(npcPos.Position + flatDir.Unit * 5, npcPos.Position)
-                    
-                    CustomSafeTween(targetApproach)
+                    CustomSafeTween(npcPos * CFrame.new(0, 0, 5))
                     task.wait(0.5)
                     local questEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Quest")
                     if questEvent then 
@@ -507,7 +505,7 @@ task.spawn(function()
             end
         end
 
-        -- 2. Auto Farm Loop (No Fling / No Lasso)
+        -- 2. Auto Farm Loop (Group Kiting Logic)
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -516,75 +514,69 @@ task.spawn(function()
             if root and hum and hum.Health > 0 then
                 local npcs = Workspace:FindFirstChild("NPCs")
                 if npcs then
-                    local targetMobObj = nil
-                    local shortestDist = math.huge
-                    
-                    for _, npc in pairs(npcs:GetChildren()) do
-                        if npc.Name:lower():find(RyuConfig.TargetMob:lower()) then
-                            local mobHum = npc:FindFirstChildOfClass("Humanoid")
-                            local mobRoot = npc:FindFirstChild("HumanoidRootPart")
-                            if mobHum and mobRoot and mobHum.Health > 0 then
-                                local dist = (mobRoot.Position - root.Position).Magnitude
-                                if dist < shortestDist then
-                                    shortestDist = dist
-                                    targetMobObj = npc
-                                end
+                    local combatTool = char:FindFirstChild(RyuConfig.TargetWeapon) or LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
+                    if not combatTool then
+                        for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+                            if item:IsA("Tool") and (item.Name:lower():find("combat") or item.Name:lower():find("melee") or item:GetAttribute("MeleeTool")) then
+                                combatTool = item
+                                break
                             end
                         end
                     end
                     
-                    if targetMobObj then
+                    if combatTool and combatTool.Parent == LocalPlayer.Backpack then
+                        hum:EquipTool(combatTool)
+                        task.wait(0.2)
+                    end
+
+                    local inputModule = GetInputCallbacks()
+
+                    -- Finde alle noch nicht aggroten Mobs (volles Leben)
+                    local validMobs = {}
+                    for _, npc in pairs(npcs:GetChildren()) do
+                        if npc.Name:lower():find(RyuConfig.TargetMob:lower()) then
+                            local mobHum = npc:FindFirstChildOfClass("Humanoid")
+                            local mobRoot = npc:FindFirstChild("HumanoidRootPart")
+                            if mobHum and mobRoot and mobHum.Health == mobHum.MaxHealth then
+                                table.insert(validMobs, npc)
+                            end
+                        end
+                    end
+                    
+                    local aggroedMobs = {}
+                    
+                    -- Phase 1: Aggro einsammeln (bis zu 5 Mobs)
+                    for _, targetMobObj in pairs(validMobs) do
+                        if not RyuConfig.AutoFarm or hum.Health <= 0 then break end
+                        if #aggroedMobs >= 5 then break end
+                        
                         local mobRoot = targetMobObj:FindFirstChild("HumanoidRootPart")
                         local mobHum = targetMobObj:FindFirstChildOfClass("Humanoid")
                         
-                        if mobRoot and mobHum then
-                            local combatTool = char:FindFirstChild(RyuConfig.TargetWeapon) or LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
-                            if not combatTool then
-                                for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-                                    if item:IsA("Tool") and (item.Name:lower():find("combat") or item.Name:lower():find("melee") or item:GetAttribute("MeleeTool")) then
-                                        combatTool = item
-                                        break
-                                    end
-                                end
-                            end
-                            
-                            if combatTool and combatTool.Parent == LocalPlayer.Backpack then
-                                hum:EquipTool(combatTool)
-                                task.wait(0.2)
-                            end
-                            
-                            -- FIX: Berechne den Anflug-Punkt in der Welt, unabhängig davon, wohin der Feind schaut!
+                        if mobRoot and mobHum and mobHum.Health > 0 then
                             local mobPos = mobRoot.Position
                             local myPos = root.Position
                             local flatDir = Vector3.new(myPos.X - mobPos.X, 0, myPos.Z - mobPos.Z)
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             flatDir = flatDir.Unit
                             
+                            -- Sauber an den Feind ranfliegen (Abstand 12 Studs)
                             local safeTargetPos = mobPos + (flatDir * RyuConfig.FarmOffset)
                             CustomSafeTween(CFrame.new(safeTargetPos, mobPos))
                             
-                            local inputModule = GetInputCallbacks()
+                            local startHealth = mobHum.Health
                             
-                            while RyuConfig.AutoFarm and targetMobObj and targetMobObj.Parent and mobHum.Health > 0 and hum.Health > 0 do
-                                local currentMobRoot = targetMobObj:FindFirstChild("HumanoidRootPart")
-                                if not currentMobRoot then break end
-                                
-                                -- Erweitern für garantierte Treffer
-                                if currentMobRoot.Size.Y < 30 then
-                                    currentMobRoot.Size = Vector3.new(30, 30, 30)
-                                end
-                                currentMobRoot.CanCollide = false
-                                
-                                -- FIX: Aktualisiere die Position stabil (Kein Drehen, wenn der Feind sich dreht!)
-                                local cMobPos = currentMobRoot.Position
-                                local cFlatDir = Vector3.new(root.Position.X - cMobPos.X, 0, root.Position.Z - cMobPos.Z)
-                                if cFlatDir.Magnitude < 0.1 then cFlatDir = Vector3.new(1, 0, 0) end
-                                cFlatDir = cFlatDir.Unit
-                                
-                                local standPos = cMobPos + (cFlatDir * RyuConfig.FarmOffset)
-                                -- Bleibe exakt auf der Höhe des Gegners und schaue ihn an
-                                root.CFrame = CFrame.lookAt(Vector3.new(standPos.X, cMobPos.Y, standPos.Z), cMobPos)
+                            -- Schlagen, bis das Leben sinkt = Aggro bestätigt
+                            while RyuConfig.AutoFarm and hum.Health > 0 and mobHum.Health >= startHealth and mobHum.Health > 0 do
                                 root.Velocity = Vector3.new(0, 0, 0)
+                                
+                                if mobRoot.Size.Y < 30 then
+                                    mobRoot.Size = Vector3.new(30, 30, 30)
+                                    mobRoot.CanCollide = false
+                                end
+                                
+                                local lookPos = Vector3.new(mobRoot.Position.X, root.Position.Y, mobRoot.Position.Z)
+                                root.CFrame = CFrame.lookAt(root.Position, lookPos)
                                 
                                 pcall(function()
                                     if inputModule and inputModule.Utils.canAutoM1() then
@@ -594,13 +586,67 @@ task.spawn(function()
                                         VirtualUser:ClickButton1(Vector2.new())
                                     end
                                 end)
-                                
                                 task.wait(0.1)
                             end
                             
+                            if mobHum.Health > 0 then
+                                table.insert(aggroedMobs, targetMobObj)
+                            end
+                        end
+                    end
+                    
+                    -- Phase 2: Kill Phase (M1 Spam auf die Gruppe)
+                    if #aggroedMobs > 0 then
+                        while RyuConfig.AutoFarm and hum.Health > 0 do
+                            local aliveCount = 0
+                            local firstAliveRoot = nil
+                            
+                            for _, mob in pairs(aggroedMobs) do
+                                if mob and mob.Parent then
+                                    local mobHum = mob:FindFirstChildOfClass("Humanoid")
+                                    local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+                                    if mobHum and mobHum.Health > 0 and mobRoot then
+                                        aliveCount = aliveCount + 1
+                                        if not firstAliveRoot then firstAliveRoot = mobRoot end
+                                        
+                                        if mobRoot.Size.Y < 30 then
+                                            mobRoot.Size = Vector3.new(30, 30, 30)
+                                            mobRoot.CanCollide = false
+                                        end
+                                    end
+                                end
+                            end
+                            
+                            if aliveCount == 0 then break end -- Alle 5 sind tot!
+                            
+                            root.Velocity = Vector3.new(0, 0, 0)
+                            
+                            -- Charakter schaut die Gruppe an, die von selbst auf ihn zuläuft
+                            if firstAliveRoot then
+                                local lookPos = Vector3.new(firstAliveRoot.Position.X, root.Position.Y, firstAliveRoot.Position.Z)
+                                root.CFrame = CFrame.lookAt(root.Position, lookPos)
+                            end
+                            
+                            -- Spam Schläge (treffen durch riesige Hitboxen die gesamte Gruppe auf einmal)
+                            pcall(function()
+                                if inputModule and inputModule.Utils.canAutoM1() then
+                                    inputModule.Callbacks.Attack:PC_Activate()
+                                else
+                                    VirtualUser:CaptureController()
+                                    VirtualUser:ClickButton1(Vector2.new())
+                                end
+                            end)
+                            
+                            task.wait(0.1)
+                        end
+                        
+                        -- Reset Hitboxen nach dem Tod
+                        for _, mob in pairs(aggroedMobs) do
+                            local mobRoot = mob and mob:FindFirstChild("HumanoidRootPart")
                             if mobRoot then mobRoot.Size = Vector3.new(2, 2, 1); mobRoot.CanCollide = true end
                         end
                     end
+                    
                 end
             end
         end
@@ -608,4 +654,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Smooth Fly & Anti-Fling Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Group Kiting Active.", 4)
