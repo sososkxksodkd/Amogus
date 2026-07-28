@@ -1,10 +1,11 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SEA 1)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION
 --// Platform: PC & Mobile
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -26,7 +27,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART NPC & ENEMY SORTER (Perfektioniert)
+--// SMART NPC & ENEMY SORTER
 local KnownQuests = {
     "Ash the Tailor", "Tyson", "Robo", "Robert", "Kevin", "Helen", "Gozen", 
     "Axe Hand Logan", "Captain Zhen", "Pharaoh Akshan", "Moria", "Coby", "Bomi", "Haku"
@@ -69,7 +70,7 @@ local RyuConfig = {
     FOVChanger = false, FOVValue = 90,
     ESP = false, ESPTransparency = 50,
     
-    -- Sea 1 Farm
+    -- Leveling Farm
     AutoFarm = false,
     AutoQuest = false,
     IsTweening = false, 
@@ -77,8 +78,8 @@ local RyuConfig = {
     TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
     TargetWeapon = "Melee",
-    FarmPosition = "Above (Max 12)", -- Verhindert 'OverlapHead Noclip' und 'Floor >15' Kicks
-    TPMethod = "Sky Tween", -- Sky Tween schützt davor, in Berge zu fliegen
+    FarmPosition = "Above (Max 12)",
+    TPMethod = "Sky Tween", 
     
     -- Advanced Bypass Settings
     TweenSpeed = 150,       
@@ -130,7 +131,7 @@ end
 if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
 
---// NEW ANTI-CHEAT CUSTOM MOVEMENT (Lag-Spike & TP Check Protected)
+--// NEW ANTI-CHEAT CUSTOM MOVEMENT (SOFT LANDING FIX)
 local function CustomSafeTween(targetCFrame, speed)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -149,15 +150,13 @@ local function CustomSafeTween(targetCFrame, speed)
             return
         end
         
-        -- Verhindert massive Sprünge (TP Checks) bei Lag Spikes
         dt = math.min(dt, 0.1)
-
         local currentPos = root.Position
         local targetPos = targetCFrame.Position
         local dist = (targetPos - currentPos).Magnitude
 
-        if dist <= 5 then
-            root.CFrame = targetCFrame
+        -- SOFT LANDING: Breche früh genug ab und snappe NICHT. Das verhindert den TP Check Rollback beim Landen!
+        if dist <= 3 then
             reached = true
             return
         end
@@ -165,10 +164,8 @@ local function CustomSafeTween(targetCFrame, speed)
         local dir = (targetPos - currentPos).Unit
         local stepDist = speed * dt
 
-        -- ABSOLUTER HARD CAP: Schützt vor 'TP Check 490' Threshold Kick!
         if stepDist > 20 then stepDist = 20 end
 
-        -- Y-Achsen Kick verhindern (Max 17 pro Sekunde nach oben)
         local yMovement = math.abs(dir.Y * stepDist)
         if yMovement > (14 * dt) then
             local scale = (14 * dt) / yMovement
@@ -181,8 +178,10 @@ local function CustomSafeTween(targetCFrame, speed)
     repeat task.wait() until reached
     if connection then connection:Disconnect() end
 
+    -- Die magische Pause vor dem Ent-Ankern: Lässt den Server den perfekten Stop registrieren.
     if root then 
-        root.Velocity = Vector3.new(0, 0, 0) 
+        root.Velocity = Vector3.new(0, 0, 0)
+        task.wait(0.15) 
         root.Anchored = oldAnchor
     end
     RyuConfig.IsTweening = false 
@@ -193,7 +192,6 @@ local function SkyTween(targetCFrame)
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    -- Fliegt 300 Studs hoch (umgeht Berge = kein Noclip OverlapHead Kick)
     local upCFrame = root.CFrame + Vector3.new(0, 300, 0)
     CustomSafeTween(upCFrame, RyuConfig.TweenSpeed)
     
@@ -203,7 +201,7 @@ local function SkyTween(targetCFrame)
     CustomSafeTween(targetCFrame, RyuConfig.TweenSpeed)
 end
 
---// NOCLIP ENGINE (Zwingt das Spiel, Wände zu ignorieren)
+--// NOCLIP ENGINE
 RunService.Stepped:Connect(function()
     if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
         local char = LocalPlayer.Character
@@ -431,7 +429,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// 7. POPULATING TABS (SEA 1 & SEA 2)
+--// 7. POPULATING TABS (LEVELING -> SEA 1 / SEA 2)
 --// ============================================================================
 
 local TabBattleRoyale = CreateMainTab("Battle Royale")
@@ -442,31 +440,28 @@ CreateToggle(SecMovement, "Speed Hack", "Locks walk speed to slider value", RyuC
 CreateSlider(SecMovement, "Speed Value", 16, 150, RyuConfig.SpeedValue, function(val) RyuConfig.SpeedValue = val; if RyuConfig.SpeedHack then PlayerMods:SetSpeed(val, true) end end)
 
 -- =======================
--- CATEGORY: SEA 1
+-- CATEGORY: LEVELING
 -- =======================
-local TabSea1 = CreateMainTab("Sea 1")
-local SubLeveling1 = CreateSubTab(TabSea1, "Leveling")
+local TabLeveling = CreateMainTab("Leveling")
+local SubSea1 = CreateSubTab(TabLeveling, "Sea 1")
 
-local SecAutoFarmMain = CreateSection(SubLeveling1, "Farm Controls")
+local SecAutoFarmMain = CreateSection(SubSea1, "Farm Controls")
 CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not state and root then root.Anchored = false end
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
-local SecAutoFarmConfig = CreateSection(SubLeveling1, "Farm Configuration")
+local SecAutoFarmConfig = CreateSection(SubSea1, "Farm Configuration")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
-local SecFarmAdvanced = CreateSection(SubLeveling1, "Advanced Bypass Settings")
+local SecFarmAdvanced = CreateSection(SubSea1, "Advanced Bypass Settings")
 CreateDropdown(SecFarmAdvanced, "Farm Position", FarmPositions, "FarmPosition")
 CreateSlider(SecFarmAdvanced, "Farm Offset / Distance", 0, 35, RyuConfig.FarmOffset, function(val) RyuConfig.FarmOffset = val end)
 CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 400, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 
-local SecTeleports = CreateSection(SubLeveling1, "Safe Teleports")
+local SecTeleports = CreateSection(SubSea1, "Safe Teleports")
 CreateDropdown(SecTeleports, "Select TP Method", TPMethods, "TPMethod")
 CreateDropdown(SecTeleports, "Select Island", GPOIslands, "TargetIsland")
 
@@ -500,16 +495,13 @@ CreateButton(SecTeleports, "Teleport To NPC", function()
     end
 end)
 
--- =======================
--- CATEGORY: SEA 2
--- =======================
-local TabSea2 = CreateMainTab("Sea 2")
-local SubSea2 = CreateSubTab(TabSea2, "Coming Soon")
+-- SEA 2
+local SubSea2 = CreateSubTab(TabLeveling, "Sea 2")
 local SecComingSoon = CreateSection(SubSea2, "Work in Progress")
 CreateButton(SecComingSoon, "Sea 2 is currently in development", function() end)
 
 --// ============================================================================
---// 8. GPO AUTO FARM ENGINE (HEARTBEAT LOOP + NO CAMERA LOCK)
+--// 8. GPO AUTO FARM ENGINE (COMBAT FIX & NO ROLLBACK)
 --// ============================================================================
 
 local function GetCurrentQuest()
@@ -574,7 +566,7 @@ task.spawn(function()
             end
         end
 
-        -- 2. Auto Farm Loop
+        -- 2. Auto Farm Loop 
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local target = GetGPOMob(RyuConfig.TargetMob)
             local char = LocalPlayer.Character
@@ -594,7 +586,6 @@ task.spawn(function()
                     
                     local farmPos
                     if RyuConfig.FarmPosition == "Below (Underground)" then
-                        -- Achtung: Löst oft OverlapHead Noclip Detection aus!
                         local safeTransitPos = targetRoot.CFrame * CFrame.new(0, 5, 0)
                         if RyuConfig.TPMethod == "Sky Tween" then
                             SkyTween(safeTransitPos)
@@ -619,32 +610,33 @@ task.spawn(function()
                         CustomSafeTween(farmPos, RyuConfig.TweenSpeed)
                     end
                     
-                    -- LOKALER HITBOX EXPANDER (Garantierte Treffer ohne Ban)
                     if targetRoot.Size.Y < 8 then
                         targetRoot.Size = Vector3.new(8, 8, 8)
                         targetRoot.CanCollide = false
                     end
 
-                    -- Attack Spam (KEIN CAMERA LOCK MEHR!)
+                    -- Attack Spam (Knockback Protected)
                     while target and target.Parent and targetRoot and targetRoot.Parent and RyuConfig.AutoFarm and hum.Health > 0 do
-                        -- Nur der Körper dreht sich, nicht deine Kamera
-                        local lookPos = Vector3.new(targetRoot.Position.X, root.Position.Y, targetRoot.Position.Z)
-                        
-                        if RyuConfig.FarmPosition == "Below (Underground)" then
-                            root.CFrame = CFrame.lookAt((targetRoot.CFrame * CFrame.new(0, -RyuConfig.FarmOffset, 0)).Position, lookPos)
-                        else
-                            root.CFrame = CFrame.lookAt(root.Position, lookPos)
+                        -- Wenn der Feind durch Knockback zu weit weg ist, Loop brechen und neu tweenen (kein Snap!)
+                        if (root.Position - targetRoot.Position).Magnitude > (RyuConfig.FarmOffset + 25) then
+                            break
                         end
+                        
+                        -- Kein Anchoring hier. Nur Rotieren, um Kicks zu vermeiden.
+                        local lookPos = Vector3.new(targetRoot.Position.X, root.Position.Y, targetRoot.Position.Z)
+                        root.CFrame = CFrame.lookAt(root.Position, lookPos)
                         root.Velocity = Vector3.new(0,0,0)
                         
                         pcall(function()
                             if tick() - lastAttackTick > 0.4 then 
                                 lastAttackTick = tick()
+                                
+                                -- Garantierter Angriff: Tool direkt aktivieren!
+                                if weapon then weapon:Activate() end
                                 VirtualUser:CaptureController()
                                 VirtualUser:ClickButton1(Vector2.new())
                             end
                             
-                            -- Gun Reload Timer
                             if weapon and weapon:FindFirstChild("Muzzle") and (tick() - lastReloadTick > 4) then
                                 lastReloadTick = tick()
                                 task.spawn(function()
