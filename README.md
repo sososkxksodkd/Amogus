@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FINAL AUTO FARM)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NO OVER-NPC BUG)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART NPC & ENEMY SORTER (Basierend auf workspace.NPCs)
+--// SMART NPC & ENEMY SORTER
 local KnownQuests = {
     "Ash the Tailor", "Tyson", "Robo", "Robert", "Kevin", "Helen", "Gozen", 
     "Axe Hand Logan", "Captain Zhen", "Pharaoh Akshan", "Moria", "Coby", "Bomi", "Haku"
@@ -76,7 +76,7 @@ local RyuConfig = {
     TPMethod = "Sky Tween", 
     
     TweenSpeed = 250,       
-    FarmOffset = 8 
+    FarmOffset = 4 
 }
 
 local GPOIslands = {
@@ -339,7 +339,7 @@ local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
 local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
-CreateToggle(SecAutoFarmMain, "Auto Farm (Falling Mode)", "Aggros & kills mobs naturally", RyuConfig.AutoFarm, function(state) 
+CreateToggle(SecAutoFarmMain, "Auto Farm (Safe Height)", "Natural combat farm without vertical bugs", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
@@ -402,7 +402,7 @@ local function GetInputCallbacks()
 end
 
 --// ============================================================================
---// SAFE TWEEN ENGINE (GROUND TWEEN FOR FARM, SAFE Y-AXIS FOR ISLANDS)
+--// SAFE TWEEN ENGINE
 --// ============================================================================
 local function CustomSafeTween(targetCFrame)
     local char = LocalPlayer.Character
@@ -492,7 +492,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 --// ============================================================================
---// GPO AUTO FARM ENGINE (NATURAL AGGRO & FALLING BYPASS)
+--// GPO AUTO FARM ENGINE (FIXED HEIGHT - BEHIND/BESIDE NPC)
 --// ============================================================================
 local function GetCurrentQuest()
     local playerQuestData = LocalPlayer:FindFirstChild("Quest")
@@ -527,7 +527,7 @@ task.spawn(function()
             end
         end
 
-        -- 2. Auto Farm Loop (Natural Aggro & Combat - NO TELEPORTING MOBS)
+        -- 2. Auto Farm Loop (Fixed Safe Height - Behind Target)
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -539,7 +539,6 @@ task.spawn(function()
                     local targetMobObj = nil
                     local shortestDist = math.huge
                     
-                    -- Finde den nächsten Feind
                     for _, npc in pairs(npcs:GetChildren()) do
                         if npc.Name:lower():find(RyuConfig.TargetMob:lower()) then
                             local mobHum = npc:FindFirstChildOfClass("Humanoid")
@@ -565,27 +564,26 @@ task.spawn(function()
                                 if packWeap then hum:EquipTool(packWeap) end
                             end
                             
-                            -- Ground Tween zum Feind (Sicherer Anflug)
-                            CustomSafeTween(mobRoot.CFrame * CFrame.new(0, RyuConfig.FarmOffset, 0))
+                            -- FIX: Positioniere den Charakter SEITLICH/HINTER den Mob, NIEMALS DIREKT DARÜBER (verhindert Höhen-Bugs)
+                            CustomSafeTween(mobRoot.CFrame * CFrame.new(0, 0, 4))
                             
                             local inputModule = GetInputCallbacks()
                             
-                            -- Natürlicher Kampf: Mobs laufen selbst zu dir, du schlägst sie normal mit Combat
                             while RyuConfig.AutoFarm and targetMobObj and targetMobObj.Parent and mobHum.Health > 0 and hum.Health > 0 do
                                 local currentMobRoot = targetMobObj:FindFirstChild("HumanoidRootPart")
                                 if not currentMobRoot then break end
                                 
-                                -- Lass das Spiel denken, wir fallen (simulierter Fall-Zustand für Anti-Cheat Bypass)
+                                -- Fall-Modus für Anti-Cheat Bypass
                                 root.AssemblyLinearVelocity = Vector3.new(0, -25, 0)
                                 
-                                -- Hitbox vergrößern, damit deine Combat-Schläge garantiert treffen
+                                -- Hitbox vergrößern für treffsichere Combat-Schläge
                                 if currentMobRoot.Size.Y < 20 then
                                     currentMobRoot.Size = Vector3.new(25, 25, 25)
                                     currentMobRoot.CanCollide = false
                                 end
                                 
-                                local lookPos = Vector3.new(currentMobRoot.Position.X, root.Position.Y, currentMobRoot.Position.Z)
-                                root.CFrame = CFrame.lookAt(root.Position, lookPos)
+                                -- Bleibe stabil hinter/neben dem Feind auf exakter Bodenhöhe
+                                root.CFrame = currentMobRoot.CFrame * CFrame.new(0, 0, 4)
                                 
                                 pcall(function()
                                     if inputModule and inputModule.Utils.canAutoM1() then
@@ -609,4 +607,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Natural Falling Farm Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! No-Over-NPC Fix Active.", 4)
