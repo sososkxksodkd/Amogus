@@ -26,8 +26,11 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART NPC & ENEMY SORTER
-local KnownQuests = {"Ash the Tailor", "Tyson", "Robo", "Robert", "Kevin", "Helen", "Gozen", "Axe Hand Logan", "Captain Zhen", "Pharaoh Akshan", "Moria", "Coby", "Bomi", "Haku"}
+--// SMART NPC & ENEMY SORTER (Perfektioniert)
+local KnownQuests = {
+    "Ash the Tailor", "Tyson", "Robo", "Robert", "Kevin", "Helen", "Gozen", 
+    "Axe Hand Logan", "Captain Zhen", "Pharaoh Akshan", "Moria", "Coby", "Bomi", "Haku"
+}
 local DynamicEnemies = {}
 local DynamicQuests = {}
 
@@ -36,10 +39,14 @@ local function SortNPCs()
         for _, npc in pairs(Workspace.NPCs:GetChildren()) do
             local hum = npc:FindFirstChildOfClass("Humanoid")
             if hum then
-                if table.find(KnownQuests, npc.Name) or npc.Name:lower():find("quest") then
+                local isQuest = false
+                if table.find(KnownQuests, npc.Name) or string.find(npc.Name:lower(), "quest") then
+                    isQuest = true
+                end
+                
+                if isQuest then
                     if not table.find(DynamicQuests, npc.Name) then table.insert(DynamicQuests, npc.Name) end
                 else
-                    -- Wenn es kein bekannter Questgeber ist, ist es ein Feind
                     if not table.find(DynamicEnemies, npc.Name) then table.insert(DynamicEnemies, npc.Name) end
                 end
             end
@@ -70,13 +77,12 @@ local RyuConfig = {
     TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
     TargetWeapon = "Melee",
-    FarmPosition = "Above (Max 12)", -- Sicherste Methode wegen Distance from Floor Check
-    TPMethod = "Strict Ground",
+    FarmPosition = "Above (Max 12)", -- Verhindert 'OverlapHead Noclip' und 'Floor >15' Kicks
+    TPMethod = "Sky Tween", -- Sky Tween schützt davor, in Berge zu fliegen
     
     -- Advanced Bypass Settings
     TweenSpeed = 150,       
-    TPDistance = 0, -- TP Snap komplett aus (Verhindert Threshold Kick)
-    FarmOffset = 10 -- Standard 10 Studs drüber (Unter Floor-Limit von 15)
+    FarmOffset = 10 
 }
 
 local GPOIslands = {
@@ -90,7 +96,7 @@ local GPOIslands = {
 
 local GPOWeapons = { "Melee", "Sword", "Katana", "Rifle", "Pistol" }
 local FarmPositions = { "Above (Max 12)", "Behind (Safe)", "Distance (Gun)", "Below (Underground)" }
-local TPMethods = { "Strict Ground" }
+local TPMethods = { "Sky Tween", "Ground Tween" }
 
 --// RAINBOW OVERHEAD TITLE
 local function AddRainbowTag(character)
@@ -124,7 +130,7 @@ end
 if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
 
---// NEW ANTI-CHEAT CUSTOM MOVEMENT (Replaces TweenService)
+--// NEW ANTI-CHEAT CUSTOM MOVEMENT (Lag-Spike & TP Check Protected)
 local function CustomSafeTween(targetCFrame, speed)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -137,19 +143,20 @@ local function CustomSafeTween(targetCFrame, speed)
     local connection
     local reached = false
 
-    -- Heartbeat zwingt den Charakter sich exakt und frame-perfekt zu bewegen
     connection = RunService.Heartbeat:Connect(function(dt)
         if not char or not root or not root.Parent then
             reached = true
             return
         end
+        
+        -- Verhindert massive Sprünge (TP Checks) bei Lag Spikes
+        dt = math.min(dt, 0.1)
 
         local currentPos = root.Position
         local targetPos = targetCFrame.Position
         local dist = (targetPos - currentPos).Magnitude
 
-        -- Sobald wir nah genug sind (unter 3 Studs), beenden wir die Bewegung weich
-        if dist < 3 then
+        if dist <= 5 then
             root.CFrame = targetCFrame
             reached = true
             return
@@ -158,10 +165,10 @@ local function CustomSafeTween(targetCFrame, speed)
         local dir = (targetPos - currentPos).Unit
         local stepDist = speed * dt
 
-        -- ANTI-CHEAT: Verhindert den TP Check 271 Kick (Max Limit: 36)
-        if stepDist > 25 then stepDist = 25 end
+        -- ABSOLUTER HARD CAP: Schützt vor 'TP Check 490' Threshold Kick!
+        if stepDist > 20 then stepDist = 20 end
 
-        -- ANTI-CHEAT: Verhindert Y-Axis (Vertikal) Kick (Max Limit: 17)
+        -- Y-Achsen Kick verhindern (Max 17 pro Sekunde nach oben)
         local yMovement = math.abs(dir.Y * stepDist)
         if yMovement > (14 * dt) then
             local scale = (14 * dt) / yMovement
@@ -179,6 +186,21 @@ local function CustomSafeTween(targetCFrame, speed)
         root.Anchored = oldAnchor
     end
     RyuConfig.IsTweening = false 
+end
+
+local function SkyTween(targetCFrame)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    -- Fliegt 300 Studs hoch (umgeht Berge = kein Noclip OverlapHead Kick)
+    local upCFrame = root.CFrame + Vector3.new(0, 300, 0)
+    CustomSafeTween(upCFrame, RyuConfig.TweenSpeed)
+    
+    local overTargetCFrame = CFrame.new(targetCFrame.Position.X, upCFrame.Position.Y, targetCFrame.Position.Z)
+    CustomSafeTween(overTargetCFrame, RyuConfig.TweenSpeed)
+    
+    CustomSafeTween(targetCFrame, RyuConfig.TweenSpeed)
 end
 
 --// NOCLIP ENGINE (Zwingt das Spiel, Wände zu ignorieren)
@@ -409,7 +431,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// 7. POPULATING TABS (BATTLE ROYALE, SEA 1, SEA 2)
+--// 7. POPULATING TABS (SEA 1 & SEA 2)
 --// ============================================================================
 
 local TabBattleRoyale = CreateMainTab("Battle Royale")
@@ -453,7 +475,11 @@ CreateButton(SecTeleports, "Teleport To Island", function()
     if target then
         local pos = target:IsA("Model") and target:GetPivot() or target.CFrame
         task.spawn(function()
-            CustomSafeTween(pos * CFrame.new(0, 10, 0), RyuConfig.TweenSpeed)
+            if RyuConfig.TPMethod == "Sky Tween" then
+                SkyTween(pos * CFrame.new(0, 50, 0))
+            else
+                CustomSafeTween(pos * CFrame.new(0, 10, 0), RyuConfig.TweenSpeed)
+            end
             RyuNotify:Send("Teleport", "Arrived at " .. RyuConfig.TargetIsland, 3)
         end)
     end
@@ -464,7 +490,11 @@ CreateButton(SecTeleports, "Teleport To NPC", function()
     if target then
         local pos = target:IsA("Model") and target:GetPivot() or target.CFrame
         task.spawn(function()
-            CustomSafeTween(pos * CFrame.new(0, 0, 5), RyuConfig.TweenSpeed)
+            if RyuConfig.TPMethod == "Sky Tween" then
+                SkyTween(pos * CFrame.new(0, 0, 5))
+            else
+                CustomSafeTween(pos * CFrame.new(0, 0, 5), RyuConfig.TweenSpeed)
+            end
             RyuNotify:Send("Teleport", "Arrived at " .. RyuConfig.TargetNPC, 3)
         end)
     end
@@ -526,7 +556,11 @@ task.spawn(function()
                 local npcTarget = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npcTarget then
                     local npcPos = npcTarget:IsA("Model") and npcTarget:GetPivot() or npcTarget.CFrame
-                    CustomSafeTween(npcPos * CFrame.new(0, 0, 5), RyuConfig.TweenSpeed)
+                    if RyuConfig.TPMethod == "Sky Tween" then
+                        SkyTween(npcPos * CFrame.new(0, 0, 5))
+                    else
+                        CustomSafeTween(npcPos * CFrame.new(0, 0, 5), RyuConfig.TweenSpeed)
+                    end
                     task.wait(0.5)
                     local questEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Quest")
                     if questEvent then 
@@ -560,8 +594,13 @@ task.spawn(function()
                     
                     local farmPos
                     if RyuConfig.FarmPosition == "Below (Underground)" then
+                        -- Achtung: Löst oft OverlapHead Noclip Detection aus!
                         local safeTransitPos = targetRoot.CFrame * CFrame.new(0, 5, 0)
-                        CustomSafeTween(safeTransitPos, RyuConfig.TweenSpeed)
+                        if RyuConfig.TPMethod == "Sky Tween" then
+                            SkyTween(safeTransitPos)
+                        else
+                            CustomSafeTween(safeTransitPos, RyuConfig.TweenSpeed)
+                        end
                         farmPos = targetRoot.CFrame * CFrame.new(0, -RyuConfig.FarmOffset, 0)
                     else
                         if RyuConfig.FarmPosition == "Behind (Safe)" then
@@ -574,7 +613,11 @@ task.spawn(function()
                         end
                     end
                     
-                    CustomSafeTween(farmPos, RyuConfig.TweenSpeed)
+                    if RyuConfig.FarmPosition ~= "Below (Underground)" and RyuConfig.TPMethod == "Sky Tween" then
+                        SkyTween(farmPos)
+                    else
+                        CustomSafeTween(farmPos, RyuConfig.TweenSpeed)
+                    end
                     
                     -- LOKALER HITBOX EXPANDER (Garantierte Treffer ohne Ban)
                     if targetRoot.Size.Y < 8 then
@@ -584,6 +627,7 @@ task.spawn(function()
 
                     -- Attack Spam (KEIN CAMERA LOCK MEHR!)
                     while target and target.Parent and targetRoot and targetRoot.Parent and RyuConfig.AutoFarm and hum.Health > 0 do
+                        -- Nur der Körper dreht sich, nicht deine Kamera
                         local lookPos = Vector3.new(targetRoot.Position.X, root.Position.Y, targetRoot.Position.Z)
                         
                         if RyuConfig.FarmPosition == "Below (Underground)" then
@@ -620,4 +664,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "Sea 1 Edition loaded! Scanning NPCs...", 4)
+RyuNotify:Send("RYU HUB", "Sea 1 Edition loaded! Ready to Farm.", 4)
