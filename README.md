@@ -1,11 +1,10 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SEA 1)
 --// Platform: PC & Mobile
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
@@ -27,7 +26,8 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART DYNAMIC NPC & ENEMY SCANNER
+--// SMART NPC & ENEMY SORTER
+local KnownQuests = {"Ash the Tailor", "Tyson", "Robo", "Robert", "Kevin", "Helen", "Gozen", "Axe Hand Logan", "Captain Zhen", "Pharaoh Akshan", "Moria", "Coby", "Bomi", "Haku"}
 local DynamicEnemies = {}
 local DynamicQuests = {}
 
@@ -36,18 +36,10 @@ local function SortNPCs()
         for _, npc in pairs(Workspace.NPCs:GetChildren()) do
             local hum = npc:FindFirstChildOfClass("Humanoid")
             if hum then
-                local isQuestNPC = false
-                -- Sucht nach Indizien für Questgeber
-                for _, desc in pairs(npc:GetDescendants()) do
-                    if desc:IsA("ProximityPrompt") or desc.Name:lower():find("quest") or desc.Name:lower():find("dialog") or desc.Name:lower():find("chat") then
-                        isQuestNPC = true
-                        break
-                    end
-                end
-                
-                if isQuestNPC then
+                if table.find(KnownQuests, npc.Name) or npc.Name:lower():find("quest") then
                     if not table.find(DynamicQuests, npc.Name) then table.insert(DynamicQuests, npc.Name) end
                 else
+                    -- Wenn es kein bekannter Questgeber ist, ist es ein Feind
                     if not table.find(DynamicEnemies, npc.Name) then table.insert(DynamicEnemies, npc.Name) end
                 end
             end
@@ -58,7 +50,6 @@ local function SortNPCs()
 end
 SortNPCs()
 
--- Fallbacks falls Map lädt
 if #DynamicEnemies == 0 then DynamicEnemies = {"Shell's Bandit", "Bandit", "Corrupt Marine", "Fishman"} end
 if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson", "Robo", "Gozen"} end
 
@@ -79,13 +70,13 @@ local RyuConfig = {
     TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
     TargetWeapon = "Melee",
-    FarmPosition = "Below (Underground)", 
-    TPMethod = "Ground Tween",
+    FarmPosition = "Above (Max 12)", -- Sicherste Methode wegen Distance from Floor Check
+    TPMethod = "Strict Ground",
     
     -- Advanced Bypass Settings
     TweenSpeed = 150,       
-    TPDistance = 0, -- Auf 0 gesetzt, um Landing TP-Check zu verhindern!
-    FarmOffset = 4.5 -- Optimaler Abstand für Hitbox Expander       
+    TPDistance = 0, -- TP Snap komplett aus (Verhindert Threshold Kick)
+    FarmOffset = 10 -- Standard 10 Studs drüber (Unter Floor-Limit von 15)
 }
 
 local GPOIslands = {
@@ -98,8 +89,8 @@ local GPOIslands = {
 }
 
 local GPOWeapons = { "Melee", "Sword", "Katana", "Rifle", "Pistol" }
-local FarmPositions = { "Below (Underground)", "Behind (Safe)", "Distance (Gun)", "Above (Max 12)" }
-local TPMethods = { "Ground Tween", "Sky Tween" }
+local FarmPositions = { "Above (Max 12)", "Behind (Safe)", "Distance (Gun)", "Below (Underground)" }
+local TPMethods = { "Strict Ground" }
 
 --// RAINBOW OVERHEAD TITLE
 local function AddRainbowTag(character)
@@ -133,8 +124,8 @@ end
 if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
 
---// TWEEN ENGINE 1: SMOOTH SKY TWEEN
-local function SmoothTween(targetCFrame, speed)
+--// NEW ANTI-CHEAT CUSTOM MOVEMENT (Replaces TweenService)
+local function CustomSafeTween(targetCFrame, speed)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
@@ -143,113 +134,54 @@ local function SmoothTween(targetCFrame, speed)
     local oldAnchor = root.Anchored
     root.Anchored = true 
     
-    local dist = (root.Position - targetCFrame.Position).Magnitude
-    if dist <= RyuConfig.TPDistance and RyuConfig.TPDistance > 0 then
-        root.CFrame = targetCFrame
-        root.Anchored = oldAnchor
-        RyuConfig.IsTweening = false
-        return
-    end
+    local connection
+    local reached = false
 
-    local tweenInfo = TweenInfo.new(dist / speed, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
-    
-    tween:Play()
-    
-    local checkLoop
-    checkLoop = RunService.Heartbeat:Connect(function()
-        if not root or not root.Parent then
-            tween:Cancel()
-            checkLoop:Disconnect()
+    -- Heartbeat zwingt den Charakter sich exakt und frame-perfekt zu bewegen
+    connection = RunService.Heartbeat:Connect(function(dt)
+        if not char or not root or not root.Parent then
+            reached = true
             return
         end
-        local currentDist = (root.Position - targetCFrame.Position).Magnitude
-        if currentDist <= RyuConfig.TPDistance and RyuConfig.TPDistance > 0 then
-            tween:Cancel()
+
+        local currentPos = root.Position
+        local targetPos = targetCFrame.Position
+        local dist = (targetPos - currentPos).Magnitude
+
+        -- Sobald wir nah genug sind (unter 3 Studs), beenden wir die Bewegung weich
+        if dist < 3 then
             root.CFrame = targetCFrame
-            checkLoop:Disconnect()
+            reached = true
+            return
         end
+
+        local dir = (targetPos - currentPos).Unit
+        local stepDist = speed * dt
+
+        -- ANTI-CHEAT: Verhindert den TP Check 271 Kick (Max Limit: 36)
+        if stepDist > 25 then stepDist = 25 end
+
+        -- ANTI-CHEAT: Verhindert Y-Axis (Vertikal) Kick (Max Limit: 17)
+        local yMovement = math.abs(dir.Y * stepDist)
+        if yMovement > (14 * dt) then
+            local scale = (14 * dt) / yMovement
+            stepDist = stepDist * scale
+        end
+
+        root.CFrame = root.CFrame + (dir * stepDist)
     end)
-    
-    tween.Completed:Wait()
-    if checkLoop then checkLoop:Disconnect() end
+
+    repeat task.wait() until reached
+    if connection then connection:Disconnect() end
+
     if root then 
-        if RyuConfig.TPDistance <= 0 then root.CFrame = targetCFrame end -- Weiche Landung ohne TP-Snap
-        root.Velocity = Vector3.new(0, 0, 0) -- Anti-Fall Damage Check
+        root.Velocity = Vector3.new(0, 0, 0) 
         root.Anchored = oldAnchor
     end
     RyuConfig.IsTweening = false 
 end
 
-local function SkyTween(targetCFrame)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    local upCFrame = root.CFrame + Vector3.new(0, 350, 0)
-    SmoothTween(upCFrame, RyuConfig.TweenSpeed)
-    local overTargetCFrame = CFrame.new(targetCFrame.Position.X, upCFrame.Position.Y, targetCFrame.Position.Z)
-    SmoothTween(overTargetCFrame, RyuConfig.TweenSpeed)
-    SmoothTween(targetCFrame, RyuConfig.TweenSpeed)
-end
-
---// TWEEN ENGINE 2: STRICT GROUND TWEEN
-local function SafeGroundTween(targetCFrame, speed)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    RyuConfig.IsTweening = true 
-    local oldAnchor = root.Anchored
-    root.Anchored = true
-    
-    local currentPos = root.Position
-    local targetPos = targetCFrame.Position
-    local dist = (currentPos - targetPos).Magnitude
-    local yDist = math.max(0, targetPos.Y - currentPos.Y) 
-    
-    local timeHorizontal = dist / speed
-    local timeVertical = yDist / 14 
-    local finalTweenTime = math.max(timeHorizontal, timeVertical)
-    
-    if dist <= RyuConfig.TPDistance and RyuConfig.TPDistance > 0 then
-        root.CFrame = targetCFrame
-        root.Anchored = oldAnchor
-        RyuConfig.IsTweening = false
-        return
-    end
-
-    local tweenInfo = TweenInfo.new(finalTweenTime, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
-    
-    tween:Play()
-    
-    local checkLoop
-    checkLoop = RunService.Heartbeat:Connect(function()
-        if not root or not root.Parent then
-            tween:Cancel()
-            checkLoop:Disconnect()
-            return
-        end
-        local currentDist = (root.Position - targetCFrame.Position).Magnitude
-        if currentDist <= RyuConfig.TPDistance and RyuConfig.TPDistance > 0 then
-            tween:Cancel()
-            root.CFrame = targetCFrame
-            checkLoop:Disconnect()
-        end
-    end)
-    
-    tween.Completed:Wait()
-    if checkLoop then checkLoop:Disconnect() end
-    if root then 
-        if RyuConfig.TPDistance <= 0 then root.CFrame = targetCFrame end
-        root.Velocity = Vector3.new(0, 0, 0)
-        root.Anchored = oldAnchor
-    end
-    RyuConfig.IsTweening = false 
-end
-
---// NOCLIP ENGINE 
+--// NOCLIP ENGINE (Zwingt das Spiel, Wände zu ignorieren)
 RunService.Stepped:Connect(function()
     if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
         local char = LocalPlayer.Character
@@ -260,29 +192,6 @@ RunService.Stepped:Connect(function()
                 end
             end
         end
-    end
-end)
-
---// ANTI-CHEAT PLATFORM ENGINE 
-RunService.Heartbeat:Connect(function()
-    if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root then
-            local plat = Workspace:FindFirstChild("RyuSafePlatform")
-            if not plat then
-                plat = Instance.new("Part", Workspace)
-                plat.Name = "RyuSafePlatform"
-                plat.Size = Vector3.new(15, 2, 15)
-                plat.Anchored = true
-                plat.Transparency = 1
-                plat.CanCollide = true 
-            end
-            plat.CFrame = root.CFrame * CFrame.new(0, -3.5, 0)
-        end
-    else
-        local plat = Workspace:FindFirstChild("RyuSafePlatform")
-        if plat then plat:Destroy() end
     end
 end)
 
@@ -311,6 +220,7 @@ function RyuNotify:Send(title, text, duration)
     local TitleLabel = Instance.new("TextLabel", NotifFrame); TitleLabel.Size = UDim2.new(1, -20, 0, 20); TitleLabel.Position = UDim2.new(0, 15, 0, 8); TitleLabel.BackgroundTransparency = 1; TitleLabel.Text = title; TitleLabel.TextColor3 = Color3.fromRGB(250, 250, 250); TitleLabel.TextTransparency = 1; TitleLabel.Font = Enum.Font.GothamBold; TitleLabel.TextSize = 13; TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
     local DescLabel = Instance.new("TextLabel", NotifFrame); DescLabel.Size = UDim2.new(1, -20, 0, 20); DescLabel.Position = UDim2.new(0, 15, 0, 28); DescLabel.BackgroundTransparency = 1; DescLabel.Text = text; DescLabel.TextColor3 = Color3.fromRGB(130, 130, 135); DescLabel.TextTransparency = 1; DescLabel.Font = Enum.Font.Gotham; DescLabel.TextSize = 11; DescLabel.TextXAlignment = Enum.TextXAlignment.Left
 
+    local TweenService = game:GetService("TweenService")
     TweenService:Create(NotifFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0.1}):Play()
     TweenService:Create(Stroke, TweenInfo.new(0.3), {Transparency = 0.5}):Play()
     TweenService:Create(AccentLine, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
@@ -325,28 +235,8 @@ function RyuNotify:Send(title, text, duration)
     end)
 end
 
---// PLAYER MODS (ENFORCER & ESP)
-local PlayerMods = { SpeedEnabled = false, JumpEnabled = false, GravityEnabled = false, FOVEnabled = false, EnforceLoop = nil }
-function PlayerMods:StartEnforcing()
-    if PlayerMods.EnforceLoop then return end
-    PlayerMods.EnforceLoop = RunService.Heartbeat:Connect(function()
-        local character = LocalPlayer.Character
-        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-        if not humanoid then return end
-        if PlayerMods.SpeedEnabled and humanoid.WalkSpeed ~= RyuConfig.SpeedValue then humanoid.WalkSpeed = RyuConfig.SpeedValue end
-        if PlayerMods.JumpEnabled then humanoid.UseJumpPower = true; if humanoid.JumpPower ~= RyuConfig.JumpValue then humanoid.JumpPower = RyuConfig.JumpValue end end
-        if PlayerMods.GravityEnabled and Workspace.Gravity ~= RyuConfig.GravityValue then Workspace.Gravity = RyuConfig.GravityValue end
-        if PlayerMods.FOVEnabled and camera.FieldOfView ~= RyuConfig.FOVValue then camera.FieldOfView = RyuConfig.FOVValue end
-    end)
-end
-
-function PlayerMods:SetSpeed(v, enabled) PlayerMods.SpeedEnabled = enabled; PlayerMods:StartEnforcing(); if not enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end end
-function PlayerMods:SetJumpPower(v, enabled) PlayerMods.JumpEnabled = enabled; PlayerMods:StartEnforcing(); if not enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.JumpPower = 50 end end
-function PlayerMods:SetGravity(v, enabled) PlayerMods.GravityEnabled = enabled; PlayerMods:StartEnforcing(); if not enabled then Workspace.Gravity = 196.2 end end
-function PlayerMods:SetFOV(v, enabled) PlayerMods.FOVEnabled = enabled; PlayerMods:StartEnforcing(); if not enabled then camera.FieldOfView = 70 end end
-
---// PREMIUM MONOCHROME THEME & UI SETUP
-local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), CloudLight = Color3.fromRGB(255, 255, 255), CloudDark = Color3.fromRGB(60, 60, 65), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50), Warning = Color3.fromRGB(255, 75, 75) }
+--// UI SETUP
+local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), CloudLight = Color3.fromRGB(255, 255, 255), CloudDark = Color3.fromRGB(60, 60, 65), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50) }
 local MainSize = UDim2.new(0, math.min(750, camera.ViewportSize.X - 40), 0, math.min(480, camera.ViewportSize.Y - 40))
 local SidebarWidth = 160
 
@@ -354,8 +244,8 @@ local RyuHub = Instance.new("ScreenGui"); RyuHub.Name = "RyuHubPremium"; RyuHub.
 
 local function AddClickPop(element)
     local orig = element.Size
-    element.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then TweenService:Create(element, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(orig.X.Scale, orig.X.Offset-4, orig.Y.Scale, orig.Y.Offset-4)}):Play() end end)
-    element.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then TweenService:Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = orig}):Play() end end)
+    element.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then game:GetService("TweenService"):Create(element, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(orig.X.Scale, orig.X.Offset-4, orig.Y.Scale, orig.Y.Offset-4)}):Play() end end)
+    element.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then game:GetService("TweenService"):Create(element, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {Size = orig}):Play() end end)
 end
 
 local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = ""; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
@@ -378,8 +268,8 @@ UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if tDragStart then
             if not isDraggingBtn then
-                if MainFrame.Visible then TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
-                else MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = MainSize, Position = UDim2.new(0.5, -MainSize.X.Offset/2, 0.5, -MainSize.Y.Offset/2)}):Play() end
+                if MainFrame.Visible then game:GetService("TweenService"):Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
+                else MainFrame.Visible = true; game:GetService("TweenService"):Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = MainSize, Position = UDim2.new(0.5, -MainSize.X.Offset/2, 0.5, -MainSize.Y.Offset/2)}):Play() end
             end
             tDragStart = nil
         end
@@ -390,7 +280,7 @@ local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextXAlignment = Enum.TextXAlignment.Left
 local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1; SubTitle.Text = "Battle Royale & GPO Edition"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 14; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", CloseBtn).Color = Theme.Stroke
-CloseBtn.Activated:Connect(function() TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
+CloseBtn.Activated:Connect(function() game:GetService("TweenService"):Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
 
 local mDragging, mDragStart, mStartPos
 Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = true; mDragStart = input.Position; mStartPos = MainFrame.Position end end)
@@ -425,9 +315,9 @@ local function CreateMainTab(name)
     tabBtn.Activated:Connect(function()
         tabObj.IsOpen = not tabObj.IsOpen
         local targetSize = tabObj.IsOpen and UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) or UDim2.new(1, 0, 0, 0)
-        TweenService:Create(subContainer, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
-        if tabObj.IsOpen then arrow.Text = "^"; TweenService:Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.Text, BackgroundColor3 = Theme.SectionBG}):Play(); TweenService:Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.Text}):Play()
-        else arrow.Text = "v"; TweenService:Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.SubText, BackgroundColor3 = Theme.Sidebar}):Play(); TweenService:Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.SubText}):Play() end
+        game:GetService("TweenService"):Create(subContainer, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
+        if tabObj.IsOpen then arrow.Text = "^"; game:GetService("TweenService"):Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.Text, BackgroundColor3 = Theme.SectionBG}):Play(); game:GetService("TweenService"):Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.Text}):Play()
+        else arrow.Text = "v"; game:GetService("TweenService"):Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.SubText, BackgroundColor3 = Theme.Sidebar}):Play(); game:GetService("TweenService"):Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.SubText}):Play() end
         task.delay(0.26, UpdateSidebarCanvas); UpdateSidebarCanvas()
     end)
     subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() if tabObj.IsOpen then subContainer.Size = UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) end; UpdateSidebarCanvas() end)
@@ -444,8 +334,8 @@ local function CreateSubTab(tabObj, subName)
     pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20) end)
 
     subBtn.Activated:Connect(function()
-        for _, t in pairs(Tabs) do for _, st in pairs(t.SubTabs) do st.Page.Visible = false; TweenService:Create(st.Btn, TweenInfo.new(0.2), {TextColor3 = Theme.SubText}):Play(); TweenService:Create(st.Indicator, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play() end end
-        page.Visible = true; TweenService:Create(subBtn, TweenInfo.new(0.2), {TextColor3 = Theme.Text}):Play(); TweenService:Create(indicator, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
+        for _, t in pairs(Tabs) do for _, st in pairs(t.SubTabs) do st.Page.Visible = false; game:GetService("TweenService"):Create(st.Btn, TweenInfo.new(0.2), {TextColor3 = Theme.SubText}):Play(); game:GetService("TweenService"):Create(st.Indicator, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play() end end
+        page.Visible = true; game:GetService("TweenService"):Create(subBtn, TweenInfo.new(0.2), {TextColor3 = Theme.Text}):Play(); game:GetService("TweenService"):Create(indicator, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
     end)
     table.insert(tabObj.SubTabs, subObj)
     return page
@@ -474,8 +364,8 @@ local function CreateToggle(section, text, descText, defaultState, callback)
     local isOn = defaultState or false
     tBtn.Activated:Connect(function()
         isOn = not isOn
-        if isOn then TweenService:Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOn}):Play(); TweenService:Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(1, -19, 0.5, -8), BackgroundColor3 = Theme.Background}):Play(); TweenService:Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.Text}):Play(); bStroke.Color = Theme.ToggleOn
-        else TweenService:Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOff}):Play(); TweenService:Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(0, 3, 0.5, -8), BackgroundColor3 = Color3.fromRGB(150, 150, 150)}):Play(); TweenService:Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.SubText}):Play(); bStroke.Color = Theme.Stroke end
+        if isOn then game:GetService("TweenService"):Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOn}):Play(); game:GetService("TweenService"):Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(1, -19, 0.5, -8), BackgroundColor3 = Theme.Background}):Play(); game:GetService("TweenService"):Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.Text}):Play(); bStroke.Color = Theme.ToggleOn
+        else game:GetService("TweenService"):Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOff}):Play(); game:GetService("TweenService"):Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(0, 3, 0.5, -8), BackgroundColor3 = Color3.fromRGB(150, 150, 150)}):Play(); game:GetService("TweenService"):Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.SubText}):Play(); bStroke.Color = Theme.Stroke end
         if callback then callback(isOn) end
     end)
 end
@@ -489,9 +379,9 @@ local function CreateSlider(section, text, min, max, default, callback)
     local knob = Instance.new("TextButton", sliderFill); knob.Size = UDim2.new(0, 14, 0, 14); knob.Position = UDim2.new(1, -7, 0.5, -7); knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); knob.Text = ""; Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
     
     local dragging = false
-    local function setSlider(value) local relative = math.clamp((value - min) / (max - min), 0, 1); valLabel.Text = tostring(value); TweenService:Create(sliderFill, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {Size = UDim2.new(relative, 0, 1, 0)}):Play(); if callback then callback(value) end end
-    knob.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -9, 0.5, -9)}):Play() end end)
-    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false; TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(1, -7, 0.5, -7)}):Play() end end)
+    local function setSlider(value) local relative = math.clamp((value - min) / (max - min), 0, 1); valLabel.Text = tostring(value); game:GetService("TweenService"):Create(sliderFill, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {Size = UDim2.new(relative, 0, 1, 0)}):Play(); if callback then callback(value) end end
+    knob.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; game:GetService("TweenService"):Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -9, 0.5, -9)}):Play() end end)
+    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false; game:GetService("TweenService"):Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(1, -7, 0.5, -7)}):Play() end end)
     UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
 end
 
@@ -519,7 +409,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// 7. POPULATING TABS (SEA 1 & SEA 2)
+--// 7. POPULATING TABS (BATTLE ROYALE, SEA 1, SEA 2)
 --// ============================================================================
 
 local TabBattleRoyale = CreateMainTab("Battle Royale")
@@ -528,18 +418,6 @@ local SubCharacter = CreateSubTab(TabBattleRoyale, "Character")
 local SecMovement = CreateSection(SubCharacter, "Movement Settings")
 CreateToggle(SecMovement, "Speed Hack", "Locks walk speed to slider value", RyuConfig.SpeedHack, function(state) RyuConfig.SpeedHack = state; PlayerMods:SetSpeed(RyuConfig.SpeedValue, state) end)
 CreateSlider(SecMovement, "Speed Value", 16, 150, RyuConfig.SpeedValue, function(val) RyuConfig.SpeedValue = val; if RyuConfig.SpeedHack then PlayerMods:SetSpeed(val, true) end end)
-CreateToggle(SecMovement, "High Jump", "Locks jump height to slider value", RyuConfig.HighJump, function(state) RyuConfig.HighJump = state; PlayerMods:SetJumpPower(RyuConfig.JumpValue, state) end)
-CreateSlider(SecMovement, "Jump Value", 50, 200, RyuConfig.JumpValue, function(val) RyuConfig.JumpValue = val; if RyuConfig.HighJump then PlayerMods:SetJumpPower(val, true) end end)
-
-local SecPhysics = CreateSection(SubCharacter, "Physics & Camera")
-CreateToggle(SecPhysics, "Low Gravity", "Reduces world gravity", RyuConfig.LowGravity, function(state) RyuConfig.LowGravity = state; PlayerMods:SetGravity(RyuConfig.GravityValue, state) end)
-CreateSlider(SecPhysics, "Gravity Value", 0, 196, RyuConfig.GravityValue, function(val) RyuConfig.GravityValue = val; if RyuConfig.LowGravity then PlayerMods:SetGravity(val, true) end end)
-CreateToggle(SecPhysics, "FOV Changer", "Modifies camera view angle", RyuConfig.FOVChanger, function(state) RyuConfig.FOVChanger = state; PlayerMods:SetFOV(RyuConfig.FOVValue, state) end)
-CreateSlider(SecPhysics, "FOV Value", 70, 120, RyuConfig.FOVValue, function(val) RyuConfig.FOVValue = val; if RyuConfig.FOVChanger then PlayerMods:SetFOV(val, true) end end)
-
-local SecVisuals = CreateSection(SubCharacter, "Visuals")
-CreateToggle(SecVisuals, "Player ESP", "Shows players through walls", RyuConfig.ESP, function(state) RyuConfig.ESP = state; ESPModule:Toggle(state) end)
-CreateSlider(SecVisuals, "ESP Transparency", 0, 90, RyuConfig.ESPTransparency, function(val) RyuConfig.ESPTransparency = val; if RyuConfig.ESP then ESPModule:UpdateTransparency(val) end end)
 
 -- =======================
 -- CATEGORY: SEA 1
@@ -548,7 +426,12 @@ local TabSea1 = CreateMainTab("Sea 1")
 local SubLeveling1 = CreateSubTab(TabSea1, "Leveling")
 
 local SecAutoFarmMain = CreateSection(SubLeveling1, "Farm Controls")
-CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) RyuConfig.AutoFarm = state end)
+CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) 
+    RyuConfig.AutoFarm = state
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not state and root then root.Anchored = false end
+end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
 local SecAutoFarmConfig = CreateSection(SubLeveling1, "Farm Configuration")
@@ -560,7 +443,6 @@ local SecFarmAdvanced = CreateSection(SubLeveling1, "Advanced Bypass Settings")
 CreateDropdown(SecFarmAdvanced, "Farm Position", FarmPositions, "FarmPosition")
 CreateSlider(SecFarmAdvanced, "Farm Offset / Distance", 0, 35, RyuConfig.FarmOffset, function(val) RyuConfig.FarmOffset = val end)
 CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 400, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
-CreateSlider(SecFarmAdvanced, "Snap TP Range", 0, 20, RyuConfig.TPDistance, function(val) RyuConfig.TPDistance = val end)
 
 local SecTeleports = CreateSection(SubLeveling1, "Safe Teleports")
 CreateDropdown(SecTeleports, "Select TP Method", TPMethods, "TPMethod")
@@ -571,12 +453,19 @@ CreateButton(SecTeleports, "Teleport To Island", function()
     if target then
         local pos = target:IsA("Model") and target:GetPivot() or target.CFrame
         task.spawn(function()
-            if RyuConfig.TPMethod == "Sky Tween" then
-                SkyTween(pos * CFrame.new(0, 50, 0))
-            else
-                SafeGroundTween(pos * CFrame.new(0, 10, 0), RyuConfig.TweenSpeed)
-            end
+            CustomSafeTween(pos * CFrame.new(0, 10, 0), RyuConfig.TweenSpeed)
             RyuNotify:Send("Teleport", "Arrived at " .. RyuConfig.TargetIsland, 3)
+        end)
+    end
+end)
+
+CreateButton(SecTeleports, "Teleport To NPC", function()
+    local target = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
+    if target then
+        local pos = target:IsA("Model") and target:GetPivot() or target.CFrame
+        task.spawn(function()
+            CustomSafeTween(pos * CFrame.new(0, 0, 5), RyuConfig.TweenSpeed)
+            RyuNotify:Send("Teleport", "Arrived at " .. RyuConfig.TargetNPC, 3)
         end)
     end
 end)
@@ -589,9 +478,8 @@ local SubSea2 = CreateSubTab(TabSea2, "Coming Soon")
 local SecComingSoon = CreateSection(SubSea2, "Work in Progress")
 CreateButton(SecComingSoon, "Sea 2 is currently in development", function() end)
 
-
 --// ============================================================================
---// 8. GPO AUTO FARM ENGINE (STRICT GROUND WORKFLOW + LEGIT COMBAT)
+--// 8. GPO AUTO FARM ENGINE (HEARTBEAT LOOP + NO CAMERA LOCK)
 --// ============================================================================
 
 local function GetCurrentQuest()
@@ -624,6 +512,7 @@ local function GetGPOMob(mobName)
 end
 
 local lastAttackTick = 0
+local lastReloadTick = 0
 
 -- Workflow Loop
 task.spawn(function()
@@ -637,21 +526,21 @@ task.spawn(function()
                 local npcTarget = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npcTarget then
                     local npcPos = npcTarget:IsA("Model") and npcTarget:GetPivot() or npcTarget.CFrame
-                    SafeGroundTween(npcPos * CFrame.new(0, 5, 5), RyuConfig.TweenSpeed)
+                    CustomSafeTween(npcPos * CFrame.new(0, 0, 5), RyuConfig.TweenSpeed)
                     task.wait(0.5)
-                    pcall(function()
-                        local questEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Quest")
-                        if questEvent then 
-                            questEvent:InvokeServer(unpack({{"npcChat", true}}))
-                            task.wait(0.2)
-                            questEvent:InvokeServer("takequest") 
-                        end
-                    end)
+                    local questEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Quest")
+                    if questEvent then 
+                        pcall(function() questEvent:InvokeServer("getNPCQuestLocations") end)
+                        task.wait(0.2)
+                        pcall(function() questEvent:InvokeServer({"npcChat", true}) end)
+                        task.wait(0.2)
+                        pcall(function() questEvent:InvokeServer("takequest") end)
+                    end
                 end
             end
         end
 
-        -- 2. Auto Farm Loop (Absolut Legit-Modus ohne Remotes)
+        -- 2. Auto Farm Loop
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local target = GetGPOMob(RyuConfig.TargetMob)
             local char = LocalPlayer.Character
@@ -667,11 +556,12 @@ task.spawn(function()
                         local packWeap = LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
                         if packWeap then hum:EquipTool(packWeap) end
                     end
+                    weapon = char:FindFirstChild(RyuConfig.TargetWeapon)
                     
                     local farmPos
                     if RyuConfig.FarmPosition == "Below (Underground)" then
                         local safeTransitPos = targetRoot.CFrame * CFrame.new(0, 5, 0)
-                        SafeGroundTween(safeTransitPos, RyuConfig.TweenSpeed)
+                        CustomSafeTween(safeTransitPos, RyuConfig.TweenSpeed)
                         farmPos = targetRoot.CFrame * CFrame.new(0, -RyuConfig.FarmOffset, 0)
                     else
                         if RyuConfig.FarmPosition == "Behind (Safe)" then
@@ -682,18 +572,18 @@ task.spawn(function()
                             local safeY = math.clamp(RyuConfig.FarmOffset, 0, 12)
                             farmPos = targetRoot.CFrame * CFrame.new(0, safeY, 0)
                         end
-                        SafeGroundTween(farmPos, RyuConfig.TweenSpeed)
                     end
                     
-                    -- LOKALER HITBOX EXPANDER (Garantierte Treffer ohne AC-Ban)
+                    CustomSafeTween(farmPos, RyuConfig.TweenSpeed)
+                    
+                    -- LOKALER HITBOX EXPANDER (Garantierte Treffer ohne Ban)
                     if targetRoot.Size.Y < 8 then
                         targetRoot.Size = Vector3.new(8, 8, 8)
                         targetRoot.CanCollide = false
                     end
 
-                    -- Attack Spam & Legit Aiming (KEIN CAMERA LOCK MEHR!)
+                    -- Attack Spam (KEIN CAMERA LOCK MEHR!)
                     while target and target.Parent and targetRoot and targetRoot.Parent and RyuConfig.AutoFarm and hum.Health > 0 do
-                        -- Charakters Körper (nicht Kamera!) zum Feind drehen
                         local lookPos = Vector3.new(targetRoot.Position.X, root.Position.Y, targetRoot.Position.Z)
                         
                         if RyuConfig.FarmPosition == "Below (Underground)" then
@@ -701,7 +591,6 @@ task.spawn(function()
                         else
                             root.CFrame = CFrame.lookAt(root.Position, lookPos)
                         end
-                        
                         root.Velocity = Vector3.new(0,0,0)
                         
                         pcall(function()
@@ -710,11 +599,19 @@ task.spawn(function()
                                 VirtualUser:CaptureController()
                                 VirtualUser:ClickButton1(Vector2.new())
                             end
+                            
+                            -- Gun Reload Timer
+                            if weapon and weapon:FindFirstChild("Muzzle") and (tick() - lastReloadTick > 4) then
+                                lastReloadTick = tick()
+                                task.spawn(function()
+                                    local args = { "reload", { Gun = weapon.Name } }
+                                    ReplicatedStorage:WaitForChild("Events"):WaitForChild("GunManager"):WaitForChild("gunFunctions"):InvokeServer(unpack(args))
+                                end)
+                            end
                         end)
                         task.wait(0.1)
                     end
                     
-                    -- Hitbox zurücksetzen wenn tot
                     if targetRoot then targetRoot.Size = Vector3.new(2, 2, 1) end
                 end
             end
@@ -722,8 +619,5 @@ task.spawn(function()
     end
 end)
 
---// ============================================================================
---// 9. INITIALIZATION / STARTUP
---// ============================================================================
 task.wait(0.5)
 RyuNotify:Send("RYU HUB", "Sea 1 Edition loaded! Scanning NPCs...", 4)
