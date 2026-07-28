@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - DAMAGE FIXED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - TP CHECK FIXED)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -72,7 +72,7 @@ local RyuConfig = {
     TargetWeapon = "Melee",
     
     TweenSpeed = 120,       
-    FarmOffset = 1 
+    FarmOffset = 1.5 -- Perfekter Abstand, damit der Hit garantiert landet
 }
 
 local GPOIslands = {
@@ -334,9 +334,8 @@ local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
 local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
-CreateToggle(SecAutoFarmMain, "Auto Farm (Master Kite)", "Aggros up to 5 enemies & kills them together safely", RyuConfig.AutoFarm, function(state) 
+CreateToggle(SecAutoFarmMain, "Auto Farm", "Aggros up to 5 enemies & kills them together", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
-    -- Remove the platform if we turn off auto farm
     if not state then
         local plat = Workspace:FindFirstChild("RyuSafePlatform")
         if plat then plat:Destroy() end
@@ -402,21 +401,21 @@ local function GetInputCallbacks()
 end
 
 --// ============================================================================
---// PLATFORM LOGIC & SAFE TWEEN ENGINE
+--// PLATFORM LOGIC & SAFE TWEEN ENGINE (TP CHECK BYPASS)
 --// ============================================================================
 local function PlacePlatform(pos)
     local plat = Workspace:FindFirstChild("RyuSafePlatform")
     if not plat then
         plat = Instance.new("Part", Workspace)
         plat.Name = "RyuSafePlatform"
-        plat.Size = Vector3.new(200, 5, 200) -- Massive Plattform für absolute Sicherheit
+        plat.Size = Vector3.new(200, 5, 200) 
         plat.Anchored = true
         plat.Transparency = 1
         plat.CanCollide = true 
         plat.Friction = 1 
     end
-    -- Die Plattform wird GENAU 3.5 Studs unter das CFrame platziert (Roblox R15 HipHeight)
-    plat.CFrame = CFrame.new(pos.X, pos.Y - 3.5, pos.Z)
+    -- FIX: Exakt 6.5 Studs unter dir, damit die Plattform NIEMALS in deine Beine ragt und dich katapultiert!
+    plat.CFrame = CFrame.new(pos.X, pos.Y - 6.5, pos.Z)
 end
 
 local function CustomSafeTween(targetCFrame)
@@ -444,7 +443,13 @@ local function CustomSafeTween(targetCFrame)
     end
     
     local finalTime = math.max(timeHorizontal, timeVertical)
-    if dist < 5 then finalTime = 0 end
+    
+    -- STRENGES TP CHECK LIMIT: Garantiert, dass du NIEMALS schneller als 65 Studs pro Sekunde fliegst
+    if finalTime < dist / 65 then 
+        finalTime = dist / 65 
+    end 
+    
+    if dist < 2 then finalTime = 0.1 end
 
     local tweenInfo = TweenInfo.new(finalTime, Enum.EasingStyle.Linear)
     local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
@@ -478,7 +483,6 @@ RunService.Stepped:Connect(function()
         local char = LocalPlayer.Character
         if char then
             for _, v in pairs(char:GetDescendants()) do
-                -- FIX: Füße und Beine von Noclip ausschließen, damit wir auf der Plattform stehen können!
                 if v:IsA("BasePart") and not string.find(v.Name:lower(), "foot") and not string.find(v.Name:lower(), "leg") then 
                     v.CanCollide = false 
                 end
@@ -488,7 +492,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// GPO AUTO FARM ENGINE (NO ANCHORED = 100% DAMAGE REGISTRATION)
+--// GPO AUTO FARM ENGINE (MAGNET AGGRO & TIMEOUT)
 --// ============================================================================
 local function GetCurrentQuest()
     local playerQuestData = LocalPlayer:FindFirstChild("Quest")
@@ -523,7 +527,7 @@ task.spawn(function()
             end
         end
 
-        -- 2. Auto Farm Loop (UNANCHORED - REAL DAMAGE)
+        -- 2. Auto Farm Loop
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -579,25 +583,25 @@ task.spawn(function()
                             
                             local destY = mobPos.Y
                             
-                            -- Anflug auf 3 Studs
                             local approachPos3 = Vector3.new(mobPos.X, destY, mobPos.Z) + (flatDir * 3) 
                             CustomSafeTween(CFrame.new(approachPos3, mobPos))
                             
-                            -- Hineingleiten auf 1 Stud
-                            local approachPos1 = Vector3.new(mobPos.X, destY, mobPos.Z) + (flatDir * 1) 
-                            CustomSafeTween(CFrame.new(approachPos1, mobPos))
-                            
-                            -- FIX: Setze eine feste Plattform unter uns, DAMIT wir NICHT ANCHOREN müssen!
-                            PlacePlatform(approachPos1)
-                            
                             local startHealth = mobHum.Health
+                            local aggroTimeout = tick()
                             
+                            -- MAGNET MODUS + TIMEOUT FIX: Klebt am Feind, bricht aber nach 5 Sekunden ab, falls verbuggt
                             while RyuConfig.AutoFarm and hum.Health > 0 and mobHum.Health >= startHealth and mobHum.Health > 0 do
-                                -- KEIN ANCHOR MEHR! Damage wird registriert!
+                                if tick() - aggroTimeout > 5 then break end -- ANTI-AFK: Bricht nach 5 Sekunden ab!
+                                
                                 root.Velocity = Vector3.new(0, 0, 0)
                                 
-                                local lookPos = Vector3.new(mobRoot.Position.X, root.Position.Y, mobRoot.Position.Z)
-                                root.CFrame = CFrame.lookAt(root.Position, lookPos)
+                                -- Update die Position JEDEN Frame, falls der Bandit wegläuft!
+                                local currFlatDir = Vector3.new(root.Position.X - mobRoot.Position.X, 0, root.Position.Z - mobRoot.Position.Z)
+                                if currFlatDir.Magnitude < 0.1 then currFlatDir = Vector3.new(1, 0, 0) end
+                                local stickPos = mobRoot.Position + (currFlatDir.Unit * RyuConfig.FarmOffset)
+                                
+                                root.CFrame = CFrame.lookAt(Vector3.new(stickPos.X, mobRoot.Position.Y, stickPos.Z), mobRoot.Position)
+                                PlacePlatform(root.Position)
                                 
                                 pcall(function()
                                     if inputModule and inputModule.Utils.canAutoM1() then
@@ -607,10 +611,10 @@ task.spawn(function()
                                         VirtualUser:ClickButton1(Vector2.new())
                                     end
                                 end)
-                                task.wait(0.03) 
+                                task.wait(0.05) 
                             end
                             
-                            if mobHum.Health > 0 then
+                            if mobHum.Health > 0 and mobHum.Health < startHealth then
                                 table.insert(aggroedMobs, targetMobObj)
                             end
                         end
@@ -621,13 +625,15 @@ task.spawn(function()
                         
                         local groundY = aggroedMobs[1]:FindFirstChild("HumanoidRootPart").Position.Y
                         local safeKillPos = Vector3.new(root.Position.X, groundY + 15, root.Position.Z)
+                        
+                        PlacePlatform(safeKillPos)
                         CustomSafeTween(CFrame.new(safeKillPos))
                         
-                        -- FIX: Setze eine Plattform 15 Studs in der Luft, damit wir normal darauf stehen können!
-                        PlacePlatform(safeKillPos)
+                        local killTimeout = tick()
                         
                         while RyuConfig.AutoFarm and hum.Health > 0 do
-                            -- KEIN ANCHOR MEHR! Damage wird registriert!
+                            if tick() - killTimeout > 30 then break end -- ANTI-AFK für Kill-Phase
+                            
                             local aliveCount = 0
                             local firstAliveRoot = nil
                             
@@ -665,7 +671,7 @@ task.spawn(function()
                                 end
                             end)
                             
-                            task.wait(0.03) 
+                            task.wait(0.05) 
                         end
                         
                         for _, mob in pairs(aggroedMobs) do
@@ -681,4 +687,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Fixed Damage & Safe Anchor Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Magnet Aggro & TP Bypass Active.", 4)
