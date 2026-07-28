@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - SAFE RANGE FARM)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NO FLING / SMOOTH FLY)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -62,9 +62,6 @@ if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
 local RyuConfig = {
     SpeedHack = false, SpeedValue = 35, 
     HighJump = false, JumpValue = 50, 
-    LowGravity = false, GravityValue = 100,
-    FOVChanger = false, FOVValue = 90,
-    ESP = false, ESPTransparency = 50,
     
     AutoFarm = false,
     AutoQuest = false,
@@ -72,11 +69,11 @@ local RyuConfig = {
     TargetMob = DynamicEnemies[1],
     TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
-    TargetWeapon = "Melee",
+    TargetWeapon = "Melee", 
     TPMethod = "Sky Tween", 
     
     TweenSpeed = 250,       
-    FarmOffset = 12 -- SICHERER ABSTAND: Hält dich 12 Studs auf Distanz (keine Kollisionen!)
+    FarmOffset = 12 -- Bleibt angenehm 12 Studs entfernt (ohne Berührung)
 }
 
 local GPOIslands = {
@@ -87,7 +84,7 @@ local GPOIslands = {
     "Shark Park"
 }
 
-local GPOWeapons = { "Melee", "Sword", "Katana", "Rifle", "Pistol" }
+local GPOWeapons = { "Combat", "Melee", "Sword", "Katana", "Rifle", "Pistol" }
 local TPMethods = { "Sky Tween", "Ground Tween" }
 
 --// RAINBOW OVERHEAD TITLE
@@ -339,7 +336,7 @@ local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
 local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
-CreateToggle(SecAutoFarmMain, "Auto Farm (Safe Distance)", "Fights mobs safely from 12 Studs distance", RyuConfig.AutoFarm, function(state) 
+CreateToggle(SecAutoFarmMain, "Auto Farm (Smooth & Safe)", "Fights mobs safely from 12 Studs distance", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
@@ -469,30 +466,8 @@ RunService.Stepped:Connect(function()
     end
 end)
 
-RunService.Heartbeat:Connect(function()
-    if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root then
-            local plat = Workspace:FindFirstChild("RyuSafePlatform")
-            if not plat then
-                plat = Instance.new("Part", Workspace)
-                plat.Name = "RyuSafePlatform"
-                plat.Size = Vector3.new(50, 5, 50)
-                plat.Anchored = true
-                plat.Transparency = 1
-                plat.CanCollide = true 
-            end
-            plat.CFrame = root.CFrame * CFrame.new(0, -3.5, 0)
-        end
-    else
-        local plat = Workspace:FindFirstChild("RyuSafePlatform")
-        if plat then plat:Destroy() end
-    end
-end)
-
 --// ============================================================================
---// GPO AUTO FARM ENGINE (SAFE RANGE & NO COLLISION TELEPORT)
+--// GPO AUTO FARM ENGINE (NO FLING / ROTATION INDEPENDENT)
 --// ============================================================================
 local function GetCurrentQuest()
     local playerQuestData = LocalPlayer:FindFirstChild("Quest")
@@ -513,7 +488,12 @@ task.spawn(function()
                 local npcTarget = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npcTarget then
                     local npcPos = npcTarget:IsA("Model") and npcTarget:GetPivot() or npcTarget.CFrame
-                    CustomSafeTween(npcPos * CFrame.new(0, 0, 5))
+                    -- FIX: Stabiler Anflug an den Quest-NPC
+                    local flatDir = Vector3.new(LocalPlayer.Character.HumanoidRootPart.Position.X - npcPos.Position.X, 0, LocalPlayer.Character.HumanoidRootPart.Position.Z - npcPos.Position.Z)
+                    if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
+                    local targetApproach = CFrame.new(npcPos.Position + flatDir.Unit * 5, npcPos.Position)
+                    
+                    CustomSafeTween(targetApproach)
                     task.wait(0.5)
                     local questEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Quest")
                     if questEvent then 
@@ -527,7 +507,7 @@ task.spawn(function()
             end
         end
 
-        -- 2. Auto Farm Loop (Safe Distance 12 Studs Away - No Collision)
+        -- 2. Auto Farm Loop (No Fling / No Lasso)
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -558,14 +538,30 @@ task.spawn(function()
                         local mobHum = targetMobObj:FindFirstChildOfClass("Humanoid")
                         
                         if mobRoot and mobHum then
-                            local weapon = char:FindFirstChild(RyuConfig.TargetWeapon)
-                            if not weapon then
-                                local packWeap = LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
-                                if packWeap then hum:EquipTool(packWeap) end
+                            local combatTool = char:FindFirstChild(RyuConfig.TargetWeapon) or LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
+                            if not combatTool then
+                                for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+                                    if item:IsA("Tool") and (item.Name:lower():find("combat") or item.Name:lower():find("melee") or item:GetAttribute("MeleeTool")) then
+                                        combatTool = item
+                                        break
+                                    end
+                                end
                             end
                             
-                            -- FIX: Bleibt 12 Studs vor dem Feind stehen (verhindert den Kollisions-Teleport ins Nichts)
-                            CustomSafeTween(mobRoot.CFrame * CFrame.new(0, 0, RyuConfig.FarmOffset))
+                            if combatTool and combatTool.Parent == LocalPlayer.Backpack then
+                                hum:EquipTool(combatTool)
+                                task.wait(0.2)
+                            end
+                            
+                            -- FIX: Berechne den Anflug-Punkt in der Welt, unabhängig davon, wohin der Feind schaut!
+                            local mobPos = mobRoot.Position
+                            local myPos = root.Position
+                            local flatDir = Vector3.new(myPos.X - mobPos.X, 0, myPos.Z - mobPos.Z)
+                            if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
+                            flatDir = flatDir.Unit
+                            
+                            local safeTargetPos = mobPos + (flatDir * RyuConfig.FarmOffset)
+                            CustomSafeTween(CFrame.new(safeTargetPos, mobPos))
                             
                             local inputModule = GetInputCallbacks()
                             
@@ -573,17 +569,22 @@ task.spawn(function()
                                 local currentMobRoot = targetMobObj:FindFirstChild("HumanoidRootPart")
                                 if not currentMobRoot then break end
                                 
-                                root.AssemblyLinearVelocity = Vector3.new(0, -25, 0)
-                                
-                                -- Hitbox massiv erweitern, damit deine Schläge aus 12 Studs Entfernung treffen
+                                -- Erweitern für garantierte Treffer
                                 if currentMobRoot.Size.Y < 30 then
                                     currentMobRoot.Size = Vector3.new(30, 30, 30)
-                                    currentMobRoot.CanCollide = false
                                 end
+                                currentMobRoot.CanCollide = false
                                 
-                                -- Halte exakt 12 Studs Abstand, drehe dich zum Feind
-                                local lookPos = Vector3.new(currentMobRoot.Position.X, root.Position.Y, currentMobRoot.Position.Z)
-                                root.CFrame = CFrame.new((currentMobRoot.CFrame * CFrame.new(0, 0, RyuConfig.FarmOffset)).Position, lookPos)
+                                -- FIX: Aktualisiere die Position stabil (Kein Drehen, wenn der Feind sich dreht!)
+                                local cMobPos = currentMobRoot.Position
+                                local cFlatDir = Vector3.new(root.Position.X - cMobPos.X, 0, root.Position.Z - cMobPos.Z)
+                                if cFlatDir.Magnitude < 0.1 then cFlatDir = Vector3.new(1, 0, 0) end
+                                cFlatDir = cFlatDir.Unit
+                                
+                                local standPos = cMobPos + (cFlatDir * RyuConfig.FarmOffset)
+                                -- Bleibe exakt auf der Höhe des Gegners und schaue ihn an
+                                root.CFrame = CFrame.lookAt(Vector3.new(standPos.X, cMobPos.Y, standPos.Z), cMobPos)
+                                root.Velocity = Vector3.new(0, 0, 0)
                                 
                                 pcall(function()
                                     if inputModule and inputModule.Utils.canAutoM1() then
@@ -597,7 +598,7 @@ task.spawn(function()
                                 task.wait(0.1)
                             end
                             
-                            if mobRoot then mobRoot.Size = Vector3.new(2, 2, 1) end
+                            if mobRoot then mobRoot.Size = Vector3.new(2, 2, 1); mobRoot.CanCollide = true end
                         end
                     end
                 end
@@ -607,4 +608,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Safe Range Farm Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Smooth Fly & Anti-Fling Active.", 4)
