@@ -119,24 +119,110 @@ function RyuNotify:Send(title, text, duration)
     end)
 end
 
---// UI SETUP (Kompakt)
+--// UI SETUP (Reskalierbar)
 local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50) }
-local MainSize = UDim2.new(0, 750, 0, 480)
-local SidebarWidth = 160
+-- Standardgröße kompakter gemacht
+local currentMainSize = UDim2.new(0, 550, 0, 380) 
+local SidebarWidth = 150
 
 local RyuHub = Instance.new("ScreenGui"); RyuHub.Name = "RyuHubPremium"; RyuHub.ResetOnSpawn = false; RyuHub.IgnoreGuiInset = true; RyuHub.Parent = guiParent
-local MainFrame = Instance.new("Frame"); MainFrame.Size = MainSize; MainFrame.Position = UDim2.new(0.5, -MainSize.X.Offset/2, 0.5, -MainSize.Y.Offset/2); MainFrame.BackgroundColor3 = Theme.Background; MainFrame.Active = true; MainFrame.Parent = RyuHub; Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+local MainFrame = Instance.new("Frame"); MainFrame.Size = currentMainSize; MainFrame.Position = UDim2.new(0.5, -currentMainSize.X.Offset/2, 0.5, -currentMainSize.Y.Offset/2); MainFrame.BackgroundColor3 = Theme.Background; MainFrame.Active = true; MainFrame.Parent = RyuHub; Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
+local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1; SubTitle.Text = "PC Exclusive Edition"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+
+-- Reskalierungs-Button (Resize Grip)
+local ResizeGrip = Instance.new("TextButton", MainFrame)
+ResizeGrip.Size = UDim2.new(0, 20, 0, 20)
+ResizeGrip.Position = UDim2.new(1, -20, 1, -20)
+ResizeGrip.BackgroundTransparency = 1
+ResizeGrip.Text = "◢"
+ResizeGrip.TextColor3 = Theme.SubText
+ResizeGrip.TextSize = 16
+ResizeGrip.Font = Enum.Font.GothamBold
+
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-CloseBtn.Activated:Connect(function() MainFrame.Visible = false end)
+
+local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
+
+local tDragStart, tStartPos, isDraggingBtn = nil, nil, false
+ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingBtn = false; tDragStart = input.Position; tStartPos = ToggleBtn.Position end end)
+UserInputService.InputChanged:Connect(function(input) if tDragStart and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - tDragStart; if delta.Magnitude > 5 then isDraggingBtn = true; ToggleBtn.Position = UDim2.new(tStartPos.X.Scale, tStartPos.X.Offset + delta.X, tStartPos.Y.Scale, tStartPos.Y.Offset + delta.Y) end end end)
+
+local rDragging, rDragStart, rStartSize = false, nil, nil
+ResizeGrip.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - rDragStart
+        -- Minimalgröße: 450x300
+        local newWidth = math.max(450, rStartSize.X + delta.X)
+        local newHeight = math.max(300, rStartSize.Y + delta.Y)
+        currentMainSize = UDim2.new(0, newWidth, 0, newHeight)
+        MainFrame.Size = currentMainSize
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if tDragStart then
+            if not isDraggingBtn then
+                if MainFrame.Visible then 
+                    TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
+                else 
+                    MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = currentMainSize, Position = UDim2.new(0.5, -currentMainSize.X.Offset/2, 0.5, -currentMainSize.Y.Offset/2)}):Play() 
+                end
+            end
+            tDragStart = nil
+        end
+        rDragging = false
+    end
+end)
+
+CloseBtn.Activated:Connect(function() TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
+
+local mDragging, mDragStart, mStartPos
+Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = true; mDragStart = input.Position; mStartPos = MainFrame.Position end end)
+Topbar.InputChanged:Connect(function(input) if mDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - mDragStart; MainFrame.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y) end end)
+Topbar.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = false end end)
 
 local ContentContainer = Instance.new("Frame", MainFrame); ContentContainer.Size = UDim2.new(1, -(SidebarWidth + 25), 1, -85); ContentContainer.Position = UDim2.new(0, SidebarWidth + 15, 0, 75); ContentContainer.BackgroundTransparency = 1
-local page = Instance.new("ScrollingFrame", ContentContainer); page.Size = UDim2.new(1, 0, 1, 0); page.BackgroundTransparency = 1; page.ScrollBarThickness = 2
-local pageLayout = Instance.new("UIListLayout", page); pageLayout.Padding = UDim.new(0, 12); pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20) end)
+local Sidebar = Instance.new("ScrollingFrame", MainFrame); Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0
+local SideLayout = Instance.new("UIListLayout", Sidebar); SideLayout.Padding = UDim.new(0, 6); SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left; SideLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-local function CreateSection(titleText)
+local Tabs = {}
+local function UpdateSidebarCanvas()
+    local totalH = 10
+    for _, t in pairs(Tabs) do totalH = totalH + 36 + 6; if t.IsOpen then totalH = totalH + t.SubLayout.AbsoluteContentSize.Y + 6 end end
+    Sidebar.CanvasSize = UDim2.new(0, 0, 0, totalH)
+end
+
+local function CreateMainTab(name)
+    local tabObj = { Btn = nil, SubContainer = nil, SubLayout = nil, IsOpen = false, SubTabs = {} }
+    local tabBtn = Instance.new("TextButton", Sidebar); tabBtn.Size = UDim2.new(1, 0, 0, 36); tabBtn.BackgroundColor3 = Theme.Sidebar; tabBtn.Text = "  " .. string.upper(name); tabBtn.TextColor3 = Theme.SubText; tabBtn.Font = Enum.Font.GothamBlack; tabBtn.TextSize = 13; tabBtn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8); tabObj.Btn = tabBtn
+    local subContainer = Instance.new("Frame", Sidebar); subContainer.Size = UDim2.new(1, 0, 0, 0); subContainer.BackgroundTransparency = 1; subContainer.ClipsDescendants = true; tabObj.SubContainer = subContainer
+    local subLayout = Instance.new("UIListLayout", subContainer); subLayout.Padding = UDim.new(0, 2); tabObj.SubLayout = subLayout
+    tabBtn.Activated:Connect(function() tabObj.IsOpen = not tabObj.IsOpen; TweenService:Create(subContainer, TweenInfo.new(0.25), {Size = tabObj.IsOpen and UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) or UDim2.new(1, 0, 0, 0)}):Play(); tabBtn.TextColor3 = tabObj.IsOpen and Theme.Text or Theme.SubText; task.delay(0.26, UpdateSidebarCanvas); UpdateSidebarCanvas() end)
+    subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() if tabObj.IsOpen then subContainer.Size = UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) end; UpdateSidebarCanvas() end)
+    table.insert(Tabs, tabObj); return tabObj
+end
+
+local function CreateSubTab(tabObj, subName)
+    local subBtn = Instance.new("TextButton", tabObj.SubContainer); subBtn.Size = UDim2.new(1, 0, 0, 28); subBtn.BackgroundTransparency = 1; subBtn.Text = "     " .. subName; subBtn.TextColor3 = Theme.SubText; subBtn.Font = Enum.Font.GothamMedium; subBtn.TextSize = 12; subBtn.TextXAlignment = Enum.TextXAlignment.Left
+    local page = Instance.new("ScrollingFrame", ContentContainer); page.Size = UDim2.new(1, 0, 1, 0); page.BackgroundTransparency = 1; page.ScrollBarThickness = 2; page.Visible = false
+    local pageLayout = Instance.new("UIListLayout", page); pageLayout.Padding = UDim.new(0, 12); pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20) end)
+    subBtn.Activated:Connect(function() for _, v in pairs(ContentContainer:GetChildren()) do v.Visible = false end; page.Visible = true end)
+    return page
+end
+
+local function CreateSection(page, titleText)
     local section = Instance.new("Frame", page); section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
     local secLayout = Instance.new("UIListLayout", section); secLayout.Padding = UDim.new(0, 10); secLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; secLayout.SortOrder = Enum.SortOrder.LayoutOrder
     Instance.new("UIPadding", section).PaddingTop = UDim.new(0, 12); Instance.new("UIPadding", section).PaddingBottom = UDim.new(0, 12)
@@ -165,11 +251,28 @@ local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
 end
 
-local SecAutoFarmMain = CreateSection("Master Auto Farm (Kite & Kill)")
+local function CreateSlider(section, text, min, max, default, callback)
+    local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 50); frame.BackgroundTransparency = 1
+    local label = Instance.new("TextLabel", frame); label.Size = UDim2.new(1, 0, 0, 20); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Theme.SubText; label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
+    local valLabel = Instance.new("TextLabel", frame); valLabel.Size = UDim2.new(0, 40, 0, 20); valLabel.Position = UDim2.new(1, -40, 0, 0); valLabel.BackgroundTransparency = 1; valLabel.Text = tostring(default); valLabel.TextColor3 = Theme.Accent; valLabel.Font = Enum.Font.GothamBold; valLabel.TextSize = 13; valLabel.TextXAlignment = Enum.TextXAlignment.Right
+    local sliderBg = Instance.new("Frame", frame); sliderBg.Size = UDim2.new(1, 0, 0, 4); sliderBg.Position = UDim2.new(0, 0, 0, 32); sliderBg.BackgroundColor3 = Theme.ToggleOff; Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(1, 0)
+    local sliderFill = Instance.new("Frame", sliderBg); local percentage = (default - min) / (max - min); sliderFill.Size = UDim2.new(percentage, 0, 1, 0); sliderFill.BackgroundColor3 = Theme.Accent; Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
+    local knob = Instance.new("TextButton", sliderFill); knob.Size = UDim2.new(0, 14, 0, 14); knob.Position = UDim2.new(1, -7, 0.5, -7); knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); knob.Text = ""; Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+    local dragging = false
+    local function setSlider(value) local relative = math.clamp((value - min) / (max - min), 0, 1); valLabel.Text = tostring(value); TweenService:Create(sliderFill, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {Size = UDim2.new(relative, 0, 1, 0)}):Play(); if callback then callback(value) end end
+    knob.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -9, 0.5, -9)}):Play() end end)
+    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false; TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(1, -7, 0.5, -7)}):Play() end end)
+    UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
+end
+
+-- UI AUFBAU
+local TabFarm = CreateMainTab("Farm")
+local SubLeveling = CreateSubTab(TabFarm, "Leveling")
+local SecAutoFarmMain = CreateSection(SubLeveling, "Master Auto Farm (Kite & Kill)")
 CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) RyuConfig.AutoFarm = state end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
-local SecAutoFarmConfig = CreateSection("Farm Setup")
+local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
@@ -228,7 +331,6 @@ local function SafeTween(targetCFrame)
     local targetPos = targetCFrame.Position
     local dist = (targetPos - startPos).Magnitude
     
-    -- Absolute Drosselung auf 55 Studs pro Sekunde (TP Check in GPO ist 72)
     local speed = 55 
     local timeToTake = dist / speed
     
@@ -243,7 +345,6 @@ local function SafeTween(targetCFrame)
         if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then break end
         local alpha = (tick() - startTime) / timeToTake
         
-        -- Lerp berechnet die weiche Zwischenposition Frame für Frame
         local intermediatePos = startPos:Lerp(targetPos, alpha)
         root.CFrame = CFrame.lookAt(intermediatePos, targetPos)
         root.Velocity = Vector3.new(0, 0, 0)
@@ -254,7 +355,6 @@ local function SafeTween(targetCFrame)
     root.Velocity = Vector3.new(0, 0, 0)
 end
 
--- Noclip (damit wir nicht hängen bleiben)
 RunService.Stepped:Connect(function()
     if RyuConfig.AutoFarm or RyuConfig.AutoQuest then
         local char = LocalPlayer.Character
@@ -319,7 +419,7 @@ task.spawn(function()
                     
                     local aggroedMobs = {}
                     
-                    -- PHASE 1: AGGRO SAMMELN (Tweenen, Hitten, Weiter)
+                    -- PHASE 1: AGGRO SAMMELN
                     EquipCombat()
                     
                     for _, mob in pairs(validMobs) do
@@ -330,22 +430,18 @@ task.spawn(function()
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         
                         if mRoot and mHum and mHum.Health > 0 then
-                            -- Finde Position exakt vor dem Gegner (2 Studs)
                             local flatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             
                             local attackPos = mRoot.Position + (flatDir.Unit * 2)
-                            -- Fliege hin
                             SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
                             
                             local startHp = mHum.Health
                             local timeout = tick()
                             
-                            -- Schlage ihn bis Leben sinkt (Max 3 Sekunden)
                             while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
-                                if tick() - timeout > 3 then break end -- AFK Schutz!
+                                if tick() - timeout > 3 then break end 
                                 
-                                -- Halte Position fest ohne Anchored = true!
                                 root.CFrame = CFrame.lookAt(mRoot.Position + (flatDir.Unit * 2), mRoot.Position)
                                 root.Velocity = Vector3.new(0, 0, 0)
                                 
@@ -353,7 +449,6 @@ task.spawn(function()
                                 task.wait(0.05)
                             end
                             
-                            -- Hat er Schaden genommen? Dann hat er Aggro!
                             if mHum.Health > 0 and mHum.Health < startHp then
                                 table.insert(aggroedMobs, mob)
                             end
@@ -364,18 +459,15 @@ task.spawn(function()
                     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
                         EquipCombat()
                         
-                        -- Ermittle den Boden des ersten aggroed Mobs
                         local firstMobRoot = aggroedMobs[1]:FindFirstChild("HumanoidRootPart")
                         if firstMobRoot then
-                            -- Exakt 10 Studs über den Mobs positionieren
                             local skyPos = firstMobRoot.Position + Vector3.new(0, 10, 0)
                             SafeTween(CFrame.lookAt(skyPos, skyPos - Vector3.new(0, 1, 0)))
                             
                             local killTimeout = tick()
                             
-                            -- Schwebe und schlachte sie ab
                             while RyuConfig.AutoFarm and hum.Health > 0 do
-                                if tick() - killTimeout > 25 then break end -- Maximal 25 Sek pro Kill-Phase
+                                if tick() - killTimeout > 25 then break end 
                                 
                                 local aliveCount = 0
                                 local targetLook = nil
@@ -389,7 +481,6 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
-                                            -- Hitbox vergrößern, damit unsere Schläge von oben ankommen
                                             if mRoot.Size.Y < 20 then
                                                 mRoot.Size = Vector3.new(15, 25, 15)
                                             end
@@ -397,9 +488,8 @@ task.spawn(function()
                                     end
                                 end
                                 
-                                if aliveCount == 0 then break end -- Alle tot!
+                                if aliveCount == 0 then break end 
                                 
-                                -- Halte dich stabil in der Luft (ohne Anchor!)
                                 if targetLook then
                                     root.CFrame = CFrame.lookAt(skyPos, Vector3.new(targetLook.X, skyPos.Y, targetLook.Z))
                                 end
@@ -409,7 +499,6 @@ task.spawn(function()
                                 RunService.Heartbeat:Wait()
                             end
                             
-                            -- Nach dem Tod Hitboxen resetten
                             for _, mob in pairs(aggroedMobs) do
                                 local mRoot = mob and mob:FindFirstChild("HumanoidRootPart")
                                 if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
@@ -424,4 +513,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Kite Farm Loaded!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Resizable UI Loaded!", 4)
