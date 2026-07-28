@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - 1v1 HOVER FARM)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - THE ULTIMATE KITE)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -61,18 +61,13 @@ if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
 --// RYU CONFIGURATION
 local RyuConfig = {
     SpeedHack = false, SpeedValue = 35, 
-    HighJump = false, JumpValue = 50, 
     
     AutoFarm = false,
     AutoQuest = false,
-    IsTweening = false, 
     TargetMob = DynamicEnemies[1],
     TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
-    TargetWeapon = "Combat",
-    
-    TweenSpeed = 120,       
-    FarmOffset = 6 -- Wir schweben exakt 6 Studs über dem Gegner!
+    TargetWeapon = "Combat"
 }
 
 local GPOIslands = {
@@ -83,39 +78,7 @@ local GPOIslands = {
     "Shark Park"
 }
 
-local GPOWeapons = { "Combat", "Melee", "Sword", "Katana", "Rifle", "Pistol" }
-
---// RAINBOW OVERHEAD TITLE
-local function AddRainbowTag(character)
-    local head = character:WaitForChild("Head", 5)
-    if head then
-        if head:FindFirstChild("RyuHubTag") then head.RyuHubTag:Destroy() end
-        local bg = Instance.new("BillboardGui")
-        bg.Name = "RyuHubTag"
-        bg.Size = UDim2.new(0, 200, 0, 50)
-        bg.StudsOffset = Vector3.new(0, 3, 0)
-        bg.AlwaysOnTop = true
-        bg.Parent = head
-        
-        local txt = Instance.new("TextLabel")
-        txt.Size = UDim2.new(1, 0, 1, 0)
-        txt.BackgroundTransparency = 1
-        txt.Text = "RYUHUB"
-        txt.Font = Enum.Font.GothamBlack
-        txt.TextSize = 22
-        txt.TextStrokeTransparency = 0
-        txt.Parent = bg
-        
-        task.spawn(function()
-            while bg.Parent do
-                txt.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
-                task.wait()
-            end
-        end)
-    end
-end
-if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
+local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
 
 --// NOTIFICATION SYSTEM
 local NotificationContainer = Instance.new("Frame")
@@ -124,6 +87,11 @@ NotificationContainer.Size = UDim2.new(0, 260, 1, -40)
 NotificationContainer.Position = UDim2.new(1, -280, 0, 20)
 NotificationContainer.BackgroundTransparency = 1
 NotificationContainer.Parent = guiParent
+
+local NotifLayout = Instance.new("UIListLayout", NotificationContainer)
+NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
+NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
+NotifLayout.Padding = UDim.new(0, 8)
 
 local RyuNotify = {}
 function RyuNotify:Send(title, text, duration)
@@ -151,39 +119,24 @@ function RyuNotify:Send(title, text, duration)
     end)
 end
 
---// UI SETUP (Verkürzt für Übersichtlichkeit, selbes System wie vorher)
+--// UI SETUP (Kompakt)
 local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50) }
-local MainSize = UDim2.new(0, math.min(750, camera.ViewportSize.X - 40), 0, math.min(480, camera.ViewportSize.Y - 40))
+local MainSize = UDim2.new(0, 750, 0, 480)
 local SidebarWidth = 160
+
 local RyuHub = Instance.new("ScreenGui"); RyuHub.Name = "RyuHubPremium"; RyuHub.ResetOnSpawn = false; RyuHub.IgnoreGuiInset = true; RyuHub.Parent = guiParent
-
-local MainFrame = Instance.new("Frame"); MainFrame.Size = MainSize; MainFrame.Position = UDim2.new(0.5, -MainSize.X.Offset/2, 0.5, -MainSize.Y.Offset/2); MainFrame.BackgroundColor3 = Theme.Background; MainFrame.BorderSizePixel = 0; MainFrame.Active = true; MainFrame.Visible = true; MainFrame.ClipsDescendants = true; MainFrame.Parent = RyuHub; Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+local MainFrame = Instance.new("Frame"); MainFrame.Size = MainSize; MainFrame.Position = UDim2.new(0.5, -MainSize.X.Offset/2, 0.5, -MainSize.Y.Offset/2); MainFrame.BackgroundColor3 = Theme.Background; MainFrame.Active = true; MainFrame.Parent = RyuHub; Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
-local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextXAlignment = Enum.TextXAlignment.Left
-local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1; SubTitle.Text = "PC Exclusive Edition"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
+local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
+CloseBtn.Activated:Connect(function() MainFrame.Visible = false end)
 
-local Sidebar = Instance.new("ScrollingFrame", MainFrame); Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0
-local SideLayout = Instance.new("UIListLayout", Sidebar); SideLayout.Padding = UDim.new(0, 6); SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left; SideLayout.SortOrder = Enum.SortOrder.LayoutOrder
 local ContentContainer = Instance.new("Frame", MainFrame); ContentContainer.Size = UDim2.new(1, -(SidebarWidth + 25), 1, -85); ContentContainer.Position = UDim2.new(0, SidebarWidth + 15, 0, 75); ContentContainer.BackgroundTransparency = 1
+local page = Instance.new("ScrollingFrame", ContentContainer); page.Size = UDim2.new(1, 0, 1, 0); page.BackgroundTransparency = 1; page.ScrollBarThickness = 2
+local pageLayout = Instance.new("UIListLayout", page); pageLayout.Padding = UDim.new(0, 12); pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20) end)
 
--- UI Helper Functions
-local function CreateMainTab(name)
-    local tabObj = { Btn = nil, SubContainer = nil, SubLayout = nil, IsOpen = false, SubTabs = {} }
-    local tabBtn = Instance.new("TextButton", Sidebar); tabBtn.Size = UDim2.new(1, 0, 0, 36); tabBtn.BackgroundColor3 = Theme.Sidebar; tabBtn.Text = "  " .. string.upper(name); tabBtn.TextColor3 = Theme.SubText; tabBtn.Font = Enum.Font.GothamBlack; tabBtn.TextSize = 13; tabBtn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8); tabObj.Btn = tabBtn
-    local subContainer = Instance.new("Frame", Sidebar); subContainer.Size = UDim2.new(1, 0, 0, 0); subContainer.BackgroundTransparency = 1; subContainer.ClipsDescendants = true; tabObj.SubContainer = subContainer
-    local subLayout = Instance.new("UIListLayout", subContainer); subLayout.Padding = UDim.new(0, 2); tabObj.SubLayout = subLayout
-    tabBtn.Activated:Connect(function() tabObj.IsOpen = not tabObj.IsOpen; subContainer.Size = tabObj.IsOpen and UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) or UDim2.new(1, 0, 0, 0); tabBtn.TextColor3 = tabObj.IsOpen and Theme.Text or Theme.SubText end)
-    return tabObj
-end
-local function CreateSubTab(tabObj, subName)
-    local subBtn = Instance.new("TextButton", tabObj.SubContainer); subBtn.Size = UDim2.new(1, 0, 0, 28); subBtn.BackgroundTransparency = 1; subBtn.Text = "     " .. subName; subBtn.TextColor3 = Theme.SubText; subBtn.Font = Enum.Font.GothamMedium; subBtn.TextSize = 12; subBtn.TextXAlignment = Enum.TextXAlignment.Left
-    local page = Instance.new("ScrollingFrame", ContentContainer); page.Size = UDim2.new(1, 0, 1, 0); page.BackgroundTransparency = 1; page.ScrollBarThickness = 2; page.Visible = false
-    local pageLayout = Instance.new("UIListLayout", page); pageLayout.Padding = UDim.new(0, 12); pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20) end)
-    subBtn.Activated:Connect(function() for _, v in pairs(ContentContainer:GetChildren()) do v.Visible = false end; page.Visible = true end)
-    return page
-end
-local function CreateSection(page, titleText)
+local function CreateSection(titleText)
     local section = Instance.new("Frame", page); section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
     local secLayout = Instance.new("UIListLayout", section); secLayout.Padding = UDim.new(0, 10); secLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; secLayout.SortOrder = Enum.SortOrder.LayoutOrder
     Instance.new("UIPadding", section).PaddingTop = UDim.new(0, 12); Instance.new("UIPadding", section).PaddingBottom = UDim.new(0, 12)
@@ -191,6 +144,7 @@ local function CreateSection(page, titleText)
     secLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() section.Size = UDim2.new(1, 0, 0, secLayout.AbsoluteContentSize.Y + 24) end)
     return section
 end
+
 local function CreateToggle(section, text, defaultState, callback)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 34); frame.BackgroundTransparency = 1
     local label = Instance.new("TextLabel", frame); label.Size = UDim2.new(0.7, 0, 1, 0); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Theme.Text; label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
@@ -198,6 +152,7 @@ local function CreateToggle(section, text, defaultState, callback)
     local isOn = defaultState
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
+
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -210,14 +165,12 @@ local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
 end
 
---// UI AUFBAU
-local TabFarm = CreateMainTab("Farm")
-local SubLeveling = CreateSubTab(TabFarm, "Leveling")
-local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
-CreateToggle(SecAutoFarmMain, "Auto Farm (1v1 Hover Mode)", RyuConfig.AutoFarm, function(state) RyuConfig.AutoFarm = state end)
+local SecAutoFarmMain = CreateSection("Master Auto Farm (Kite & Kill)")
+CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) RyuConfig.AutoFarm = state end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
-local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Configuration")
-CreateDropdown(SecAutoFarmConfig, "Select Weapon", GPOWeapons, "TargetWeapon")
+
+local SecAutoFarmConfig = CreateSection("Farm Setup")
+CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
@@ -232,81 +185,119 @@ local function GetInputCallbacks()
     return nil
 end
 
+local function EquipCombat()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not hum then return end
+    
+    local tool = char:FindFirstChild(RyuConfig.TargetWeapon) or LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
+    if not tool then
+        for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if item:IsA("Tool") and (item.Name:lower():find("combat") or item.Name:lower():find("melee") or item:GetAttribute("MeleeTool")) then
+                tool = item; break
+            end
+        end
+    end
+    if tool and tool.Parent == LocalPlayer.Backpack then
+        hum:EquipTool(tool)
+        task.wait(0.1)
+    end
+end
+
+local function PerformAttack()
+    local inputModule = GetInputCallbacks()
+    pcall(function()
+        if inputModule and inputModule.Utils.canAutoM1() then
+            inputModule.Callbacks.Attack:PC_Activate()
+        else
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton1(Vector2.new())
+        end
+    end)
+end
+
 --// ============================================================================
---// ANTI-TP TWEEN ENGINE
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (NO TP CHECK)
 --// ============================================================================
-local function CustomSafeTween(targetCFrame)
+local function SafeTween(targetCFrame)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
 
-    RyuConfig.IsTweening = true 
     local startPos = root.Position
     local targetPos = targetCFrame.Position
-    local totalDist = (targetPos - startPos).Magnitude
+    local dist = (targetPos - startPos).Magnitude
     
-    -- STRENGES BYPASS-LIMIT: 60 Studs/Sekunde (Server denkt, du rennst/dashest legal)
-    local speed = 60 
-    local finalTime = totalDist / speed
-    if finalTime < 0.1 then finalTime = 0.1 end
-
-    local tweenInfo = TweenInfo.new(finalTime, Enum.EasingStyle.Linear)
-    local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
+    -- Absolute Drosselung auf 55 Studs pro Sekunde (TP Check in GPO ist 72)
+    local speed = 55 
+    local timeToTake = dist / speed
     
-    tween:Play()
-    tween.Completed:Wait()
-
-    if root then 
-        root.Velocity = Vector3.new(0, 0, 0)
+    if timeToTake < 0.1 then 
+        root.CFrame = targetCFrame
+        root.Velocity = Vector3.new(0,0,0)
+        return 
     end
-    RyuConfig.IsTweening = false 
+
+    local startTime = tick()
+    while tick() - startTime < timeToTake do
+        if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then break end
+        local alpha = (tick() - startTime) / timeToTake
+        
+        -- Lerp berechnet die weiche Zwischenposition Frame für Frame
+        local intermediatePos = startPos:Lerp(targetPos, alpha)
+        root.CFrame = CFrame.lookAt(intermediatePos, targetPos)
+        root.Velocity = Vector3.new(0, 0, 0)
+        RunService.Heartbeat:Wait()
+    end
+    
+    root.CFrame = targetCFrame
+    root.Velocity = Vector3.new(0, 0, 0)
 end
 
---// NOCLIP ENGINE (Stellt sicher, dass wir durch Wände zum Gegner gleiten können)
+-- Noclip (damit wir nicht hängen bleiben)
 RunService.Stepped:Connect(function()
-    if RyuConfig.AutoFarm or RyuConfig.IsTweening then
+    if RyuConfig.AutoFarm or RyuConfig.AutoQuest then
         local char = LocalPlayer.Character
         if char then
             for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") then 
-                    v.CanCollide = false 
-                end
+                if v:IsA("BasePart") then v.CanCollide = false end
             end
         end
     end
 end)
 
 --// ============================================================================
---// NEUE 1V1 HOVER FARM ENGINE (100% DAMAGE, KEIN GHOST HIT)
+--// GPO MASTER KITE FARM (AGGRO -> 10 STUDS UP -> KILL)
 --// ============================================================================
+local function GetCurrentQuest()
+    local q = LocalPlayer:FindFirstChild("Quest")
+    return q and q:FindFirstChild("CurrentQuest") and q.CurrentQuest.Value or "None"
+end
+
 task.spawn(function()
     while true do
         task.wait(0.1)
         
-        -- 1. Auto Quest Loop
+        -- 1. Auto Quest
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
-            local playerQuestData = LocalPlayer:FindFirstChild("Quest")
-            local currentQuest = playerQuestData and playerQuestData:FindFirstChild("CurrentQuest") and playerQuestData.CurrentQuest.Value or "None"
-            
-            if currentQuest == "None" or currentQuest == "" then
-                local npcTarget = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
-                if npcTarget then
-                    local npcPos = npcTarget:IsA("Model") and npcTarget:GetPivot() or npcTarget.CFrame
-                    CustomSafeTween(npcPos * CFrame.new(0, 0, 4))
-                    task.wait(0.5)
-                    local questEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Quest")
-                    if questEvent then 
-                        pcall(function() questEvent:InvokeServer("getNPCQuestLocations") end)
+            if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
+                local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
+                if npc then
+                    local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
+                    SafeTween(npcPos * CFrame.new(0, 0, 5))
+                    local events = ReplicatedStorage:FindFirstChild("Events")
+                    if events and events:FindFirstChild("Quest") then 
+                        pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
                         task.wait(0.2)
-                        pcall(function() questEvent:InvokeServer({{"npcChat", true}}) end)
+                        pcall(function() events.Quest:InvokeServer({{"npcChat", true}}) end)
                         task.wait(0.2)
-                        pcall(function() questEvent:InvokeServer("takequest") end)
+                        pcall(function() events.Quest:InvokeServer("takequest") end)
                     end
                 end
             end
         end
 
-        -- 2. Auto Farm Loop (1v1 Hover)
+        -- 2. Master Farm Loop
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -315,92 +306,117 @@ task.spawn(function()
             if root and hum and hum.Health > 0 then
                 local npcs = Workspace:FindFirstChild("NPCs")
                 if npcs then
-                    -- Finde den NÄCHSTEN, LEBENDIGEN Gegner mit exaktem Namen
-                    local targetMobObj = nil
-                    local shortestDist = math.huge
-                    
+                    local validMobs = {}
                     for _, npc in pairs(npcs:GetChildren()) do
                         if npc.Name == RyuConfig.TargetMob then
-                            local mobHum = npc:FindFirstChildOfClass("Humanoid")
-                            local mobRoot = npc:FindFirstChild("HumanoidRootPart")
-                            if mobHum and mobRoot and mobHum.Health > 0 then
-                                local dist = (mobRoot.Position - root.Position).Magnitude
-                                if dist < shortestDist then
-                                    shortestDist = dist
-                                    targetMobObj = npc
-                                end
+                            local mHum = npc:FindFirstChildOfClass("Humanoid")
+                            local mRoot = npc:FindFirstChild("HumanoidRootPart")
+                            if mHum and mRoot and mHum.Health == mHum.MaxHealth then
+                                table.insert(validMobs, npc)
                             end
                         end
                     end
                     
-                    -- Greife diesen einen Gegner an, bis er stirbt
-                    if targetMobObj then
-                        local mobRoot = targetMobObj:FindFirstChild("HumanoidRootPart")
-                        local mobHum = targetMobObj:FindFirstChildOfClass("Humanoid")
+                    local aggroedMobs = {}
+                    
+                    -- PHASE 1: AGGRO SAMMELN (Tweenen, Hitten, Weiter)
+                    EquipCombat()
+                    
+                    for _, mob in pairs(validMobs) do
+                        if not RyuConfig.AutoFarm or hum.Health <= 0 then break end
+                        if #aggroedMobs >= 5 then break end
                         
-                        if mobRoot and mobHum then
-                            -- Waffe Ausrüsten (Combat Tool)
-                            local combatTool = char:FindFirstChild(RyuConfig.TargetWeapon) or LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
-                            if not combatTool then
-                                for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-                                    if item:IsA("Tool") and (item.Name:lower():find("combat") or item.Name:lower():find("melee") or item:GetAttribute("MeleeTool")) then
-                                        combatTool = item; break
-                                    end
-                                end
-                            end
-                            if combatTool and combatTool.Parent == LocalPlayer.Backpack then
-                                hum:EquipTool(combatTool)
-                                task.wait(0.2)
-                            end
-
-                            local inputModule = GetInputCallbacks()
+                        local mRoot = mob:FindFirstChild("HumanoidRootPart")
+                        local mHum = mob:FindFirstChildOfClass("Humanoid")
+                        
+                        if mRoot and mHum and mHum.Health > 0 then
+                            -- Finde Position exakt vor dem Gegner (2 Studs)
+                            local flatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
+                            if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             
-                            -- Sauberen Anflug machen (6 Studs ÜBER dem Gegner)
-                            local hoverPos = mobRoot.Position + Vector3.new(0, RyuConfig.FarmOffset, 0)
-                            CustomSafeTween(CFrame.new(hoverPos, mobRoot.Position))
+                            local attackPos = mRoot.Position + (flatDir.Unit * 2)
+                            -- Fliege hin
+                            SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
                             
+                            local startHp = mHum.Health
                             local timeout = tick()
-                            local lastHealth = mobHum.Health
-
-                            -- Kampf-Loop 1v1
-                            while RyuConfig.AutoFarm and hum.Health > 0 and targetMobObj and targetMobObj.Parent and mobHum.Health > 0 do
-                                -- Wenn der Mob keinen Damage kriegt (verbuggt ist), breche nach 8 Sekunden ab!
-                                if mobHum.Health < lastHealth then
-                                    lastHealth = mobHum.Health
-                                    timeout = tick() -- Reset Timeout wenn Damage gemacht wurde
-                                elseif tick() - timeout > 8 then 
-                                    break 
-                                end
+                            
+                            -- Schlage ihn bis Leben sinkt (Max 3 Sekunden)
+                            while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
+                                if tick() - timeout > 3 then break end -- AFK Schutz!
                                 
-                                -- Minimaler Hitbox Buff (Y-Achse leicht strecken, damit wir von oben treffen)
-                                -- Server akzeptiert dies als legal, weil X/Z unverändert bleiben!
-                                if mobRoot.Size.Y < 8 then
-                                    mobRoot.Size = Vector3.new(mobRoot.Size.X, 10, mobRoot.Size.Z)
-                                    mobRoot.CanCollide = false
-                                end
-                                
-                                -- Schwebe stabil über ihm und schaue nach unten
+                                -- Halte Position fest ohne Anchored = true!
+                                root.CFrame = CFrame.lookAt(mRoot.Position + (flatDir.Unit * 2), mRoot.Position)
                                 root.Velocity = Vector3.new(0, 0, 0)
-                                local targetCFrame = CFrame.lookAt(mobRoot.Position + Vector3.new(0, RyuConfig.FarmOffset, 0), mobRoot.Position)
-                                root.CFrame = targetCFrame
                                 
-                                -- Schlage ganz normal zu
-                                pcall(function()
-                                    if inputModule and inputModule.Utils.canAutoM1() then
-                                        inputModule.Callbacks.Attack:PC_Activate()
-                                    else
-                                        VirtualUser:CaptureController()
-                                        VirtualUser:ClickButton1(Vector2.new())
-                                    end
-                                end)
-                                
-                                task.wait(0.1) -- Humaner Rhythmus (Server registriert jeden Schlag sauber)
+                                PerformAttack()
+                                task.wait(0.05)
                             end
                             
-                            -- Hitbox zurücksetzen wenn tot
-                            if mobRoot then mobRoot.Size = Vector3.new(2, 2, 1); mobRoot.CanCollide = true end
+                            -- Hat er Schaden genommen? Dann hat er Aggro!
+                            if mHum.Health > 0 and mHum.Health < startHp then
+                                table.insert(aggroedMobs, mob)
+                            end
                         end
                     end
+                    
+                    -- PHASE 2: 10 STUDS HOCH & ALLE KILLEN
+                    if #aggroedMobs > 0 and RyuConfig.AutoFarm then
+                        EquipCombat()
+                        
+                        -- Ermittle den Boden des ersten aggroed Mobs
+                        local firstMobRoot = aggroedMobs[1]:FindFirstChild("HumanoidRootPart")
+                        if firstMobRoot then
+                            -- Exakt 10 Studs über den Mobs positionieren
+                            local skyPos = firstMobRoot.Position + Vector3.new(0, 10, 0)
+                            SafeTween(CFrame.lookAt(skyPos, skyPos - Vector3.new(0, 1, 0)))
+                            
+                            local killTimeout = tick()
+                            
+                            -- Schwebe und schlachte sie ab
+                            while RyuConfig.AutoFarm and hum.Health > 0 do
+                                if tick() - killTimeout > 25 then break end -- Maximal 25 Sek pro Kill-Phase
+                                
+                                local aliveCount = 0
+                                local targetLook = nil
+                                
+                                for _, mob in pairs(aggroedMobs) do
+                                    if mob and mob.Parent then
+                                        local mHum = mob:FindFirstChildOfClass("Humanoid")
+                                        local mRoot = mob:FindFirstChild("HumanoidRootPart")
+                                        
+                                        if mHum and mHum.Health > 0 and mRoot then
+                                            aliveCount = aliveCount + 1
+                                            if not targetLook then targetLook = mRoot.Position end
+                                            
+                                            -- Hitbox vergrößern, damit unsere Schläge von oben ankommen
+                                            if mRoot.Size.Y < 20 then
+                                                mRoot.Size = Vector3.new(15, 25, 15)
+                                            end
+                                        end
+                                    end
+                                end
+                                
+                                if aliveCount == 0 then break end -- Alle tot!
+                                
+                                -- Halte dich stabil in der Luft (ohne Anchor!)
+                                if targetLook then
+                                    root.CFrame = CFrame.lookAt(skyPos, Vector3.new(targetLook.X, skyPos.Y, targetLook.Z))
+                                end
+                                root.Velocity = Vector3.new(0, 0, 0)
+                                
+                                PerformAttack()
+                                RunService.Heartbeat:Wait()
+                            end
+                            
+                            -- Nach dem Tod Hitboxen resetten
+                            for _, mob in pairs(aggroedMobs) do
+                                local mRoot = mob and mob:FindFirstChild("HumanoidRootPart")
+                                if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
+                            end
+                        end
+                    end
+                    
                 end
             end
         end
@@ -408,4 +424,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Safe 1v1 Hover Farm Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Kite Farm Loaded!", 4)
