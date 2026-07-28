@@ -27,19 +27,40 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// DYNAMIC NPC & ENEMY SCANNER
-local DynamicNPCs = {}
-if Workspace:FindFirstChild("NPCs") then
-    for _, npc in pairs(Workspace.NPCs:GetChildren()) do
-        if not table.find(DynamicNPCs, npc.Name) then
-            table.insert(DynamicNPCs, npc.Name)
+--// SMART DYNAMIC NPC & ENEMY SCANNER
+local DynamicEnemies = {}
+local DynamicQuests = {}
+
+local function SortNPCs()
+    if Workspace:FindFirstChild("NPCs") then
+        for _, npc in pairs(Workspace.NPCs:GetChildren()) do
+            local hum = npc:FindFirstChildOfClass("Humanoid")
+            if hum then
+                local isQuestNPC = false
+                -- Sucht nach Indizien für Questgeber
+                for _, desc in pairs(npc:GetDescendants()) do
+                    if desc:IsA("ProximityPrompt") or desc.Name:lower():find("quest") or desc.Name:lower():find("dialog") or desc.Name:lower():find("chat") then
+                        isQuestNPC = true
+                        break
+                    end
+                end
+                
+                if isQuestNPC then
+                    if not table.find(DynamicQuests, npc.Name) then table.insert(DynamicQuests, npc.Name) end
+                else
+                    if not table.find(DynamicEnemies, npc.Name) then table.insert(DynamicEnemies, npc.Name) end
+                end
+            end
         end
     end
+    table.sort(DynamicEnemies)
+    table.sort(DynamicQuests)
 end
-table.sort(DynamicNPCs)
-if #DynamicNPCs == 0 then
-    DynamicNPCs = {"Shell's Bandit", "Ash the Tailor", "Tyson", "Gozen", "Corrupt Marine", "Bandit"}
-end
+SortNPCs()
+
+-- Fallbacks falls Map lädt
+if #DynamicEnemies == 0 then DynamicEnemies = {"Shell's Bandit", "Bandit", "Corrupt Marine", "Fishman"} end
+if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson", "Robo", "Gozen"} end
 
 --// RYU CONFIGURATION (GLOBAL STATE)
 local RyuConfig = {
@@ -50,21 +71,21 @@ local RyuConfig = {
     FOVChanger = false, FOVValue = 90,
     ESP = false, ESPTransparency = 50,
     
-    -- GPO Farm
+    -- Sea 1 Farm
     AutoFarm = false,
     AutoQuest = false,
     IsTweening = false, 
-    TargetMob = DynamicNPCs[1] or "Shell's Bandit",
+    TargetMob = DynamicEnemies[1],
     TargetIsland = "Town of Beginnings",
-    TargetNPC = DynamicNPCs[1] or "Ash the Tailor",
+    TargetNPC = DynamicQuests[1],
     TargetWeapon = "Melee",
-    FarmPosition = "Below (Underground)", -- Default auf Untergrund gesetzt
+    FarmPosition = "Below (Underground)", 
     TPMethod = "Ground Tween",
     
     -- Advanced Bypass Settings
     TweenSpeed = 150,       
-    TPDistance = 150,       
-    FarmOffset = 5          
+    TPDistance = 0, -- Auf 0 gesetzt, um Landing TP-Check zu verhindern!
+    FarmOffset = 4.5 -- Optimaler Abstand für Hitbox Expander       
 }
 
 local GPOIslands = {
@@ -123,7 +144,7 @@ local function SmoothTween(targetCFrame, speed)
     root.Anchored = true 
     
     local dist = (root.Position - targetCFrame.Position).Magnitude
-    if dist <= RyuConfig.TPDistance then
+    if dist <= RyuConfig.TPDistance and RyuConfig.TPDistance > 0 then
         root.CFrame = targetCFrame
         root.Anchored = oldAnchor
         RyuConfig.IsTweening = false
@@ -143,7 +164,7 @@ local function SmoothTween(targetCFrame, speed)
             return
         end
         local currentDist = (root.Position - targetCFrame.Position).Magnitude
-        if currentDist <= RyuConfig.TPDistance then
+        if currentDist <= RyuConfig.TPDistance and RyuConfig.TPDistance > 0 then
             tween:Cancel()
             root.CFrame = targetCFrame
             checkLoop:Disconnect()
@@ -153,7 +174,8 @@ local function SmoothTween(targetCFrame, speed)
     tween.Completed:Wait()
     if checkLoop then checkLoop:Disconnect() end
     if root then 
-        root.CFrame = targetCFrame 
+        if RyuConfig.TPDistance <= 0 then root.CFrame = targetCFrame end -- Weiche Landung ohne TP-Snap
+        root.Velocity = Vector3.new(0, 0, 0) -- Anti-Fall Damage Check
         root.Anchored = oldAnchor
     end
     RyuConfig.IsTweening = false 
@@ -171,7 +193,7 @@ local function SkyTween(targetCFrame)
     SmoothTween(targetCFrame, RyuConfig.TweenSpeed)
 end
 
---// TWEEN ENGINE 2: STRICT GROUND TWEEN (Anti-Cheat Safe)
+--// TWEEN ENGINE 2: STRICT GROUND TWEEN
 local function SafeGroundTween(targetCFrame, speed)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -190,7 +212,7 @@ local function SafeGroundTween(targetCFrame, speed)
     local timeVertical = yDist / 14 
     local finalTweenTime = math.max(timeHorizontal, timeVertical)
     
-    if dist <= RyuConfig.TPDistance then
+    if dist <= RyuConfig.TPDistance and RyuConfig.TPDistance > 0 then
         root.CFrame = targetCFrame
         root.Anchored = oldAnchor
         RyuConfig.IsTweening = false
@@ -210,7 +232,7 @@ local function SafeGroundTween(targetCFrame, speed)
             return
         end
         local currentDist = (root.Position - targetCFrame.Position).Magnitude
-        if currentDist <= RyuConfig.TPDistance then
+        if currentDist <= RyuConfig.TPDistance and RyuConfig.TPDistance > 0 then
             tween:Cancel()
             root.CFrame = targetCFrame
             checkLoop:Disconnect()
@@ -220,7 +242,8 @@ local function SafeGroundTween(targetCFrame, speed)
     tween.Completed:Wait()
     if checkLoop then checkLoop:Disconnect() end
     if root then 
-        root.CFrame = targetCFrame 
+        if RyuConfig.TPDistance <= 0 then root.CFrame = targetCFrame end
+        root.Velocity = Vector3.new(0, 0, 0)
         root.Anchored = oldAnchor
     end
     RyuConfig.IsTweening = false 
@@ -496,7 +519,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// 7. POPULATING TABS
+--// 7. POPULATING TABS (SEA 1 & SEA 2)
 --// ============================================================================
 
 local TabBattleRoyale = CreateMainTab("Battle Royale")
@@ -519,26 +542,27 @@ CreateToggle(SecVisuals, "Player ESP", "Shows players through walls", RyuConfig.
 CreateSlider(SecVisuals, "ESP Transparency", 0, 90, RyuConfig.ESPTransparency, function(val) RyuConfig.ESPTransparency = val; if RyuConfig.ESP then ESPModule:UpdateTransparency(val) end end)
 
 -- =======================
--- CATEGORY 2: FARM
+-- CATEGORY: SEA 1
 -- =======================
-local TabFarm = CreateMainTab("Farm")
-local SubLeveling = CreateSubTab(TabFarm, "Leveling")
+local TabSea1 = CreateMainTab("Sea 1")
+local SubLeveling1 = CreateSubTab(TabSea1, "Leveling")
 
-local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
+local SecAutoFarmMain = CreateSection(SubLeveling1, "Farm Controls")
 CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) RyuConfig.AutoFarm = state end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
-local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Configuration")
+local SecAutoFarmConfig = CreateSection(SubLeveling1, "Farm Configuration")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon", GPOWeapons, "TargetWeapon")
-CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicNPCs, "TargetMob")
-CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicNPCs, "TargetNPC")
+CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
+CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
-local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Bypass Settings")
+local SecFarmAdvanced = CreateSection(SubLeveling1, "Advanced Bypass Settings")
 CreateDropdown(SecFarmAdvanced, "Farm Position", FarmPositions, "FarmPosition")
 CreateSlider(SecFarmAdvanced, "Farm Offset / Distance", 0, 35, RyuConfig.FarmOffset, function(val) RyuConfig.FarmOffset = val end)
 CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 400, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
+CreateSlider(SecFarmAdvanced, "Snap TP Range", 0, 20, RyuConfig.TPDistance, function(val) RyuConfig.TPDistance = val end)
 
-local SecTeleports = CreateSection(SubLeveling, "Safe Teleports")
+local SecTeleports = CreateSection(SubLeveling1, "Safe Teleports")
 CreateDropdown(SecTeleports, "Select TP Method", TPMethods, "TPMethod")
 CreateDropdown(SecTeleports, "Select Island", GPOIslands, "TargetIsland")
 
@@ -557,24 +581,17 @@ CreateButton(SecTeleports, "Teleport To Island", function()
     end
 end)
 
-CreateButton(SecTeleports, "Teleport To NPC", function()
-    local target = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
-    if target then
-        local pos = target:IsA("Model") and target:GetPivot() or target.CFrame
-        task.spawn(function()
-            if RyuConfig.TPMethod == "Sky Tween" then
-                SkyTween(pos * CFrame.new(0, 0, 5))
-            else
-                SafeGroundTween(pos * CFrame.new(0, 0, 5), RyuConfig.TweenSpeed)
-            end
-            RyuNotify:Send("Teleport", "Arrived at " .. RyuConfig.TargetNPC, 3)
-        end)
-    end
-end)
+-- =======================
+-- CATEGORY: SEA 2
+-- =======================
+local TabSea2 = CreateMainTab("Sea 2")
+local SubSea2 = CreateSubTab(TabSea2, "Coming Soon")
+local SecComingSoon = CreateSection(SubSea2, "Work in Progress")
+CreateButton(SecComingSoon, "Sea 2 is currently in development", function() end)
 
 
 --// ============================================================================
---// 8. GPO AUTO FARM ENGINE (100% PURE LEGIT CLICKS)
+--// 8. GPO AUTO FARM ENGINE (STRICT GROUND WORKFLOW + LEGIT COMBAT)
 --// ============================================================================
 
 local function GetCurrentQuest()
@@ -620,7 +637,6 @@ task.spawn(function()
                 local npcTarget = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npcTarget then
                     local npcPos = npcTarget:IsA("Model") and npcTarget:GetPivot() or npcTarget.CFrame
-                    -- 100% Sicherer Boden-Tween zur Quest (ohne Anchoring während der Fahrt)
                     SafeGroundTween(npcPos * CFrame.new(0, 5, 5), RyuConfig.TweenSpeed)
                     task.wait(0.5)
                     pcall(function()
@@ -646,17 +662,14 @@ task.spawn(function()
                 local targetRoot = target:FindFirstChild("HumanoidRootPart")
                 if targetRoot then
                     
-                    -- Auto Equip Weapon
                     local weapon = char:FindFirstChild(RyuConfig.TargetWeapon)
                     if not weapon then
                         local packWeap = LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
                         if packWeap then hum:EquipTool(packWeap) end
                     end
                     
-                    -- Sicheres Farm Positioning über der Erde ermitteln
                     local farmPos
                     if RyuConfig.FarmPosition == "Below (Underground)" then
-                        -- Wenn sie unter die Erde wollen, tweenen wir erst ÜBER der Erde hin und droppen dann, um Tween-Banns zu vermeiden
                         local safeTransitPos = targetRoot.CFrame * CFrame.new(0, 5, 0)
                         SafeGroundTween(safeTransitPos, RyuConfig.TweenSpeed)
                         farmPos = targetRoot.CFrame * CFrame.new(0, -RyuConfig.FarmOffset, 0)
@@ -672,19 +685,26 @@ task.spawn(function()
                         SafeGroundTween(farmPos, RyuConfig.TweenSpeed)
                     end
                     
-                    -- Attack Spam & Legit Aiming
-                    while target and target.Parent and targetRoot and targetRoot.Parent and RyuConfig.AutoFarm do
-                        -- Positions-Update (ohne Anchoring!)
+                    -- LOKALER HITBOX EXPANDER (Garantierte Treffer ohne AC-Ban)
+                    if targetRoot.Size.Y < 8 then
+                        targetRoot.Size = Vector3.new(8, 8, 8)
+                        targetRoot.CanCollide = false
+                    end
+
+                    -- Attack Spam & Legit Aiming (KEIN CAMERA LOCK MEHR!)
+                    while target and target.Parent and targetRoot and targetRoot.Parent and RyuConfig.AutoFarm and hum.Health > 0 do
+                        -- Charakters Körper (nicht Kamera!) zum Feind drehen
+                        local lookPos = Vector3.new(targetRoot.Position.X, root.Position.Y, targetRoot.Position.Z)
+                        
                         if RyuConfig.FarmPosition == "Below (Underground)" then
-                            root.CFrame = targetRoot.CFrame * CFrame.new(0, -RyuConfig.FarmOffset, 0)
+                            root.CFrame = CFrame.lookAt((targetRoot.CFrame * CFrame.new(0, -RyuConfig.FarmOffset, 0)).Position, lookPos)
+                        else
+                            root.CFrame = CFrame.lookAt(root.Position, lookPos)
                         end
+                        
                         root.Velocity = Vector3.new(0,0,0)
                         
-                        -- Auto Aim (LookAt)
-                        camera.CFrame = CFrame.new(camera.CFrame.Position, targetRoot.Position)
-                        
                         pcall(function()
-                            -- Legit Cooldown (0.4s) für Schläge, um Banns zu vermeiden
                             if tick() - lastAttackTick > 0.4 then 
                                 lastAttackTick = tick()
                                 VirtualUser:CaptureController()
@@ -693,6 +713,9 @@ task.spawn(function()
                         end)
                         task.wait(0.1)
                     end
+                    
+                    -- Hitbox zurücksetzen wenn tot
+                    if targetRoot then targetRoot.Size = Vector3.new(2, 2, 1) end
                 end
             end
         end
@@ -703,4 +726,4 @@ end)
 --// 9. INITIALIZATION / STARTUP
 --// ============================================================================
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "Battle Royale & GPO Edition loaded! Stay safe.", 4)
+RyuNotify:Send("RYU HUB", "Sea 1 Edition loaded! Scanning NPCs...", 4)
