@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - ANTI-FLING PHYSICS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - PERFECT CONTROL)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -61,6 +61,7 @@ if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
 --// RYU CONFIGURATION
 local RyuConfig = {
     SpeedHack = false, SpeedValue = 35, 
+    Noclip = false, -- NEUER NOCLIP TOGGLE
     
     AutoFarm = false,
     AutoQuest = false,
@@ -72,6 +73,7 @@ local RyuConfig = {
     TargetWeapon = "Combat",
     
     TweenSpeed = 55, 
+    KillHeight = 7, -- NEU: Slider-Wert für die Kill-Höhe
 }
 
 local GPOIslands = {
@@ -266,7 +268,7 @@ local function CreateSlider(section, text, min, max, default, callback)
     UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
 end
 
---// ANTI-FLING HOVER SYSTEM (BodyPosition statt starrer CFrame/Velocity Updates)
+--// ANTI-FLING HOVER SYSTEM
 local function ToggleHover(state)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -277,7 +279,6 @@ local function ToggleHover(state)
         if not bp then
             bp = Instance.new("BodyPosition")
             bp.Name = "RyuHover"
-            -- Hält den Charakter sanft in der Luft fest, gibt aber bei M1 leicht nach (Anti-Fling)
             bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
             bp.D = 500
             bp.P = 50000
@@ -299,11 +300,9 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
-
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
     RyuConfig.DynamicHeight = state 
 end)
-
 CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) 
     RyuConfig.AutoQuest = state 
 end)
@@ -316,6 +315,18 @@ CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC"
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
 CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) 
     RyuConfig.TweenSpeed = val 
+end)
+-- NEU: Kill Height Offset Slider (Minus für Underground, Plus für Himmel)
+CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) 
+    RyuConfig.KillHeight = val 
+end)
+
+local TabPlayer = CreateMainTab("Player")
+local SubMovement = CreateSubTab(TabPlayer, "Movement")
+local SecMovement = CreateSection(SubMovement, "Movement Settings")
+-- NEU: Globaler Noclip Toggle
+CreateToggle(SecMovement, "Noclip (Walk through walls)", RyuConfig.Noclip, function(state) 
+    RyuConfig.Noclip = state 
 end)
 
 --// ============================================================================
@@ -387,7 +398,6 @@ local function SafeTween(targetCFrame)
         
         local intermediatePos = startPos:Lerp(targetPos, alpha)
         
-        -- Updaten des BodyPosition statt hartem CFrame zwingen (falls aktiv)
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = intermediatePos end
         
@@ -400,19 +410,22 @@ local function SafeTween(targetCFrame)
     root.CFrame = targetCFrame
 end
 
+-- FIX: Globales, robustes Noclip-System
 RunService.Stepped:Connect(function()
-    if RyuConfig.AutoFarm or RyuConfig.AutoQuest then
+    if RyuConfig.Noclip or RyuConfig.AutoFarm or RyuConfig.AutoQuest then
         local char = LocalPlayer.Character
         if char then
             for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") then v.CanCollide = false end
+                if v:IsA("BasePart") and v.CanCollide then 
+                    v.CanCollide = false 
+                end
             end
         end
     end
 end)
 
 --// ============================================================================
---// GPO MASTER KITE FARM (7 STUDS + DYNAMIC ANTI-HIT + NO FLING)
+--// GPO MASTER KITE FARM (WITH SLIDER HEIGHT & AUTO QUEST FIX)
 --// ============================================================================
 local function GetCurrentQuest()
     local q = LocalPlayer:FindFirstChild("Quest")
@@ -423,20 +436,40 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         
+        -- FIX: Verbessertes AutoQuest (Nutzt ProximityPrompt + Remotes aus der Nähe)
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
                 local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npc then
                     ToggleHover(true)
                     local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
-                    SafeTween(npcPos * CFrame.new(0, 0, 5))
-                    local events = ReplicatedStorage:FindFirstChild("Events")
-                    if events and events:FindFirstChild("Quest") then 
-                        pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
+                    -- Fliege ganz nah heran (3 Studs statt 5) und schaue NPC an
+                    local char = LocalPlayer.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
+                    if root then
+                        SafeTween(npcPos * CFrame.new(0, 0, 3))
+                        root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
+                        task.wait(0.3)
+                        
+                        -- Löse ProximityPrompt aus, falls vorhanden (GPO nutzt das oft!)
+                        if fireproximityprompt then
+                            for _, p in pairs(npc:GetDescendants()) do
+                                if p:IsA("ProximityPrompt") then
+                                    fireproximityprompt(p)
+                                end
+                            end
+                        end
                         task.wait(0.2)
-                        pcall(function() events.Quest:InvokeServer({{"npcChat", true}}) end)
-                        task.wait(0.2)
-                        pcall(function() events.Quest:InvokeServer("takequest") end)
+                        
+                        -- Feure die Remotes als Fallback ab
+                        local events = ReplicatedStorage:FindFirstChild("Events")
+                        if events and events:FindFirstChild("Quest") then 
+                            pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
+                            pcall(function() events.Quest:InvokeServer({{"npcChat", true}}) end)
+                            task.wait(0.2)
+                            pcall(function() events.Quest:InvokeServer("takequest") end)
+                            pcall(function() events.Quest:InvokeServer("acceptquest") end)
+                        end
                     end
                 end
             end
@@ -488,7 +521,6 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
                                 if tick() - timeout > 3 then break end 
                                 
-                                -- BodyPosition hält die Position, CFrame dreht nur den Charakter
                                 local bp = root:FindFirstChild("RyuHover")
                                 if bp then bp.Position = mRoot.Position + (flatDir.Unit * 2) end
                                 root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
@@ -509,7 +541,8 @@ task.spawn(function()
                         
                         local firstMobRoot = aggroedMobs[1]:FindFirstChild("HumanoidRootPart")
                         if firstMobRoot then
-                            local currentHeightOffset = 7 
+                            -- Greift auf den Slider-Wert zurück (z.B. 7 oder -10)
+                            local currentHeightOffset = RyuConfig.KillHeight 
                             local skyPos = firstMobRoot.Position + Vector3.new(0, currentHeightOffset, 0)
                             
                             SafeTween(CFrame.new(skyPos))
@@ -555,7 +588,6 @@ task.spawn(function()
                                 
                                 if aliveCount == 0 then break end 
                                 
-                                -- Update BodyPosition (Verhindert M1 Fling)
                                 local bp = root:FindFirstChild("RyuHover")
                                 if bp then bp.Position = skyPos end
                                 
@@ -581,4 +613,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Anti-Fling Physics Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Fully Custom Kill Height & Quest Fix Active!", 4)
