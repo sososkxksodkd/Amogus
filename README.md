@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC BYPASS / UI TOUCH FIXED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -9,6 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -75,14 +76,16 @@ local RyuConfig = {
     FarmPosition = "Above (Max 12)", 
     TPMethod = "Sky Tween", 
     
-    TweenSpeed = 150,       
+    TweenSpeed = 250, -- Wieder auf schnellen PC-Standard angehoben!
     FarmOffset = 10 
 }
 
 local GPOIslands = {
     "Town of Beginnings", "Sandora", "Shell's Town", "Orange Town", 
     "Restaurant Baratie", "Roca Island", "Sphinx Island", "Marine Fort F-1", 
-    "Fishman Island", "Colosseum", "Land of the Sky", "Marine Base G-1"
+    "Fishman Island", "Colosseum", "Land of the Sky", "Marine Base G-1",
+    "Logue Town", "Kori Island", "Island Of Zou", "Gravito's Fort",
+    "Shark Park"
 }
 
 local GPOWeapons = { "Melee", "Sword", "Katana", "Rifle", "Pistol" }
@@ -160,7 +163,7 @@ function RyuNotify:Send(title, text, duration)
     end)
 end
 
---// UI SETUP (WITH TOUCH SUPPORT RESTORED)
+--// UI SETUP
 local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), CloudLight = Color3.fromRGB(255, 255, 255), CloudDark = Color3.fromRGB(60, 60, 65), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50) }
 local MainSize = UDim2.new(0, math.min(750, camera.ViewportSize.X - 40), 0, math.min(480, camera.ViewportSize.Y - 40))
 local SidebarWidth = 160
@@ -331,28 +334,28 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// 7. NEW TABS: LEVELING -> SEA 1 / SEA 2
+--// 7. TABS: FARM -> LEVELING
 --// ============================================================================
 
-local TabLeveling = CreateMainTab("Leveling")
-local SubSea1 = CreateSubTab(TabLeveling, "Sea 1")
+local TabFarm = CreateMainTab("Farm")
+local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
-local SecAutoFarmMain = CreateSection(SubSea1, "Farm Controls")
+local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
 CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
-local SecAutoFarmConfig = CreateSection(SubSea1, "Farm Configuration")
+local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Configuration")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
-local SecFarmAdvanced = CreateSection(SubSea1, "Advanced Settings")
+local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Settings")
 CreateDropdown(SecFarmAdvanced, "Farm Position", FarmPositions, "FarmPosition")
-CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 200, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
+CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 400, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 
-local SecTeleports = CreateSection(SubSea1, "Safe Teleports")
+local SecTeleports = CreateSection(SubLeveling, "Safe Teleports")
 CreateDropdown(SecTeleports, "Select TP Method", TPMethods, "TPMethod")
 CreateDropdown(SecTeleports, "Select Island", GPOIslands, "TargetIsland")
 
@@ -378,10 +381,6 @@ CreateButton(SecTeleports, "Teleport To NPC", function()
     end
 end)
 
-local SubSea2 = CreateSubTab(TabLeveling, "Sea 2")
-local SecComingSoon = CreateSection(SubSea2, "Work in Progress")
-CreateButton(SecComingSoon, "Sea 2 is currently in development", function() end)
-
 local TabBattleRoyale = CreateMainTab("Battle Royale")
 local SubCharacter = CreateSubTab(TabBattleRoyale, "Character")
 
@@ -398,11 +397,18 @@ local function GetInputCallbacks()
         local success, module = pcall(function() return require(backpack.InputCallbacks) end)
         if success and module then return module end
     end
+    
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("InputCallbacks") then
+        local success, module = pcall(function() return require(char.InputCallbacks) end)
+        if success and module then return module end
+    end
+    
     return nil
 end
 
 --// ============================================================================
---// SAFE PC TWEEN ENGINE
+--// FAST & SAFE PC TWEEN ENGINE (NATIVE TWEENSERVICE)
 --// ============================================================================
 local function CustomSafeTween(targetCFrame)
     local char = LocalPlayer.Character
@@ -410,46 +416,39 @@ local function CustomSafeTween(targetCFrame)
     if not root then return end
 
     RyuConfig.IsTweening = true 
-    local reached = false
+    local oldAnchor = root.Anchored
+    root.Anchored = true 
+    
+    local currentPos = root.Position
+    local targetPos = targetCFrame.Position
+    
+    local dist = (targetPos - currentPos).Magnitude
+    local yDist = targetPos.Y - currentPos.Y
+    
+    local speed = RyuConfig.TweenSpeed or 250
+    local timeHorizontal = dist / speed
+    local timeVertical = 0
+    
+    -- Absolute Y-Axis Limits for Anti-Cheat (14 UP / 60 DOWN)
+    if yDist > 0 then
+        timeVertical = yDist / 14 
+    elseif yDist < 0 then
+        timeVertical = math.abs(yDist) / 60 
+    end
+    
+    local finalTime = math.max(timeHorizontal, timeVertical)
+    if dist < 5 then finalTime = 0 end
 
-    local connection
-    connection = RunService.Heartbeat:Connect(function(dt)
-        if not char or not root or not root.Parent then
-            reached = true
-            return
-        end
-        
-        dt = math.min(dt, 0.05)
-        local currentPos = root.Position
-        local targetPos = targetCFrame.Position
-        local dist = (targetPos - currentPos).Magnitude
-
-        if dist <= 3 then
-            reached = true
-            return
-        end
-
-        local dir = (targetPos - currentPos).Unit
-        local stepX = dir.X * RyuConfig.TweenSpeed * dt
-        local stepZ = dir.Z * RyuConfig.TweenSpeed * dt
-        local stepY = dir.Y * RyuConfig.TweenSpeed * dt
-
-        if stepY > 0 then stepY = math.min(stepY, 14 * dt)
-        elseif stepY < 0 then stepY = math.min(stepY, -60 * dt) end
-
-        local stepVec = Vector3.new(stepX, stepY, stepZ)
-        if stepVec.Magnitude > 25 then stepVec = stepVec.Unit * 25 end
-
-        root.CFrame = root.CFrame + stepVec
-        root.Velocity = Vector3.new(0, 0, 0)
-    end)
-
-    repeat task.wait() until reached
-    if connection then connection:Disconnect() end
+    local tweenInfo = TweenInfo.new(finalTime, Enum.EasingStyle.Linear)
+    local tween = TweenService:Create(root, tweenInfo, {CFrame = targetCFrame})
+    
+    tween:Play()
+    tween.Completed:Wait()
 
     if root then 
         root.Velocity = Vector3.new(0, 0, 0)
-        task.wait(0.1) 
+        task.wait(0.05) -- Soft Stop (Verhindert TP Check Snap)
+        root.Anchored = oldAnchor
     end
     RyuConfig.IsTweening = false 
 end
@@ -461,10 +460,48 @@ local function SkyTween(targetCFrame)
     
     local upPos = root.Position + Vector3.new(0, 300, 0)
     CustomSafeTween(CFrame.new(upPos))
+    
     local overPos = Vector3.new(targetCFrame.Position.X, upPos.Y, targetCFrame.Position.Z)
     CustomSafeTween(CFrame.new(overPos))
+    
     CustomSafeTween(targetCFrame)
 end
+
+--// ============================================================================
+--// ANTI-CHEAT PLATFORM & NOCLIP
+--// ============================================================================
+RunService.Stepped:Connect(function()
+    if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in pairs(char:GetDescendants()) do
+                if v:IsA("BasePart") then v.CanCollide = false end
+            end
+        end
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            local plat = Workspace:FindFirstChild("RyuSafePlatform")
+            if not plat then
+                plat = Instance.new("Part", Workspace)
+                plat.Name = "RyuSafePlatform"
+                plat.Size = Vector3.new(50, 5, 50)
+                plat.Anchored = true
+                plat.Transparency = 1
+                plat.CanCollide = true 
+            end
+            plat.CFrame = root.CFrame * CFrame.new(0, -3.5, 0)
+        end
+    else
+        local plat = Workspace:FindFirstChild("RyuSafePlatform")
+        if plat then plat:Destroy() end
+    end
+end)
 
 --// ============================================================================
 --// GPO AUTO FARM ENGINE
@@ -572,6 +609,9 @@ task.spawn(function()
                         pcall(function()
                             if inputModule and inputModule.Utils.canAutoM1() then
                                 inputModule.Callbacks.Attack:PC_Activate()
+                            else
+                                VirtualUser:CaptureController()
+                                VirtualUser:ClickButton1(Vector2.new())
                             end
                         end)
                         
@@ -584,4 +624,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Touch UI Restored.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Fast Tweening Active.", 4)
