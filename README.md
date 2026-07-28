@@ -61,6 +61,9 @@ if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
 local RyuConfig = {
     SpeedHack = false, SpeedValue = 35, 
     HighJump = false, JumpValue = 50, 
+    LowGravity = false, GravityValue = 100,
+    FOVChanger = false, FOVValue = 90,
+    ESP = false, ESPTransparency = 50,
     
     AutoFarm = false,
     AutoQuest = false,
@@ -85,6 +88,31 @@ local GPOIslands = {
 local GPOWeapons = { "Melee", "Sword", "Katana", "Rifle", "Pistol" }
 local FarmPositions = { "Above (Max 12)", "Behind (Safe)" }
 local TPMethods = { "Sky Tween", "Ground Tween" }
+
+--// ESP MODULE
+local ESPModule = {}
+function ESPModule:Toggle(state) RyuConfig.ESP = state end
+function ESPModule:UpdateTransparency(val) RyuConfig.ESPTransparency = val end
+
+--// PLAYER MODS (ENFORCER)
+local PlayerMods = { SpeedEnabled = false, JumpEnabled = false, GravityEnabled = false, FOVEnabled = false, EnforceLoop = nil }
+function PlayerMods:StartEnforcing()
+    if PlayerMods.EnforceLoop then return end
+    PlayerMods.EnforceLoop = RunService.Heartbeat:Connect(function()
+        local character = LocalPlayer.Character
+        local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+        if not humanoid then return end
+        if PlayerMods.SpeedEnabled and humanoid.WalkSpeed ~= RyuConfig.SpeedValue then humanoid.WalkSpeed = RyuConfig.SpeedValue end
+        if PlayerMods.JumpEnabled then humanoid.UseJumpPower = true; if humanoid.JumpPower ~= RyuConfig.JumpValue then humanoid.JumpPower = RyuConfig.JumpValue end end
+        if PlayerMods.GravityEnabled and Workspace.Gravity ~= RyuConfig.GravityValue then Workspace.Gravity = RyuConfig.GravityValue end
+        if PlayerMods.FOVEnabled and camera.FieldOfView ~= RyuConfig.FOVValue then camera.FieldOfView = RyuConfig.FOVValue end
+    end)
+end
+
+function PlayerMods:SetSpeed(v, enabled) PlayerMods.SpeedEnabled = enabled; PlayerMods:StartEnforcing(); if not enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.WalkSpeed = 16 end end
+function PlayerMods:SetJumpPower(v, enabled) PlayerMods.JumpEnabled = enabled; PlayerMods:StartEnforcing(); if not enabled and LocalPlayer.Character and LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then LocalPlayer.Character.Humanoid.JumpPower = 50 end end
+function PlayerMods:SetGravity(v, enabled) PlayerMods.GravityEnabled = enabled; PlayerMods:StartEnforcing(); if not enabled then Workspace.Gravity = 196.2 end end
+function PlayerMods:SetFOV(v, enabled) PlayerMods.FOVEnabled = enabled; PlayerMods:StartEnforcing(); if not enabled then camera.FieldOfView = 70 end end
 
 --// RAINBOW OVERHEAD TITLE
 local function AddRainbowTag(character)
@@ -117,115 +145,6 @@ local function AddRainbowTag(character)
 end
 if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
-
---// MODULE HOOKING: PC COMBAT ENGINE (Bypasses AC perfectly)
-local function GetInputCallbacks()
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack and backpack:FindFirstChild("InputCallbacks") then
-        local success, module = pcall(function() return require(backpack.InputCallbacks) end)
-        if success and module then return module end
-    end
-    return nil
-end
-
---// SAFE PC TWEEN ENGINE
-local function CustomSafeTween(targetCFrame)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    RyuConfig.IsTweening = true 
-    local reached = false
-
-    local connection
-    connection = RunService.Heartbeat:Connect(function(dt)
-        if not char or not root or not root.Parent then
-            reached = true
-            return
-        end
-        
-        dt = math.min(dt, 0.05)
-        local currentPos = root.Position
-        local targetPos = targetCFrame.Position
-        local dist = (targetPos - currentPos).Magnitude
-
-        -- Soft Landing (verhindert TP Check Kick am Ende)
-        if dist <= 3 then
-            reached = true
-            return
-        end
-
-        local dir = (targetPos - currentPos).Unit
-        local stepX = dir.X * RyuConfig.TweenSpeed * dt
-        local stepZ = dir.Z * RyuConfig.TweenSpeed * dt
-        local stepY = dir.Y * RyuConfig.TweenSpeed * dt
-
-        -- PC Hard Limits (17 Studs/s Y-Axis, 36 Studs/Frame TP)
-        if stepY > 0 then stepY = math.min(stepY, 14 * dt)
-        elseif stepY < 0 then stepY = math.min(stepY, -60 * dt) end
-
-        local stepVec = Vector3.new(stepX, stepY, stepZ)
-        if stepVec.Magnitude > 25 then stepVec = stepVec.Unit * 25 end
-
-        root.CFrame = root.CFrame + stepVec
-        root.Velocity = Vector3.new(0, 0, 0)
-    end)
-
-    repeat task.wait() until reached
-    if connection then connection:Disconnect() end
-
-    if root then 
-        root.Velocity = Vector3.new(0, 0, 0)
-        task.wait(0.1) -- Soft Landing Pause
-    end
-    RyuConfig.IsTweening = false 
-end
-
-local function SkyTween(targetCFrame)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    local upPos = root.Position + Vector3.new(0, 300, 0)
-    CustomSafeTween(CFrame.new(upPos))
-    local overPos = Vector3.new(targetCFrame.Position.X, upPos.Y, targetCFrame.Position.Z)
-    CustomSafeTween(CFrame.new(overPos))
-    CustomSafeTween(targetCFrame)
-end
-
---// ANTI-CHEAT PLATFORM & NOCLIP
-RunService.Stepped:Connect(function()
-    if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
-        local char = LocalPlayer.Character
-        if char then
-            for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") then v.CanCollide = false end
-            end
-        end
-    end
-end)
-
-RunService.Heartbeat:Connect(function()
-    if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if root then
-            local plat = Workspace:FindFirstChild("RyuSafePlatform")
-            if not plat then
-                plat = Instance.new("Part", Workspace)
-                plat.Name = "RyuSafePlatform"
-                plat.Size = Vector3.new(50, 5, 50)
-                plat.Anchored = true
-                plat.Transparency = 1
-                plat.CanCollide = true 
-            end
-            plat.CFrame = root.CFrame * CFrame.new(0, -3.5, 0)
-        end
-    else
-        local plat = Workspace:FindFirstChild("RyuSafePlatform")
-        if plat then plat:Destroy() end
-    end
-end)
 
 --// NOTIFICATION SYSTEM
 local NotificationContainer = Instance.new("Frame")
@@ -318,7 +237,6 @@ Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInp
 Topbar.InputChanged:Connect(function(input) if mDragging and input.UserInputType == Enum.UserInputType.MouseMovement then local delta = input.Position - mDragStart; MainFrame.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y) end end)
 Topbar.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 then mDragging = false end end)
 
-local Line = Instance.new("Frame", MainFrame); Line.Size = UDim2.new(1, -40, 0, 1); Line.Position = UDim2.new(0, 20, 0, 65); Line.BackgroundColor3 = Theme.Stroke; Line.BorderSizePixel = 0
 local Sidebar = Instance.new("ScrollingFrame", MainFrame); Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0
 local SideLayout = Instance.new("UIListLayout", Sidebar); SideLayout.Padding = UDim.new(0, 6); SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left; SideLayout.SortOrder = Enum.SortOrder.LayoutOrder
 local ContentContainer = Instance.new("Frame", MainFrame); ContentContainer.Size = UDim2.new(1, -(SidebarWidth + 25), 1, -85); ContentContainer.Position = UDim2.new(0, SidebarWidth + 15, 0, 75); ContentContainer.BackgroundTransparency = 1
@@ -440,28 +358,28 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// 7. NEW TABS: FARM -> LEVELING -> SEA 1 / SEA 2
+--// 7. NEW TABS: LEVELING -> SEA 1 / SEA 2
 --// ============================================================================
 
-local TabFarm = CreateMainTab("Farm")
-local SubLeveling1 = CreateSubTab(TabFarm, "Leveling - Sea 1")
+local TabLeveling = CreateMainTab("Leveling")
+local SubSea1 = CreateSubTab(TabLeveling, "Sea 1")
 
-local SecAutoFarmMain = CreateSection(SubLeveling1, "Farm Controls")
+local SecAutoFarmMain = CreateSection(SubSea1, "Farm Controls")
 CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
-local SecAutoFarmConfig = CreateSection(SubLeveling1, "Farm Configuration")
+local SecAutoFarmConfig = CreateSection(SubSea1, "Farm Configuration")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
-local SecFarmAdvanced = CreateSection(SubLeveling1, "Advanced Settings")
+local SecFarmAdvanced = CreateSection(SubSea1, "Advanced Settings")
 CreateDropdown(SecFarmAdvanced, "Farm Position", FarmPositions, "FarmPosition")
 CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 200, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 
-local SecTeleports = CreateSection(SubLeveling1, "Safe Teleports")
+local SecTeleports = CreateSection(SubSea1, "Safe Teleports")
 CreateDropdown(SecTeleports, "Select TP Method", TPMethods, "TPMethod")
 CreateDropdown(SecTeleports, "Select Island", GPOIslands, "TargetIsland")
 
@@ -487,14 +405,97 @@ CreateButton(SecTeleports, "Teleport To NPC", function()
     end
 end)
 
-local SubSea2 = CreateSubTab(TabFarm, "Leveling - Sea 2")
+local SubSea2 = CreateSubTab(TabLeveling, "Sea 2")
 local SecComingSoon = CreateSection(SubSea2, "Work in Progress")
 CreateButton(SecComingSoon, "Sea 2 is currently in development", function() end)
 
---// ============================================================================
---// 8. PC EXCLUSIVE GPO AUTO FARM ENGINE (USING NATIVE GAME CODE)
---// ============================================================================
+local TabBattleRoyale = CreateMainTab("Battle Royale")
+local SubCharacter = CreateSubTab(TabBattleRoyale, "Character")
 
+local SecMovement = CreateSection(SubCharacter, "Movement Settings")
+CreateToggle(SecMovement, "Speed Hack", "Locks walk speed", RyuConfig.SpeedHack, function(state) RyuConfig.SpeedHack = state; PlayerMods:SetSpeed(RyuConfig.SpeedValue, state) end)
+CreateSlider(SecMovement, "Speed Value", 16, 150, RyuConfig.SpeedValue, function(val) RyuConfig.SpeedValue = val; if RyuConfig.SpeedHack then PlayerMods:SetSpeed(val, true) end end)
+
+--// ============================================================================
+--// MODULE HOOKING: PC COMBAT ENGINE (Bypasses AC perfectly)
+--// ============================================================================
+local function GetInputCallbacks()
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack and backpack:FindFirstChild("InputCallbacks") then
+        local success, module = pcall(function() return require(backpack.InputCallbacks) end)
+        if success and module then return module end
+    end
+    return nil
+end
+
+--// ============================================================================
+--// SAFE PC TWEEN ENGINE
+--// ============================================================================
+local function CustomSafeTween(targetCFrame)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    RyuConfig.IsTweening = true 
+    local reached = false
+
+    local connection
+    connection = RunService.Heartbeat:Connect(function(dt)
+        if not char or not root or not root.Parent then
+            reached = true
+            return
+        end
+        
+        dt = math.min(dt, 0.05)
+        local currentPos = root.Position
+        local targetPos = targetCFrame.Position
+        local dist = (targetPos - currentPos).Magnitude
+
+        if dist <= 3 then
+            reached = true
+            return
+        end
+
+        local dir = (targetPos - currentPos).Unit
+        local stepX = dir.X * RyuConfig.TweenSpeed * dt
+        local stepZ = dir.Z * RyuConfig.TweenSpeed * dt
+        local stepY = dir.Y * RyuConfig.TweenSpeed * dt
+
+        if stepY > 0 then stepY = math.min(stepY, 14 * dt)
+        elseif stepY < 0 then stepY = math.min(stepY, -60 * dt) end
+
+        local stepVec = Vector3.new(stepX, stepY, stepZ)
+        if stepVec.Magnitude > 25 then stepVec = stepVec.Unit * 25 end
+
+        root.CFrame = root.CFrame + stepVec
+        root.Velocity = Vector3.new(0, 0, 0)
+    end)
+
+    repeat task.wait() until reached
+    if connection then connection:Disconnect() end
+
+    if root then 
+        root.Velocity = Vector3.new(0, 0, 0)
+        task.wait(0.1) 
+    end
+    RyuConfig.IsTweening = false 
+end
+
+local function SkyTween(targetCFrame)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local upPos = root.Position + Vector3.new(0, 300, 0)
+    CustomSafeTween(CFrame.new(upPos))
+    local overPos = Vector3.new(targetCFrame.Position.X, upPos.Y, targetCFrame.Position.Z)
+    CustomSafeTween(CFrame.new(overPos))
+    CustomSafeTween(targetCFrame)
+end
+
+--// ============================================================================
+--// GPO AUTO FARM ENGINE
+--// ============================================================================
 local function GetCurrentQuest()
     local playerQuestData = LocalPlayer:FindFirstChild("Quest")
     if playerQuestData and playerQuestData:FindFirstChild("CurrentQuest") then
@@ -524,7 +525,6 @@ local function GetGPOMob(mobName)
     return closestTarget
 end
 
--- Workflow Loop
 task.spawn(function()
     while true do
         task.wait(0.2)
@@ -554,7 +554,7 @@ task.spawn(function()
             end
         end
 
-        -- 2. PC Auto Farm Loop (MODULE HOOKING)
+        -- 2. Auto Farm Loop
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local target = GetGPOMob(RyuConfig.TargetMob)
             local char = LocalPlayer.Character
@@ -585,10 +585,8 @@ task.spawn(function()
                         CustomSafeTween(farmPos)
                     end
                     
-                    -- Lade das PC Combat Modul
                     local inputModule = GetInputCallbacks()
 
-                    -- Attack Spam
                     while target and target.Parent and targetRoot and targetRoot.Parent and RyuConfig.AutoFarm and hum.Health > 0 do
                         if (root.Position - targetRoot.Position).Magnitude > (RyuConfig.FarmOffset + 25) then
                             break
@@ -598,7 +596,6 @@ task.spawn(function()
                         root.CFrame = CFrame.lookAt(root.Position, lookPos)
                         root.Velocity = Vector3.new(0,0,0)
                         
-                        -- Nutze die GPO-Interne PC Funktion!
                         pcall(function()
                             if inputModule and inputModule.Utils.canAutoM1() then
                                 inputModule.Callbacks.Attack:PC_Activate()
