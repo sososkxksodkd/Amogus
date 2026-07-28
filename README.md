@@ -76,7 +76,7 @@ local RyuConfig = {
     FarmPosition = "Above (Max 12)", 
     TPMethod = "Sky Tween", 
     
-    TweenSpeed = 250, -- Wieder auf schnellen PC-Standard angehoben!
+    TweenSpeed = 250,       
     FarmOffset = 10 
 }
 
@@ -334,28 +334,28 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// 7. TABS: FARM -> LEVELING
+--// 7. NEW TABS: FARM -> LEVELING -> SEA 1 / SEA 2
 --// ============================================================================
 
 local TabFarm = CreateMainTab("Farm")
-local SubLeveling = CreateSubTab(TabFarm, "Leveling")
+local SubLeveling1 = CreateSubTab(TabFarm, "Leveling - Sea 1")
 
-local SecAutoFarmMain = CreateSection(SubLeveling, "Farm Controls")
+local SecAutoFarmMain = CreateSection(SubLeveling1, "Farm Controls")
 CreateToggle(SecAutoFarmMain, "Auto Farm", "Tweens safely to enemy & auto attacks", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", "Automatically takes quests", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
-local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Configuration")
+local SecAutoFarmConfig = CreateSection(SubLeveling1, "Farm Configuration")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
-local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Settings")
+local SecFarmAdvanced = CreateSection(SubLeveling1, "Advanced Settings")
 CreateDropdown(SecFarmAdvanced, "Farm Position", FarmPositions, "FarmPosition")
 CreateSlider(SecFarmAdvanced, "Tween Speed", 50, 400, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 
-local SecTeleports = CreateSection(SubLeveling, "Safe Teleports")
+local SecTeleports = CreateSection(SubLeveling1, "Safe Teleports")
 CreateDropdown(SecTeleports, "Select TP Method", TPMethods, "TPMethod")
 CreateDropdown(SecTeleports, "Select Island", GPOIslands, "TargetIsland")
 
@@ -380,6 +380,10 @@ CreateButton(SecTeleports, "Teleport To NPC", function()
         end)
     end
 end)
+
+local SubSea2 = CreateSubTab(TabFarm, "Leveling - Sea 2")
+local SecComingSoon = CreateSection(SubSea2, "Work in Progress")
+CreateButton(SecComingSoon, "Sea 2 is currently in development", function() end)
 
 local TabBattleRoyale = CreateMainTab("Battle Royale")
 local SubCharacter = CreateSubTab(TabBattleRoyale, "Character")
@@ -408,7 +412,7 @@ local function GetInputCallbacks()
 end
 
 --// ============================================================================
---// FAST & SAFE PC TWEEN ENGINE (NATIVE TWEENSERVICE)
+--// FAST & SAFE PC TWEEN ENGINE (INSTANT UP-TP)
 --// ============================================================================
 local function CustomSafeTween(targetCFrame)
     local char = LocalPlayer.Character
@@ -429,7 +433,6 @@ local function CustomSafeTween(targetCFrame)
     local timeHorizontal = dist / speed
     local timeVertical = 0
     
-    -- Absolute Y-Axis Limits for Anti-Cheat (14 UP / 60 DOWN)
     if yDist > 0 then
         timeVertical = yDist / 14 
     elseif yDist < 0 then
@@ -447,7 +450,7 @@ local function CustomSafeTween(targetCFrame)
 
     if root then 
         root.Velocity = Vector3.new(0, 0, 0)
-        task.wait(0.05) -- Soft Stop (Verhindert TP Check Snap)
+        task.wait(0.05) 
         root.Anchored = oldAnchor
     end
     RyuConfig.IsTweening = false 
@@ -458,12 +461,17 @@ local function SkyTween(targetCFrame)
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
+    -- INSTANT TP NACH OBEN (Überspringt das nervig lange Warten beim Aufstieg)
     local upPos = root.Position + Vector3.new(0, 300, 0)
-    CustomSafeTween(CFrame.new(upPos))
+    root.CFrame = CFrame.new(upPos)
+    root.Velocity = Vector3.new(0, 0, 0)
+    task.wait(0.1) -- Kurz warten für sichere Server-Synchronisation
     
+    -- SCHNELLER TWEEN ZUM ZIEL
     local overPos = Vector3.new(targetCFrame.Position.X, upPos.Y, targetCFrame.Position.Z)
     CustomSafeTween(CFrame.new(overPos))
     
+    -- SICHERER TWEEN NACH UNTEN
     CustomSafeTween(targetCFrame)
 end
 
@@ -504,7 +512,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 --// ============================================================================
---// GPO AUTO FARM ENGINE
+--// GPO AUTO FARM ENGINE (WITH HITBOX EXPANDER)
 --// ============================================================================
 local function GetCurrentQuest()
     local playerQuestData = LocalPlayer:FindFirstChild("Quest")
@@ -602,6 +610,12 @@ task.spawn(function()
                             break
                         end
                         
+                        -- LOKALER HITBOX EXPANDER (Sorgt für 100% Treffer aus der Luft!)
+                        if targetRoot.Size.Y < 20 then
+                            targetRoot.Size = Vector3.new(25, 25, 25)
+                            targetRoot.CanCollide = false
+                        end
+                        
                         local lookPos = Vector3.new(targetRoot.Position.X, root.Position.Y, targetRoot.Position.Z)
                         root.CFrame = CFrame.lookAt(root.Position, lookPos)
                         root.Velocity = Vector3.new(0,0,0)
@@ -617,6 +631,9 @@ task.spawn(function()
                         
                         task.wait(0.1)
                     end
+                    
+                    -- Setzt Hitbox nach Tod zurück
+                    if targetRoot then targetRoot.Size = Vector3.new(2, 2, 1) end
                 end
             end
         end
@@ -624,4 +641,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Fast Tweening Active.", 4)
+RyuNotify:Send("RYU HUB", "PC Exclusive Edition loaded! Fast Tween & Hitbox Expander Active.", 4)
