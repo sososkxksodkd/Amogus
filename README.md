@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - AGGRO/KITE FARM)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MASTER KITE FARM)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -62,9 +62,6 @@ if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
 local RyuConfig = {
     SpeedHack = false, SpeedValue = 35, 
     HighJump = false, JumpValue = 50, 
-    LowGravity = false, GravityValue = 100,
-    FOVChanger = false, FOVValue = 90,
-    ESP = false, ESPTransparency = 50,
     
     AutoFarm = false,
     AutoQuest = false,
@@ -73,10 +70,10 @@ local RyuConfig = {
     TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
     TargetWeapon = "Melee",
-    TPMethod = "Sky Tween", 
     
-    TweenSpeed = 250,       
-    FarmOffset = 12 
+    -- Anti-Cheat sichere Standardwerte
+    TweenSpeed = 120,       
+    FarmOffset = 1 
 }
 
 local GPOIslands = {
@@ -88,7 +85,6 @@ local GPOIslands = {
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana", "Rifle", "Pistol" }
-local TPMethods = { "Sky Tween", "Ground Tween" }
 
 --// RAINBOW OVERHEAD TITLE
 local function AddRainbowTag(character)
@@ -418,12 +414,13 @@ local function CustomSafeTween(targetCFrame)
     local dist = (targetPos - currentPos).Magnitude
     local yDist = targetPos.Y - currentPos.Y
     
-    local speed = RyuConfig.TweenSpeed or 250
+    local speed = RyuConfig.TweenSpeed or 120 -- SICHERER PC STANDARD!
     local timeHorizontal = dist / speed
     local timeVertical = 0
     
+    -- STRENGES ANTI CHEAT LIMIT (Maximal 12 Studs pro Sekunde nach oben)
     if yDist > 0 then
-        timeVertical = yDist / 14 
+        timeVertical = yDist / 12 
     elseif yDist < 0 then
         timeVertical = math.abs(yDist) / 60 
     end
@@ -466,6 +463,28 @@ RunService.Stepped:Connect(function()
                 if v:IsA("BasePart") then v.CanCollide = false end
             end
         end
+    end
+end)
+
+RunService.Heartbeat:Connect(function()
+    if RyuConfig.AutoFarm or RyuConfig.AutoQuest or RyuConfig.IsTweening then
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            local plat = Workspace:FindFirstChild("RyuSafePlatform")
+            if not plat then
+                plat = Instance.new("Part", Workspace)
+                plat.Name = "RyuSafePlatform"
+                plat.Size = Vector3.new(50, 5, 50)
+                plat.Anchored = true
+                plat.Transparency = 1
+                plat.CanCollide = true 
+            end
+            plat.CFrame = root.CFrame * CFrame.new(0, -3.5, 0)
+        end
+    else
+        local plat = Workspace:FindFirstChild("RyuSafePlatform")
+        if plat then plat:Destroy() end
     end
 end)
 
@@ -531,10 +550,10 @@ task.spawn(function()
 
                     local inputModule = GetInputCallbacks()
 
-                    -- Finde alle noch nicht aggroten Mobs (volles Leben)
+                    -- Finde alle Mobs mit EXAKTEM NAMEN (Verhindert Angriffe auf Bosse)
                     local validMobs = {}
                     for _, npc in pairs(npcs:GetChildren()) do
-                        if npc.Name:lower():find(RyuConfig.TargetMob:lower()) then
+                        if npc.Name == RyuConfig.TargetMob then -- EXAKTER MATCH!
                             local mobHum = npc:FindFirstChildOfClass("Humanoid")
                             local mobRoot = npc:FindFirstChild("HumanoidRootPart")
                             if mobHum and mobRoot and mobHum.Health == mobHum.MaxHealth then
@@ -560,20 +579,15 @@ task.spawn(function()
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             flatDir = flatDir.Unit
                             
-                            -- Sauber an den Feind ranfliegen (Abstand 12 Studs)
-                            local safeTargetPos = mobPos + (flatDir * RyuConfig.FarmOffset)
+                            -- PHASE 1: EXACTLY 1 STUD DISTANCE! (Antippen)
+                            local safeTargetPos = mobPos + (flatDir * RyuConfig.FarmOffset) 
                             CustomSafeTween(CFrame.new(safeTargetPos, mobPos))
                             
                             local startHealth = mobHum.Health
                             
-                            -- Schlagen, bis das Leben sinkt = Aggro bestätigt
+                            -- Schlagen, bis das Leben sinkt (Ultra-schneller PC M1 Spam)
                             while RyuConfig.AutoFarm and hum.Health > 0 and mobHum.Health >= startHealth and mobHum.Health > 0 do
                                 root.Velocity = Vector3.new(0, 0, 0)
-                                
-                                if mobRoot.Size.Y < 30 then
-                                    mobRoot.Size = Vector3.new(30, 30, 30)
-                                    mobRoot.CanCollide = false
-                                end
                                 
                                 local lookPos = Vector3.new(mobRoot.Position.X, root.Position.Y, mobRoot.Position.Z)
                                 root.CFrame = CFrame.lookAt(root.Position, lookPos)
@@ -586,7 +600,7 @@ task.spawn(function()
                                         VirtualUser:ClickButton1(Vector2.new())
                                     end
                                 end)
-                                task.wait(0.1)
+                                task.wait(0.03) -- EXTREM SCHNELL!
                             end
                             
                             if mobHum.Health > 0 then
@@ -597,6 +611,12 @@ task.spawn(function()
                     
                     -- Phase 2: Kill Phase (M1 Spam auf die Gruppe)
                     if #aggroedMobs > 0 then
+                        
+                        -- PHASE 2: BISSCHEN HOCH (Sichere Ebene über den Gegnern)
+                        -- Die RyuSafePlatform wandert mit uns mit. Der Server denkt, wir stehen auf festem Grund!
+                        local safeKillPos = root.Position + Vector3.new(0, 15, 0)
+                        CustomSafeTween(CFrame.new(safeKillPos))
+                        
                         while RyuConfig.AutoFarm and hum.Health > 0 do
                             local aliveCount = 0
                             local firstAliveRoot = nil
@@ -609,8 +629,9 @@ task.spawn(function()
                                         aliveCount = aliveCount + 1
                                         if not firstAliveRoot then firstAliveRoot = mobRoot end
                                         
-                                        if mobRoot.Size.Y < 30 then
-                                            mobRoot.Size = Vector3.new(30, 30, 30)
+                                        -- RIESIGE 40x40x40 HITBOX! Du triffst alle mühelos von oben!
+                                        if mobRoot.Size.Y < 40 then
+                                            mobRoot.Size = Vector3.new(40, 40, 40)
                                             mobRoot.CanCollide = false
                                         end
                                     end
@@ -621,13 +642,12 @@ task.spawn(function()
                             
                             root.Velocity = Vector3.new(0, 0, 0)
                             
-                            -- Charakter schaut die Gruppe an, die von selbst auf ihn zuläuft
                             if firstAliveRoot then
                                 local lookPos = Vector3.new(firstAliveRoot.Position.X, root.Position.Y, firstAliveRoot.Position.Z)
                                 root.CFrame = CFrame.lookAt(root.Position, lookPos)
                             end
                             
-                            -- Spam Schläge (treffen durch riesige Hitboxen die gesamte Gruppe auf einmal)
+                            -- Spam Schläge mit maximaler Geschwindigkeit
                             pcall(function()
                                 if inputModule and inputModule.Utils.canAutoM1() then
                                     inputModule.Callbacks.Attack:PC_Activate()
@@ -637,7 +657,7 @@ task.spawn(function()
                                 end
                             end)
                             
-                            task.wait(0.1)
+                            task.wait(0.03) -- EXTREM SCHNELL!
                         end
                         
                         -- Reset Hitboxen nach dem Tod
