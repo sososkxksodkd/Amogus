@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - UNDERGROUND & 2-STUD)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - DYNAMIC HEIGHT)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -64,14 +64,14 @@ local RyuConfig = {
     
     AutoFarm = false,
     AutoQuest = false,
-    UndergroundFarm = false, -- NEU: Option für unter der Erde
+    DynamicHeight = false, -- NEU: Geht höher, wenn man getroffen wird
     
     TargetMob = DynamicEnemies[1],
     TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
     TargetWeapon = "Combat",
     
-    TweenSpeed = 55, -- NEU: Wird jetzt vom Slider gesteuert!
+    TweenSpeed = 55, 
 }
 
 local GPOIslands = {
@@ -296,9 +296,12 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
-CreateToggle(SecAutoFarmMain, "Underground Farm", RyuConfig.UndergroundFarm, function(state) 
-    RyuConfig.UndergroundFarm = state 
+
+-- NEU: Dynamic Height Option!
+CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
+    RyuConfig.DynamicHeight = state 
 end)
+
 CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) 
     RyuConfig.AutoQuest = state 
 end)
@@ -309,7 +312,6 @@ CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
--- NEU: Echter, funktionierender Slider für die Anfluggeschwindigkeit!
 CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) 
     RyuConfig.TweenSpeed = val 
 end)
@@ -357,7 +359,7 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (GEKOPPELT AN UI SLIDER)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE
 --// ============================================================================
 local function SafeTween(targetCFrame)
     local char = LocalPlayer.Character
@@ -368,7 +370,6 @@ local function SafeTween(targetCFrame)
     local targetPos = targetCFrame.Position
     local dist = (targetPos - startPos).Magnitude
     
-    -- Nutzt jetzt den Speed vom GUI Slider!
     local speed = RyuConfig.TweenSpeed 
     local timeToTake = dist / speed
     
@@ -402,7 +403,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// GPO MASTER KITE FARM (2 STUDS ABOVE OR 7 STUDS UNDERGROUND)
+--// GPO MASTER KITE FARM (7 STUDS + DYNAMIC ANTI-HIT)
 --// ============================================================================
 local function GetCurrentQuest()
     local q = LocalPlayer:FindFirstChild("Quest")
@@ -469,6 +470,7 @@ task.spawn(function()
                             local flatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             
+                            -- Anflug fürs Aggro bleibt bei 2 Studs davor (damit Hit connected)
                             local attackPos = mRoot.Position + (flatDir.Unit * 2)
                             SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
                             
@@ -489,23 +491,37 @@ task.spawn(function()
                         end
                     end
                     
-                    -- PHASE 2: TÖTEN (2 Studs drüber ODER Underground)
+                    -- PHASE 2: TÖTEN (Start bei 7 Studs + Dynamic Height Option)
                     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
                         EquipCombat()
                         
                         local firstMobRoot = aggroedMobs[1]:FindFirstChild("HumanoidRootPart")
                         if firstMobRoot then
-                            -- Bestimme die Y-Höhe (2 drüber oder 7 drunter)
-                            local hoverYOffset = RyuConfig.UndergroundFarm and -7 or 2
-                            local skyPos = firstMobRoot.Position + Vector3.new(0, hoverYOffset, 0)
+                            local currentHeightOffset = 7 -- STANDARD: 7 Studs über dem Feind
+                            local skyPos = firstMobRoot.Position + Vector3.new(0, currentHeightOffset, 0)
                             
                             SafeTween(CFrame.new(skyPos))
                             
                             local killTimeout = tick()
+                            local myLastHealth = hum.Health
                             
                             while RyuConfig.AutoFarm and hum.Health > 0 do
                                 if tick() - killTimeout > 25 then break end 
                                 
+                                -- DYNAMIC HEIGHT CHECK
+                                if hum.Health < myLastHealth then
+                                    if RyuConfig.DynamicHeight then
+                                        currentHeightOffset = currentHeightOffset + 1.5 -- Drückt dich 1.5 Studs höher wenn getroffen
+                                        RyuNotify:Send("Anti-Hit", "Schaden erkannt! Gehe höher: " .. currentHeightOffset .. " Studs", 2)
+                                    end
+                                    myLastHealth = hum.Health
+                                elseif hum.Health > myLastHealth then
+                                    myLastHealth = hum.Health -- HP Reset (z.B. durch Regeneration)
+                                end
+                                
+                                -- Update Position mit aktuellem Height Offset
+                                skyPos = firstMobRoot.Position + Vector3.new(0, currentHeightOffset, 0)
+
                                 local aliveCount = 0
                                 local targetLook = nil
                                 
@@ -518,7 +534,7 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
-                                            -- 30x30x30 Hitbox erfasst alle Feinde sofort, egal ob du drüber oder drunter bist
+                                            -- Hitbox anpassen, damit man alle von oben trifft
                                             if mRoot.Size.Y < 30 then
                                                 mRoot.Size = Vector3.new(30, 30, 30)
                                                 mRoot.CanCollide = false
@@ -530,7 +546,6 @@ task.spawn(function()
                                 if aliveCount == 0 then break end 
                                 
                                 if targetLook then
-                                    -- Schaut flach zum Gegner, vermeidet Kamera/Charakter-Bugs
                                     root.CFrame = CFrame.lookAt(skyPos, Vector3.new(targetLook.X, skyPos.Y, targetLook.Z))
                                 end
                                 
@@ -552,4 +567,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Underground & 2-Stud Mode Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Dynamic Anti-Hit System Active!", 4)
