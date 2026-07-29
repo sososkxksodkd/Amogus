@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NO QUEST SPAM & SAFE AC)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FLING FIX & SAFE TWEEN)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -66,12 +66,12 @@ local RyuConfig = {
     AutoFarm = false,
     AutoQuest = false,
     DynamicHeight = false, 
-    AllowFishman = false, -- NEU: Schützt vor Fishman Cave Anti-Cheat Kicks
     
     TargetNPC = DynamicQuests[1], 
     TargetMob = "Bandit", 
     TargetWeapon = "Combat",
-    QuestText = "...", 
+    
+    QuestText = "yes", 
     
     TweenSpeed = 55, 
     KillHeight = 7, 
@@ -141,8 +141,7 @@ local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0,
 
 local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
+local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0); Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
 
 local tDragStart, tStartPos, isDraggingBtn = nil, nil, false
 ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingBtn = false; tDragStart = input.Position; tStartPos = ToggleBtn.Position end end)
@@ -150,13 +149,7 @@ UserInputService.InputChanged:Connect(function(input) if tDragStart and (input.U
 
 local rDragging, rDragStart, rStartSize = false, nil, nil
 ResizeGrip.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize end end)
-UserInputService.InputChanged:Connect(function(input)
-    if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - rDragStart
-        currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y))
-        MainFrame.Size = currentMainSize
-    end
-end)
+UserInputService.InputChanged:Connect(function(input) if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - rDragStart; currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y)); MainFrame.Size = currentMainSize end end)
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if tDragStart then
@@ -169,6 +162,11 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 CloseBtn.Activated:Connect(function() TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
+
+local mDragging, mDragStart, mStartPos
+Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = true; mDragStart = input.Position; mStartPos = MainFrame.Position end end)
+Topbar.InputChanged:Connect(function(input) if mDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - mDragStart; MainFrame.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y) end end)
+Topbar.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = false end end)
 
 local ContentContainer = Instance.new("Frame", MainFrame); ContentContainer.Size = UDim2.new(1, -(SidebarWidth + 25), 1, -85); ContentContainer.Position = UDim2.new(0, SidebarWidth + 15, 0, 75); ContentContainer.BackgroundTransparency = 1
 local Sidebar = Instance.new("ScrollingFrame", MainFrame); Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0
@@ -241,29 +239,30 @@ local function CreateSlider(section, text, min, max, default, callback)
     UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
 end
 
---// ANTI-FLING HOVER SYSTEM
+local function CreateButton(section, text, callback)
+    local btn = Instance.new("TextButton", section); btn.Size = UDim2.new(0.92, 0, 0, 34); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = text; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 13; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", btn); stroke.Color = Theme.Stroke; stroke.Thickness = 1
+    btn.Activated:Connect(function() if callback then callback() end end)
+end
+
+--// ANTI-FLING HOVER SYSTEM (100% Sicher, Keine Kicks)
 local function ToggleHover(state)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
     if state then
-        root.Velocity = Vector3.new(0, 0, 0)
-        root.RotVelocity = Vector3.new(0, 0, 0)
-        
-        local bp = root:FindFirstChild("RyuHover")
-        if not bp then
-            bp = Instance.new("BodyPosition")
-            bp.Name = "RyuHover"
-            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bp.D = 500
-            bp.P = 50000
-            bp.Parent = root
+        local bv = root:FindFirstChild("RyuHover")
+        if not bv then
+            bv = Instance.new("BodyVelocity")
+            bv.Name = "RyuHover"
+            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bv.Velocity = Vector3.new(0, 0, 0)
+            bv.Parent = root
         end
-        bp.Position = root.Position
     else
-        local bp = root:FindFirstChild("RyuHover")
-        if bp then bp:Destroy() end
+        local bv = root:FindFirstChild("RyuHover")
+        if bv then bv:Destroy() end
     end
 end
 
@@ -275,11 +274,6 @@ local SecAutoFarmMain = CreateSection(SubLeveling, "Smart AI Auto Farm")
 CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
-end)
-
--- NEU: FISHMAN CAVE TRAVEL SCHUTZ
-CreateToggle(SecAutoFarmMain, "Auto Travel to Fishman Cave (RISKY)", RyuConfig.AllowFishman, function(state) 
-    RyuConfig.AllowFishman = state 
 end)
 
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
@@ -297,6 +291,37 @@ CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC"
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
 CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) RyuConfig.KillHeight = val end)
+
+-- NEU: Sicherer Teleport zur Cave
+CreateButton(SecFarmAdvanced, "Teleport to Fishman Cave", function()
+    local islandObj = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
+    if islandObj then
+        local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
+        -- Sky-Hop Teleport (500 Studs hoch, dann runter)
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            local startPos = root.Position
+            local targetPos = pos.Position
+            
+            ToggleHover(true)
+            local function T(c)
+                local dist = (c.Position - root.Position).Magnitude
+                local info = TweenInfo.new(dist / 150, Enum.EasingStyle.Linear)
+                local tw = TweenService:Create(root, info, {CFrame = c})
+                tw:Play()
+                tw.Completed:Wait()
+            end
+            
+            T(CFrame.new(startPos.X, 500, startPos.Z))
+            T(CFrame.new(targetPos.X, 500, targetPos.Z))
+            T(CFrame.new(targetPos.X, targetPos.Y + 5, targetPos.Z))
+            ToggleHover(false)
+            RyuNotify:Send("Teleport", "Erfolgreich angekommen!", 3)
+        end
+    else
+        RyuNotify:Send("Fehler", "Fishman Cave nicht gefunden!", 3)
+    end
+end)
 
 --// ============================================================================
 --// MODULE HOOKING: PC COMBAT ENGINE
@@ -342,7 +367,7 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (RAYCAST AVOIDANCE)
+--// UNBANNABLE SKY-HOP TWEEN ENGINE (KEIN RAYCAST, KEIN NOCLIP!)
 --// ============================================================================
 local function DoMicroTween(root, targetCFrame)
     local startPos = root.Position
@@ -360,19 +385,9 @@ local function DoMicroTween(root, targetCFrame)
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then break end
         local alpha = (tick() - startTime) / timeToTake
-        local intermediatePos = startPos:Lerp(targetPos, alpha)
-        
-        root.Velocity = Vector3.new(0, 0, 0)
-        root.RotVelocity = Vector3.new(0, 0, 0)
-        
-        local bp = root:FindFirstChild("RyuHover")
-        if bp then bp.Position = intermediatePos end
-        
-        root.CFrame = CFrame.lookAt(intermediatePos, targetPos)
+        root.CFrame = CFrame.lookAt(startPos:Lerp(targetPos, alpha), targetPos)
         RunService.Heartbeat:Wait()
     end
-    local bpFinal = root:FindFirstChild("RyuHover")
-    if bpFinal then bpFinal.Position = targetPos end
     root.CFrame = targetCFrame
 end
 
@@ -383,62 +398,45 @@ local function SafeTween(targetCFrame)
 
     local startPos = root.Position
     local targetPos = targetCFrame.Position
-
-    local rayParams = RaycastParams.new()
-    rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("NPCs")}
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-
-    local raycastResult = Workspace:Raycast(startPos, targetPos - startPos, rayParams)
-
-    if raycastResult and raycastResult.Instance and raycastResult.Instance.CanCollide then
-        local hopY = math.max(raycastResult.Position.Y + 35, startPos.Y + 35)
-        DoMicroTween(root, CFrame.new(startPos.X, hopY, startPos.Z))
-        DoMicroTween(root, CFrame.new(targetPos.X, hopY, targetPos.Z))
+    local dist = (targetPos - startPos).Magnitude
+    
+    -- Wenn das Ziel weit weg ist (Insel-Wechsel oder Gebäude im Weg), machen wir den Sky-Hop!
+    if dist > 150 then
+        -- Fliege gerade hoch auf 500 Studs (Safe Zone)
+        local upPos = Vector3.new(startPos.X, 500, startPos.Z)
+        -- Fliege rüber zum Ziel auf 500 Studs
+        local acrossPos = Vector3.new(targetPos.X, 500, targetPos.Z)
+        
+        DoMicroTween(root, CFrame.new(upPos))
+        DoMicroTween(root, CFrame.new(acrossPos))
     end
 
+    -- Fliege sanft von oben auf das Ziel herab
     DoMicroTween(root, targetCFrame)
 end
-
---// ANTI-FLING PROTECTOR
-RunService.Stepped:Connect(function()
-    if RyuConfig.AutoFarm or RyuConfig.AutoQuest then
-        local char = LocalPlayer.Character
-        if char then
-            local root = char:FindFirstChild("HumanoidRootPart")
-            if root then
-                root.Velocity = Vector3.new(0, 0, 0)
-                root.RotVelocity = Vector3.new(0, 0, 0)
-                for _, v in pairs(root:GetChildren()) do
-                    if v:IsA("BodyVelocity") and v.Name ~= "RyuHover" then v:Destroy() end
-                end
-            end
-            for _, v in pairs(char:GetChildren()) do
-                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
-                    v.CanCollide = false 
-                end
-            end
-        end
-    end
-end)
 
 --// ============================================================================
 --// DYNAMIC QUEST SCANNER & AUTO LEVELING
 --// ============================================================================
 
--- NEU: Absolut sichere "Habe ich eine Quest?" Prüfung (Verhindert Spam)
+-- Sucht oben links im Bildschirm nach dem UI-Tracker
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
         local q = LocalPlayer:FindFirstChild("Quest")
         if q and q:FindFirstChild("CurrentQuest") then
             local val = q.CurrentQuest.Value
-            if val ~= "" and val ~= "None" then hasQuest = true end
+            if val ~= "" and val ~= "None" then return true end
         end
+        
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if pg then
             for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextLabel") and v.Visible then
-                    if v.Text:match("(%d+)%s*/%s*(%d+)") then hasQuest = true end
+                -- Überprüfe nur Elemente oben links (X und Y unter 300 Pixel)
+                if v:IsA("TextLabel") and v.Visible and v.AbsolutePosition.X < 300 and v.AbsolutePosition.Y < 300 then
+                    if v.Text:match("%d+/%d+") or v.Text:match("%d+%s*/%s*%d+") then 
+                        hasQuest = true 
+                    end
                 end
             end
         end
@@ -447,22 +445,7 @@ local function HasActiveQuest()
 end
 
 local function GetRequiredKills()
-    local required = 5 
-    pcall(function()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextLabel") and v.Visible then
-                    local current, max = string.match(v.Text, "(%d+)%s*/%s*(%d+)")
-                    if current and max then
-                        local remaining = tonumber(max) - tonumber(current)
-                        if remaining > 0 then required = remaining end
-                    end
-                end
-            end
-        end
-    end)
-    return math.clamp(required, 1, 5) 
+    return 5 -- Immer 5 für maximale Geschwindigkeit!
 end
 
 local function UpdateAutoLeveling()
@@ -489,7 +472,7 @@ local function ClickQuestDialog()
             for _, v in pairs(pg:GetDescendants()) do
                 if v:IsA("TextButton") and v.Visible then
                     local txt = v.Text:lower()
-                    if txt:match("%.%.%.") or txt:match("…") or txt:match(RyuConfig.QuestText:lower()) or txt:match("yes") or txt:match("accept") or txt:match("sure") then
+                    if txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") then
                         for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                         for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
                     end
@@ -512,26 +495,21 @@ task.spawn(function()
         
         --// SMART AUTO QUEST (OHNE SPAM!)
         if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" then
-            -- Führt NPC-Dialog NUR aus, wenn wir KEINE aktive Quest haben!
+            -- NUR WENN KEINE QUEST AKTIV IST
             if not HasActiveQuest() then
                 local npc = Workspace:FindFirstChild(activeNPC, true)
                 
                 if not npc and activeIsland then
-                    -- Anti-Cheat Schutz für Fishman Cave
-                    if activeIsland == "Fishman Cave" and not RyuConfig.AllowFishman then
-                        -- Überspringt Reise, um Kick zu vermeiden
-                    else
-                        local islandObj = Workspace:FindFirstChild(activeIsland, true)
-                        if islandObj then
-                            local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
-                            SafeTween(pos * CFrame.new(0, 50, 0)) -- Sicherere Höhe
-                            task.wait(1)
-                            
-                            if activeIsland ~= lastIslandVisited then
-                                pcall(function() ReplicatedStorage.Events.SetSpawn:FireServer() end)
-                                lastIslandVisited = activeIsland
-                                RyuNotify:Send("Spawn Set", "Spawn für " .. activeIsland .. " gesichert!", 3)
-                            end
+                    local islandObj = Workspace:FindFirstChild(activeIsland, true)
+                    if islandObj then
+                        local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
+                        SafeTween(pos * CFrame.new(0, 50, 0)) 
+                        task.wait(1)
+                        
+                        if activeIsland ~= lastIslandVisited then
+                            pcall(function() ReplicatedStorage.Events.SetSpawn:FireServer() end)
+                            lastIslandVisited = activeIsland
+                            RyuNotify:Send("Spawn Set", "Spawn für " .. activeIsland .. " gesichert!", 3)
                         end
                     end
                 elseif npc then
@@ -542,7 +520,6 @@ task.spawn(function()
                     
                     if root then
                         SafeTween(npcPos * CFrame.new(0, 0, 3))
-                        root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                         task.wait(0.5)
                         
                         if activeIsland and activeIsland ~= lastIslandVisited then
@@ -555,22 +532,20 @@ task.spawn(function()
                                 if p:IsA("ProximityPrompt") then
                                     p.RequiresLineOfSight = false
                                     fireproximityprompt(p, 1, true)
-                                    task.wait(p.HoldDuration + 0.1) 
+                                    task.wait(0.2) 
                                     fireproximityprompt(p, 0, true)
                                 end
                             end
                         end
-                        task.wait(0.8)
-                        
+                        task.wait(0.5)
                         ClickQuestDialog()
                         task.wait(0.5)
                         
                         local events = ReplicatedStorage:FindFirstChild("Events")
                         if events and events:FindFirstChild("Quest") then 
                             pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
-                            task.wait(0.2)
                             pcall(function() events.Quest:InvokeServer({{"npcChat", true}, RyuConfig.QuestText}) end)
-                            task.wait(0.3)
+                            task.wait(0.2)
                             pcall(function() events.Quest:InvokeServer("takequest") end)
                             pcall(function() events.Quest:InvokeServer("acceptquest") end)
                         end
@@ -580,8 +555,8 @@ task.spawn(function()
             end
         end
 
-        --// SMART MOB SELECTION & GATHER LOOP
-        if RyuConfig.AutoFarm and activeNPC ~= "" then
+        --// SMART MOB SELECTION & GATHER LOOP (IMMER 5 MOBS!)
+        if RyuConfig.AutoFarm and activeNPC ~= "" and HasActiveQuest() then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -591,14 +566,14 @@ task.spawn(function()
                 local npcs = Workspace:FindFirstChild("NPCs")
                 
                 if npcs then
-                    local neededKills = 5 -- Zieht rigoros immer 5
+                    local neededKills = 5 
                     local aggroedMobs = {}
                     
                     EquipCombat()
                     
                     local gatherStart = tick()
                     while RyuConfig.AutoFarm and hum.Health > 0 and #aggroedMobs < neededKills do
-                        if tick() - gatherStart > 20 then break end 
+                        if tick() - gatherStart > 15 then break end 
                         
                         local currentValid = {}
                         for _, npc in pairs(npcs:GetChildren()) do
@@ -631,19 +606,13 @@ task.spawn(function()
                             task.spawn(function()
                                 while isAttacking and RyuConfig.AutoFarm do
                                     PerformAttack()
-                                    task.wait()
+                                    task.wait(0.1) -- Verhindert Server-Crashes
                                 end
                             end)
                             
                             while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
                                 if tick() - timeout > 3 then break end 
-                                
-                                root.Velocity = Vector3.new(0, 0, 0)
-                                root.RotVelocity = Vector3.new(0, 0, 0)
-                                local bp = root:FindFirstChild("RyuHover")
-                                if bp then bp.Position = mRoot.Position + (flatDir.Unit * 2) end
                                 root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
-                                
                                 RunService.Heartbeat:Wait()
                             end
                             
@@ -655,7 +624,7 @@ task.spawn(function()
                         end
                     end
                     
-                    -- PHASE 2: KILLEN
+                    -- PHASE 2: KILLEN (FLING-SAFE)
                     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
                         EquipCombat()
                         
@@ -680,11 +649,6 @@ task.spawn(function()
                                     end
                                 end
                                 
-                                root.Velocity = Vector3.new(0, 0, 0)
-                                root.RotVelocity = Vector3.new(0, 0, 0)
-                                local bp = root:FindFirstChild("RyuHover")
-                                if bp then bp.Position = skyPos end
-                                
                                 if allHere then break end
                                 RunService.Heartbeat:Wait()
                             end
@@ -696,7 +660,7 @@ task.spawn(function()
                             task.spawn(function()
                                 while isKilling and RyuConfig.AutoFarm do
                                     PerformAttack()
-                                    task.wait()
+                                    task.wait(0.1) -- Optimaler, sicherer Schlagrhythmus!
                                 end
                             end)
                             
@@ -727,6 +691,7 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
+                                            -- 50x50 Hitbox Garantie!
                                             if mRoot.Size.Y < 45 then
                                                 mRoot.Size = Vector3.new(50, 50, 50)
                                                 mRoot.CanCollide = false
@@ -737,13 +702,10 @@ task.spawn(function()
                                 
                                 if aliveCount == 0 then break end 
                                 
-                                root.Velocity = Vector3.new(0, 0, 0)
-                                root.RotVelocity = Vector3.new(0, 0, 0)
-                                local bp = root:FindFirstChild("RyuHover")
-                                if bp then bp.Position = skyPos end
-                                
-                                if targetLook then
-                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetLook.X, root.Position.Y, targetLook.Z))
+                                -- Position nur updaten, wenn das Ziel sich bewegt, verhindert Fling komplett!
+                                local dist = (root.Position - skyPos).Magnitude
+                                if dist > 2 then
+                                    root.CFrame = CFrame.lookAt(skyPos, Vector3.new(targetLook.X, skyPos.Y, targetLook.Z))
                                 end
                                 
                                 RunService.Heartbeat:Wait()
@@ -765,4 +727,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Quest-Spam Fixed & Fishman Toggle Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Safe AI Loaded!", 4)
