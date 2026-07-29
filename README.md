@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - THE ULTIMATE AI)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - ULTIMATE AUTO PROGRESSION)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART QUEST & ENEMY DATABASE
+--// SMART QUEST, ENEMY & ISLAND DATABASE (Die Allwissende KI)
 local QuestDatabase = {
     ["Daph"] = "Bandit",
     ["Ash the Tailor"] = "Bandit",
@@ -38,12 +38,12 @@ local QuestDatabase = {
     ["Haku"] = "Snow Bandit"
 }
 
---// GPO AUTO LEVELING ROUTE (Level = {NPC, Mob})
+--// GPO AUTO LEVELING ROUTE (Level = {NPC, Mob, Island})
 local AutoLevelRoute = {
-    {Min = 1, Max = 15, NPC = "Daph", Mob = "Bandit"},
-    {Min = 15, Max = 25, NPC = "Kevin", Mob = "Marine"},
-    {Min = 25, Max = 40, NPC = "Robert", Mob = "Sword Bandit"},
-    {Min = 40, Max = 1000, NPC = "Gozen", Mob = "Skypiean"} -- Erweiterbar je nach GPO Updates
+    {Min = 1, Max = 15, NPC = "Daph", Mob = "Bandit", Island = "Town of Beginnings"},
+    {Min = 15, Max = 25, NPC = "Kevin", Mob = "Marine", Island = "Marine Fort F-1"},
+    {Min = 25, Max = 40, NPC = "Robert", Mob = "Sword Bandit", Island = "Roca Island"},
+    {Min = 40, Max = 1000, NPC = "Gozen", Mob = "Skypiean", Island = "Land of the Sky"} 
 }
 
 local DynamicQuests = {"[AUTO SMART LEVELING]"}
@@ -67,11 +67,12 @@ local RyuConfig = {
     AutoQuest = false,
     DynamicHeight = false, 
     
-    TargetNPC = DynamicQuests[1], -- Standardmäßig [AUTO SMART LEVELING]
-    TargetMob = "Bandit", -- Wird von KI überschrieben
+    TargetNPC = DynamicQuests[1], 
+    TargetMob = "Bandit", 
+    TargetIsland = "Town of Beginnings",
     TargetWeapon = "Combat",
     
-    TweenSpeed = 45, -- Sicherer Anti-Cheat Wert
+    TweenSpeed = 45, 
     KillHeight = 7, 
 }
 
@@ -168,11 +169,6 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 CloseBtn.Activated:Connect(function() TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
-
-local mDragging, mDragStart, mStartPos
-Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = true; mDragStart = input.Position; mStartPos = MainFrame.Position end end)
-Topbar.InputChanged:Connect(function(input) if mDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - mDragStart; MainFrame.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y) end end)
-Topbar.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = false end end)
 
 local ContentContainer = Instance.new("Frame", MainFrame); ContentContainer.Size = UDim2.new(1, -(SidebarWidth + 25), 1, -85); ContentContainer.Position = UDim2.new(0, SidebarWidth + 15, 0, 75); ContentContainer.BackgroundTransparency = 1
 local Sidebar = Instance.new("ScrollingFrame", MainFrame); Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0
@@ -324,7 +320,6 @@ local function EquipCombat()
     end
 end
 
--- ULTRA FAST M1
 local function PerformAttack()
     local inputModule = GetInputCallbacks()
     pcall(function()
@@ -339,7 +334,7 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (RAYCAST AVOIDANCE - KEIN NOCLIP NÖTIG!)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (RAYCAST AVOIDANCE - KEIN NOCLIP!)
 --// ============================================================================
 local function DoMicroTween(root, targetCFrame)
     local startPos = root.Position
@@ -378,7 +373,7 @@ local function SafeTween(targetCFrame)
     local startPos = root.Position
     local targetPos = targetCFrame.Position
 
-    -- RAYCAST PATHFINDING (Anti-Cheat Sicher! Wir umfliegen Wände legal)
+    -- PATHFINDING: Erkennt Wände und umgeht sie legal!
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("NPCs")}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -386,7 +381,6 @@ local function SafeTween(targetCFrame)
     local raycastResult = Workspace:Raycast(startPos, targetPos - startPos, rayParams)
 
     if raycastResult and raycastResult.Instance and raycastResult.Instance.CanCollide then
-        -- Wand im Weg! Legal als "Treppe" nach oben hoppen!
         local hopY = math.max(raycastResult.Position.Y + 35, startPos.Y + 35)
         DoMicroTween(root, CFrame.new(startPos.X, hopY, startPos.Z))
         DoMicroTween(root, CFrame.new(targetPos.X, hopY, targetPos.Z))
@@ -396,10 +390,10 @@ local function SafeTween(targetCFrame)
 end
 
 --// ============================================================================
---// DYNAMIC QUEST SCANNER (Zieht immer exakt die benötigte Menge Mobs)
+--// DYNAMIC QUEST SCANNER & AUTO LEVELING
 --// ============================================================================
 local function GetRequiredKills()
-    local required = 5 -- Standard
+    local required = 5 
     pcall(function()
         local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
         if playerGui then
@@ -422,9 +416,10 @@ local function GetCurrentQuest()
     return q and q:FindFirstChild("CurrentQuest") and q.CurrentQuest.Value or "None"
 end
 
---// AUTO LEVELING BERECHNUNG
 local function UpdateAutoLeveling()
-    if RyuConfig.TargetNPC ~= "[AUTO SMART LEVELING]" then return end
+    if RyuConfig.TargetNPC ~= "[AUTO SMART LEVELING]" then 
+        return RyuConfig.TargetNPC, RyuConfig.TargetIsland
+    end
     
     local levelFolder = LocalPlayer:FindFirstChild("Data") and LocalPlayer.Data:FindFirstChild("Level")
     local myLevel = levelFolder and levelFolder.Value or 1
@@ -432,13 +427,12 @@ local function UpdateAutoLeveling()
     for _, route in ipairs(AutoLevelRoute) do
         if myLevel >= route.Min and myLevel <= route.Max then
             RyuConfig.TargetMob = route.Mob
-            return route.NPC
+            return route.NPC, route.Island
         end
     end
-    return "Gozen" -- Fallback Max Level
+    return "Gozen", "Land of the Sky" 
 end
 
---// UI KLICKER FÜR QUEST DIALOG
 local function ClickQuestDialog()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -447,7 +441,6 @@ local function ClickQuestDialog()
                 if v:IsA("TextButton") and v.Visible then
                     local txt = v.Text:lower()
                     if txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("okay") then
-                        -- Simuliere Klick auf die "Ja/Annehmen" Option im GPO Dialog!
                         for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                         for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
                     end
@@ -461,18 +454,25 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         
-        local activeNPC = RyuConfig.TargetNPC
-        if activeNPC == "[AUTO SMART LEVELING]" then
-            activeNPC = UpdateAutoLeveling()
-        else
+        local activeNPC, activeIsland = UpdateAutoLeveling()
+        if RyuConfig.TargetNPC ~= "[AUTO SMART LEVELING]" then
             RyuConfig.TargetMob = QuestDatabase[activeNPC] or "Bandit"
         end
         
-        --// SMART AUTO QUEST (MIT DIALOG CLICKER & HOLD FIX)
+        --// SMART AUTO QUEST (MIT ISLAND TELEPORT)
         if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" then
             if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
                 local npc = Workspace:FindFirstChild(activeNPC, true)
-                if npc then
+                
+                -- Wenn NPC nicht gefunden, reise zur Insel!
+                if not npc and activeIsland then
+                    local islandObj = Workspace:FindFirstChild(activeIsland, true)
+                    if islandObj then
+                        local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
+                        SafeTween(pos * CFrame.new(0, 100, 0))
+                        task.wait(1)
+                    end
+                elseif npc then
                     ToggleHover(true)
                     local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
                     local char = LocalPlayer.Character
@@ -495,7 +495,6 @@ task.spawn(function()
                         end
                         task.wait(0.8)
                         
-                        -- Automatisches Klicken der linken Option im UI
                         ClickQuestDialog()
                         task.wait(0.5)
                         
@@ -514,7 +513,7 @@ task.spawn(function()
             end
         end
 
-        --// SMART MOB SELECTION & FARM LOOP
+        --// SMART MOB SELECTION & GATHER LOOP
         if RyuConfig.AutoFarm and activeNPC ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -522,31 +521,34 @@ task.spawn(function()
             
             if root and hum and hum.Health > 0 then
                 ToggleHover(true) 
-                
                 local npcs = Workspace:FindFirstChild("NPCs")
+                
                 if npcs then
-                    local validMobs = {}
-                    for _, npc in pairs(npcs:GetChildren()) do
-                        if npc.Name == RyuConfig.TargetMob then
-                            local mHum = npc:FindFirstChildOfClass("Humanoid")
-                            local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                            -- Sucht rigoros nach Mobs mit Leben
-                            if mHum and mRoot and mHum.Health > 0 then
-                                table.insert(validMobs, npc)
-                            end
-                        end
-                    end
-                    
-                    local aggroedMobs = {}
                     local neededKills = GetRequiredKills()
+                    local aggroedMobs = {}
                     
                     EquipCombat()
                     
-                    -- PHASE 1: AGGRO SAMMELN (Genau die benötigte Menge)
-                    for _, mob in pairs(validMobs) do
-                        if not RyuConfig.AutoFarm or hum.Health <= 0 then break end
-                        if #aggroedMobs >= neededKills then break end
+                    -- DIE 5-MOB GARANTIE SCHLEIFE
+                    local gatherStart = tick()
+                    while RyuConfig.AutoFarm and hum.Health > 0 and #aggroedMobs < neededKills do
+                        if tick() - gatherStart > 20 then break end -- 20 Sek Timeout, falls keine mehr spawnen
                         
+                        -- Finde ständig frische Mobs
+                        local currentValid = {}
+                        for _, npc in pairs(npcs:GetChildren()) do
+                            if npc.Name == RyuConfig.TargetMob then
+                                local mHum = npc:FindFirstChildOfClass("Humanoid")
+                                local mRoot = npc:FindFirstChild("HumanoidRootPart")
+                                if mHum and mRoot and mHum.Health > 0 and not table.find(aggroedMobs, npc) then
+                                    table.insert(currentValid, npc)
+                                end
+                            end
+                        end
+                        
+                        if #currentValid == 0 then break end -- Keine weiteren da, breche ab und kille Rest
+                        
+                        local mob = currentValid[1]
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         
@@ -588,7 +590,6 @@ task.spawn(function()
                             
                             SafeTween(CFrame.new(skyPos))
                             
-                            -- WARTEN BIS ALLE GEGNER UNTER UNS SIND
                             local gatherTimeout = tick()
                             while RyuConfig.AutoFarm and hum.Health > 0 do
                                 if tick() - gatherTimeout > 6 then break end 
@@ -613,7 +614,6 @@ task.spawn(function()
                             local killTimeout = tick()
                             local myLastHealth = hum.Health
                             
-                            -- KILL PHASE
                             while RyuConfig.AutoFarm and hum.Health > 0 do
                                 if tick() - killTimeout > 25 then break end 
                                 
@@ -642,7 +642,7 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
-                                            -- GEWALTIGE HITBOX GARANTIE!
+                                            -- 50x50 Hitbox Garantie!
                                             if mRoot.Size.Y < 45 then
                                                 mRoot.Size = Vector3.new(50, 50, 50)
                                                 mRoot.CanCollide = false
@@ -678,4 +678,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Quest AI Loaded!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Ultimate AI Leveling Active!", 4)
