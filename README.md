@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - SMART AI ROUTING)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - THE ULTIMATE AI)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,25 +24,29 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART QUEST & ENEMY DATABASE (Die KI weiß jetzt alles!)
+--// SMART QUEST & ENEMY DATABASE
 local QuestDatabase = {
     ["Daph"] = "Bandit",
     ["Ash the Tailor"] = "Bandit",
+    ["Kevin"] = "Marine",
     ["Tyson"] = "Bandit Boss",
     ["Robo"] = "Corrupt Marine",
     ["Robert"] = "Sword Bandit",
-    ["Kevin"] = "Marine",
     ["Helen"] = "Fishman",
     ["Gozen"] = "Skypiean",
-    ["Axe Hand Logan"] = "Axe Hand Logan",
-    ["Captain Zhen"] = "Captain Zhen",
-    ["Moria"] = "Zombie",
-    ["Coby"] = "Marine",
     ["Bomi"] = "Bandit",
     ["Haku"] = "Snow Bandit"
 }
 
-local DynamicQuests = {}
+--// GPO AUTO LEVELING ROUTE (Level = {NPC, Mob})
+local AutoLevelRoute = {
+    {Min = 1, Max = 15, NPC = "Daph", Mob = "Bandit"},
+    {Min = 15, Max = 25, NPC = "Kevin", Mob = "Marine"},
+    {Min = 25, Max = 40, NPC = "Robert", Mob = "Sword Bandit"},
+    {Min = 40, Max = 1000, NPC = "Gozen", Mob = "Skypiean"} -- Erweiterbar je nach GPO Updates
+}
+
+local DynamicQuests = {"[AUTO SMART LEVELING]"}
 local function SortNPCs()
     if Workspace:FindFirstChild("NPCs") then
         for _, npc in pairs(Workspace.NPCs:GetChildren()) do
@@ -54,34 +58,21 @@ local function SortNPCs()
             end
         end
     end
-    table.sort(DynamicQuests)
 end
 SortNPCs()
 
-if #DynamicQuests == 0 then DynamicQuests = {"Daph", "Ash the Tailor", "Tyson"} end
-
 --// RYU CONFIGURATION
 local RyuConfig = {
-    SpeedHack = false, SpeedValue = 35, 
-    Noclip = false, 
-    
     AutoFarm = false,
     AutoQuest = false,
     DynamicHeight = false, 
     
-    TargetIsland = "Town of Beginnings",
-    TargetNPC = DynamicQuests[1], -- TargetMob wurde gelöscht! Die KI entscheidet.
+    TargetNPC = DynamicQuests[1], -- Standardmäßig [AUTO SMART LEVELING]
+    TargetMob = "Bandit", -- Wird von KI überschrieben
     TargetWeapon = "Combat",
     
-    TweenSpeed = 55, 
+    TweenSpeed = 45, -- Sicherer Anti-Cheat Wert
     KillHeight = 7, 
-}
-
-local GPOIslands = {
-    "Town of Beginnings", "Sandora", "Shell's Town", "Orange Town", 
-    "Restaurant Baratie", "Roca Island", "Sphinx Island", "Marine Fort F-1", 
-    "Fishman Island", "Colosseum", "Land of the Sky", "Marine Base G-1",
-    "Logue Town", "Kori Island", "Island Of Zou", "Gravito's Fort"
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -148,7 +139,6 @@ local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 
 local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1; SubTitle.Text = "PC Exclusive Edition"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 
 local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
-
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
 Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
@@ -298,23 +288,11 @@ end)
 
 local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
--- DAS ENEMY DROPDOWN WURDE GELÖSCHT! DIE KI ENTSCHEIDET JETZT!
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
-CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) 
-    RyuConfig.TweenSpeed = val 
-end)
-CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) 
-    RyuConfig.KillHeight = val 
-end)
-
-local TabPlayer = CreateMainTab("Player")
-local SubMovement = CreateSubTab(TabPlayer, "Movement")
-local SecMovement = CreateSection(SubMovement, "Movement Settings")
-CreateToggle(SecMovement, "Noclip (Walk through walls)", RyuConfig.Noclip, function(state) 
-    RyuConfig.Noclip = state 
-end)
+CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
+CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) RyuConfig.KillHeight = val end)
 
 --// ============================================================================
 --// MODULE HOOKING: PC COMBAT ENGINE
@@ -361,7 +339,7 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT OBSTACLE AVOIDANCE)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (RAYCAST AVOIDANCE - KEIN NOCLIP NÖTIG!)
 --// ============================================================================
 local function DoMicroTween(root, targetCFrame)
     local startPos = root.Position
@@ -400,7 +378,7 @@ local function SafeTween(targetCFrame)
     local startPos = root.Position
     local targetPos = targetCFrame.Position
 
-    -- RAYCAST PATHFINDING: Erkennt Wände und weicht ihnen nach oben aus
+    -- RAYCAST PATHFINDING (Anti-Cheat Sicher! Wir umfliegen Wände legal)
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("NPCs")}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -408,7 +386,7 @@ local function SafeTween(targetCFrame)
     local raycastResult = Workspace:Raycast(startPos, targetPos - startPos, rayParams)
 
     if raycastResult and raycastResult.Instance and raycastResult.Instance.CanCollide then
-        -- Wand im Weg! Wir "hoppen" sicher über das Gebäude
+        -- Wand im Weg! Legal als "Treppe" nach oben hoppen!
         local hopY = math.max(raycastResult.Position.Y + 35, startPos.Y + 35)
         DoMicroTween(root, CFrame.new(startPos.X, hopY, startPos.Z))
         DoMicroTween(root, CFrame.new(targetPos.X, hopY, targetPos.Z))
@@ -417,31 +395,16 @@ local function SafeTween(targetCFrame)
     DoMicroTween(root, targetCFrame)
 end
 
---// GPO-SAFE NOCLIP ENGINE
-RunService.Stepped:Connect(function()
-    if RyuConfig.Noclip or RyuConfig.AutoFarm or RyuConfig.AutoQuest then
-        local char = LocalPlayer.Character
-        if char then
-            for _, v in pairs(char:GetChildren()) do
-                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
-                    v.CanCollide = false 
-                end
-            end
-        end
-    end
-end)
-
 --// ============================================================================
 --// DYNAMIC QUEST SCANNER (Zieht immer exakt die benötigte Menge Mobs)
 --// ============================================================================
 local function GetRequiredKills()
-    local required = 5 -- Standard, falls keine Quest erkannt wird
+    local required = 5 -- Standard
     pcall(function()
         local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
         if playerGui then
             for _, v in pairs(playerGui:GetDescendants()) do
                 if v:IsA("TextLabel") and v.Visible then
-                    -- Sucht nach dem Muster "1/5", "2 / 8" etc.
                     local current, max = string.match(v.Text, "(%d+)%s*/%s*(%d+)")
                     if current and max then
                         local remaining = tonumber(max) - tonumber(current)
@@ -451,7 +414,6 @@ local function GetRequiredKills()
             end
         end
     end)
-    -- Limitiert auf 5 gleichzeitig, um Kicks durch zu krasse Mob-Trauben zu verhindern
     return math.clamp(required, 1, 5) 
 end
 
@@ -460,14 +422,56 @@ local function GetCurrentQuest()
     return q and q:FindFirstChild("CurrentQuest") and q.CurrentQuest.Value or "None"
 end
 
+--// AUTO LEVELING BERECHNUNG
+local function UpdateAutoLeveling()
+    if RyuConfig.TargetNPC ~= "[AUTO SMART LEVELING]" then return end
+    
+    local levelFolder = LocalPlayer:FindFirstChild("Data") and LocalPlayer.Data:FindFirstChild("Level")
+    local myLevel = levelFolder and levelFolder.Value or 1
+    
+    for _, route in ipairs(AutoLevelRoute) do
+        if myLevel >= route.Min and myLevel <= route.Max then
+            RyuConfig.TargetMob = route.Mob
+            return route.NPC
+        end
+    end
+    return "Gozen" -- Fallback Max Level
+end
+
+--// UI KLICKER FÜR QUEST DIALOG
+local function ClickQuestDialog()
+    pcall(function()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, v in pairs(pg:GetDescendants()) do
+                if v:IsA("TextButton") and v.Visible then
+                    local txt = v.Text:lower()
+                    if txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("okay") then
+                        -- Simuliere Klick auf die "Ja/Annehmen" Option im GPO Dialog!
+                        for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
+                        for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
+                    end
+                end
+            end
+        end
+    end)
+end
+
 task.spawn(function()
     while true do
         task.wait(0.1)
         
-        --// SMART AUTO QUEST (MIT HOLD-DURATION FIX)
-        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
+        local activeNPC = RyuConfig.TargetNPC
+        if activeNPC == "[AUTO SMART LEVELING]" then
+            activeNPC = UpdateAutoLeveling()
+        else
+            RyuConfig.TargetMob = QuestDatabase[activeNPC] or "Bandit"
+        end
+        
+        --// SMART AUTO QUEST (MIT DIALOG CLICKER & HOLD FIX)
+        if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" then
             if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
-                local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
+                local npc = Workspace:FindFirstChild(activeNPC, true)
                 if npc then
                     ToggleHover(true)
                     local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
@@ -475,22 +479,25 @@ task.spawn(function()
                     local root = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if root then
-                        SafeTween(npcPos * CFrame.new(0, 0, 4))
+                        SafeTween(npcPos * CFrame.new(0, 0, 3))
                         root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                         task.wait(0.5)
                         
-                        -- Prompts perfekt halten
                         if fireproximityprompt then
                             for _, p in pairs(npc:GetDescendants()) do
                                 if p:IsA("ProximityPrompt") then
                                     p.RequiresLineOfSight = false
-                                    fireproximityprompt(p, 1, true) -- Beginne Drücken
-                                    task.wait(p.HoldDuration + 0.1) -- Warte exakt die Haltezeit!
-                                    fireproximityprompt(p, 0, true) -- Beende Drücken
+                                    fireproximityprompt(p, 1, true)
+                                    task.wait(p.HoldDuration + 0.1) 
+                                    fireproximityprompt(p, 0, true)
                                 end
                             end
                         end
                         task.wait(0.8)
+                        
+                        -- Automatisches Klicken der linken Option im UI
+                        ClickQuestDialog()
+                        task.wait(0.5)
                         
                         local events = ReplicatedStorage:FindFirstChild("Events")
                         if events and events:FindFirstChild("Quest") then 
@@ -508,7 +515,7 @@ task.spawn(function()
         end
 
         --// SMART MOB SELECTION & FARM LOOP
-        if RyuConfig.AutoFarm and RyuConfig.TargetNPC ~= "" then
+        if RyuConfig.AutoFarm and activeNPC ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -516,17 +523,15 @@ task.spawn(function()
             if root and hum and hum.Health > 0 then
                 ToggleHover(true) 
                 
-                -- KI: Welcher NPC wurde ausgewählt? Das ist das Ziel!
-                local targetMobName = QuestDatabase[RyuConfig.TargetNPC] or "Bandit"
-                
                 local npcs = Workspace:FindFirstChild("NPCs")
                 if npcs then
                     local validMobs = {}
                     for _, npc in pairs(npcs:GetChildren()) do
-                        if npc.Name == targetMobName then
+                        if npc.Name == RyuConfig.TargetMob then
                             local mHum = npc:FindFirstChildOfClass("Humanoid")
                             local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                            if mHum and mRoot and mHum.Health == mHum.MaxHealth then
+                            -- Sucht rigoros nach Mobs mit Leben
+                            if mHum and mRoot and mHum.Health > 0 then
                                 table.insert(validMobs, npc)
                             end
                         end
@@ -637,8 +642,9 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
-                                            if mRoot.Size.Y < 30 then
-                                                mRoot.Size = Vector3.new(30, 30, 30)
+                                            -- GEWALTIGE HITBOX GARANTIE!
+                                            if mRoot.Size.Y < 45 then
+                                                mRoot.Size = Vector3.new(50, 50, 50)
                                                 mRoot.CanCollide = false
                                             end
                                         end
@@ -672,4 +678,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Smart Pathfinding Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Quest AI Loaded!", 4)
