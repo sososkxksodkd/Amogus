@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - PERFECT QUEST LOOP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - STABLE MASTER BUILD)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -342,7 +342,7 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (STABILER LOOKAT TWEEN)
 --// ============================================================================
 local function DoMicroTween(root, targetCFrame, forceSpeed)
     local startPos = root.Position
@@ -362,7 +362,9 @@ local function DoMicroTween(root, targetCFrame, forceSpeed)
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then break end
         local alpha = (tick() - startTime) / timeToTake
-        root.CFrame = CFrame.new(startPos:Lerp(targetPos, alpha)) * (targetCFrame - targetCFrame.Position)
+        
+        -- FIX: Nutzt wieder den extrem sanften und sicheren CFrame.lookAt
+        root.CFrame = CFrame.lookAt(startPos:Lerp(targetPos, alpha), targetPos)
         RunService.Heartbeat:Wait()
     end
     root.CFrame = targetCFrame
@@ -377,6 +379,7 @@ local function SafeTween(targetCFrame)
     local targetPos = targetCFrame.Position
     local dist = (targetPos - startPos).Magnitude
 
+    -- TWEEN FIX: Fishman Cave und lange Reisen
     if dist > 300 then
         local safeY = math.max(startPos.Y, targetPos.Y) + 400 
         local upPos = Vector3.new(startPos.X, safeY, startPos.Z)
@@ -413,13 +416,12 @@ end)
 --// ============================================================================
 
 -- QUEST-ABFRAGE FIX: Zielt zu 100% auf den "QuestTracker" aus deinem Dex Screenshot ab!
--- Ignoriert dadurch die Lebensanzeige (115/115), die vorher den Fehler verursacht hat!
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if pg then
-            local tracker = pg:FindFirstChild("QuestTracker") or pg:FindFirstChild("Quest")
+            local tracker = pg:FindFirstChild("QuestTracker")
             if tracker then
                 for _, v in pairs(tracker:GetDescendants()) do
                     if v:IsA("TextLabel") and v.Visible then
@@ -430,6 +432,12 @@ local function HasActiveQuest()
                     end
                 end
             end
+        end
+        -- Fallback
+        local q = LocalPlayer:FindFirstChild("Quest")
+        if q and q:FindFirstChild("CurrentQuest") then
+            local val = q.CurrentQuest.Value
+            if val ~= "" and val ~= "None" then hasQuest = true return end
         end
     end)
     return hasQuest
@@ -452,6 +460,7 @@ local function UpdateAutoLeveling()
     return "Helen", "Fishman Cave" 
 end
 
+-- KLICKER FIX: Sucht explizit nach "okay"
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -459,7 +468,7 @@ local function PerformQuestClicking()
             for _, v in pairs(pg:GetDescendants()) do
                 if v:IsA("TextButton") and v.Visible then
                     local txt = v.Text:lower()
-                    if txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("okay") or txt:match("next") then
+                    if txt:match("okay") or txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("next") then
                         for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                         for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
                     end
@@ -491,7 +500,7 @@ task.spawn(function()
             RyuConfig.TargetMob = QuestDatabase[activeNPC] or "Bandit"
         end
         
-        --// SMART AUTO QUEST 
+        --// SMART AUTO QUEST (ANTI-SPAM & "OKAY" KLICKER)
         if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" then
             if not HasActiveQuest() then
                 local npc = FindNPC(activeNPC)
@@ -551,18 +560,21 @@ task.spawn(function()
                         local events = ReplicatedStorage:FindFirstChild("Events")
                         if events and events:FindFirstChild("Quest") then 
                             pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
-                            task.wait(0.1)
+                            task.wait(0.2)
+                            pcall(function() events.Quest:InvokeServer({{"npcChat", true}, RyuConfig.QuestText}) end)
+                            task.wait(0.2)
                             pcall(function() events.Quest:InvokeServer("takequest") end)
                             pcall(function() events.Quest:InvokeServer("acceptquest") end)
                         end
                         
-                        task.wait(2) 
+                        -- SPAM SCHUTZ: Warte 3 Sekunden, damit der Tracker laden kann!
+                        task.wait(3) 
                     end
                 end
             end
         end
 
-        --// SMART MOB SELECTION & GATHER LOOP
+        --// SMART MOB SELECTION & GATHER LOOP ("WIE DAMALS")
         if RyuConfig.AutoFarm and activeNPC ~= "" and HasActiveQuest() then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -611,7 +623,8 @@ task.spawn(function()
                             local safeY = math.max(mRoot.Position.Y, 20)
                             local attackPos = Vector3.new(mRoot.Position.X, safeY, mRoot.Position.Z) + (flatDir.Unit * 2)
                             
-                            root.CFrame = CFrame.lookAt(attackPos, Vector3.new(mRoot.Position.X, attackPos.Y, mRoot.Position.Z))
+                            -- FIX: Nutzt wieder den sanften SafeTween zum Sammeln!
+                            SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
                             
                             local startHp = mHum.Health
                             local timeout = tick()
@@ -651,7 +664,7 @@ task.spawn(function()
                             local currentHeightOffset = RyuConfig.KillHeight 
                             local skyPos = Vector3.new(firstMobRoot.Position.X, safeTargetY + currentHeightOffset, firstMobRoot.Position.Z)
                             
-                            root.CFrame = CFrame.lookAt(skyPos, Vector3.new(firstMobRoot.Position.X, skyPos.Y, firstMobRoot.Position.Z))
+                            SafeTween(CFrame.new(skyPos))
                             
                             local gatherTimeout = tick()
                             while RyuConfig.AutoFarm and hum.Health > 0 do
@@ -740,4 +753,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Perfect Quest Loop Loaded!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Old Farm Logic & Quest Loop Active!", 4)
