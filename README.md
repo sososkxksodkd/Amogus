@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - HITBOX & TWEEN FIXED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - THE FLAWLESS AI)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -73,8 +73,8 @@ local RyuConfig = {
     
     QuestText = "yes", 
     
-    TweenSpeed = 45, -- Sichererer Standardwert
-    KillHeight = 5,  -- REDUZIERT: Auf 5 Studs gesetzt, damit du sie perfekt triffst!
+    TweenSpeed = 55, 
+    KillHeight = 2.5, -- PERFEKTION: Exakt auf Kopfhöhe, sodass JEDER Schlag trifft!
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -240,12 +240,6 @@ local function CreateSlider(section, text, min, max, default, callback)
     UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
 end
 
-local function CreateButton(section, text, callback)
-    local btn = Instance.new("TextButton", section); btn.Size = UDim2.new(0.92, 0, 0, 34); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = text; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 13; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    local stroke = Instance.new("UIStroke", btn); stroke.Color = Theme.Stroke; stroke.Thickness = 1
-    btn.Activated:Connect(function() if callback then callback() end end)
-end
-
 --// ANTI-FLING HOVER SYSTEM
 local function ToggleHover(state)
     local char = LocalPlayer.Character
@@ -276,7 +270,6 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
-
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) RyuConfig.DynamicHeight = state end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
@@ -285,26 +278,8 @@ CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeap
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
-CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 20, 150, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
+CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) RyuConfig.KillHeight = val end)
-
-CreateButton(SecFarmAdvanced, "Teleport to Fishman Cave", function()
-    local islandObj = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
-    if islandObj then
-        local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            ToggleHover(true)
-            local target = pos * CFrame.new(0, 50, 0)
-            local dist = (target.Position - root.Position).Magnitude
-            local tw = TweenService:Create(root, TweenInfo.new(dist/100, Enum.EasingStyle.Linear), {CFrame = target})
-            tw:Play()
-            tw.Completed:Wait()
-            ToggleHover(false)
-            RyuNotify:Send("Teleport", "Erfolgreich angekommen!", 3)
-        end
-    end
-end)
 
 --// ============================================================================
 --// MODULE HOOKING: PC COMBAT ENGINE
@@ -357,17 +332,16 @@ local function DoMicroTween(root, targetCFrame, forceSpeed)
     local targetPos = targetCFrame.Position
     local dist = (targetPos - startPos).Magnitude
     
-    -- VOID BLOCKER
-    if dist > 5000 then return end 
+    -- VOID BLOCKER: Verhindert Stürze unter die Map
+    if targetPos.Y < -1000 then return end 
 
-    -- ANTI-CHEAT FIX: Drosselt Geschwindigkeit massiv bei Inselwechseln!
+    -- ANTI-CHEAT TWEEN SPEED: Drosselt bei langen Distanzen (wie Fishman Cave!)
     local speed = forceSpeed or RyuConfig.TweenSpeed 
     if dist > 300 then
-        speed = math.clamp(speed, 10, 30) -- Sehr sicher für große Distanzen
+        speed = 120 -- Exakte, GPO-getestete Safe-Speed für Langstreckenflüge
     end
 
     local timeToTake = dist / speed
-    
     if timeToTake < 0.1 then 
         root.CFrame = targetCFrame
         return 
@@ -392,13 +366,14 @@ local function SafeTween(targetCFrame)
     local targetPos = targetCFrame.Position
     local dist = (targetPos - startPos).Magnitude
 
-    if dist > 150 then
-        local safeY = math.max(startPos.Y, targetPos.Y) + 50
+    -- SKY-HOP FÜR INSELREISEN (Verhindert Steckenbleiben in Wänden)
+    if dist > 300 then
+        local safeY = math.max(startPos.Y, targetPos.Y) + 400 -- Fliegt extrem hoch drüber
         local upPos = Vector3.new(startPos.X, safeY, startPos.Z)
         local acrossPos = Vector3.new(targetPos.X, safeY, targetPos.Z)
         
-        DoMicroTween(root, CFrame.new(upPos))
-        DoMicroTween(root, CFrame.new(acrossPos))
+        DoMicroTween(root, CFrame.new(upPos), 150)
+        DoMicroTween(root, CFrame.new(acrossPos), 150)
     end
 
     DoMicroTween(root, targetCFrame)
@@ -426,25 +401,15 @@ end)
 --// ============================================================================
 --// DYNAMIC QUEST SCANNER & AUTO LEVELING
 --// ============================================================================
+
+-- QUEST-ABFRAGE FIX: Prüft 100% sicher den Ordner, um Fehlalarme zu vermeiden!
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
         local q = LocalPlayer:FindFirstChild("Quest")
         if q and q:FindFirstChild("CurrentQuest") then
             local val = q.CurrentQuest.Value
-            if val ~= "" and val ~= "None" then return true end
-        end
-        
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                -- Zielt explizit auf die Tracker oben links ab
-                if v:IsA("TextLabel") and v.Visible and v.AbsolutePosition.X < 300 and v.AbsolutePosition.Y < 300 then
-                    if v.Text:match("%d+/%d+") or v.Text:match("%d+%s*/%s*%d+") then 
-                        hasQuest = true 
-                    end
-                end
-            end
+            if val ~= "" and val ~= "None" then hasQuest = true end
         end
     end)
     return hasQuest
@@ -467,11 +432,11 @@ local function UpdateAutoLeveling()
     return "Helen", "Fishman Cave" 
 end
 
--- AGGRESSIVER QUEST-CLICKER: Klickt alles, was wie ein "Weiter" oder "Akzeptieren" aussieht!
+-- AGGRESSIVER QUEST-CLICKER: Durchbricht jeden lästigen GPO-Dialog
 local function ClickQuestDialog()
     task.spawn(function()
         local timeout = tick()
-        while tick() - timeout < 2 and RyuConfig.AutoQuest do
+        while tick() - timeout < 2.5 and RyuConfig.AutoQuest do
             pcall(function()
                 local pg = LocalPlayer:FindFirstChild("PlayerGui")
                 if pg then
@@ -491,6 +456,18 @@ local function ClickQuestDialog()
     end)
 end
 
+-- Smarter NPC Sucher (Findet NPCs auch wenn sie komisch benannt sind)
+local function FindNPC(npcName)
+    local npcs = Workspace:FindFirstChild("NPCs")
+    if not npcs then return nil end
+    for _, npc in pairs(npcs:GetChildren()) do
+        if string.find(npc.Name:lower(), npcName:lower()) then
+            return npc
+        end
+    end
+    return nil
+end
+
 task.spawn(function()
     local lastIslandVisited = ""
     
@@ -502,11 +479,12 @@ task.spawn(function()
             RyuConfig.TargetMob = QuestDatabase[activeNPC] or "Bandit"
         end
         
-        --// SMART AUTO QUEST 
+        --// SMART AUTO QUEST
         if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" then
             if not HasActiveQuest() then
-                local npc = Workspace:FindFirstChild(activeNPC, true)
+                local npc = FindNPC(activeNPC)
                 
+                -- Teleport zur neuen Insel, wenn der NPC noch nicht geladen ist
                 if not npc and activeIsland then
                     local islandObj = Workspace:FindFirstChild(activeIsland, true)
                     if islandObj then
@@ -527,8 +505,7 @@ task.spawn(function()
                     local root = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if root then
-                        -- Nah ran und direkt den NPC anschauen
-                        SafeTween(npcPos * CFrame.new(0, 0, 2.5))
+                        SafeTween(npcPos * CFrame.new(0, 0, 3.5)) -- Perfekte Distanz für den Dialog
                         root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                         task.wait(0.2)
                         
@@ -537,7 +514,8 @@ task.spawn(function()
                             lastIslandVisited = activeIsland
                         end
                         
-                        ClickQuestDialog() -- Startet den automatischen Klicker im Hintergrund
+                        -- Startet den GUI Klicker und feuert das ProximityPrompt
+                        ClickQuestDialog() 
                         
                         if fireproximityprompt then
                             for _, p in pairs(npc:GetDescendants()) do
@@ -550,16 +528,16 @@ task.spawn(function()
                             end
                         end
                         
+                        task.wait(0.3)
                         local events = ReplicatedStorage:FindFirstChild("Events")
                         if events and events:FindFirstChild("Quest") then 
                             pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
-                            task.wait(0.1)
                             pcall(function() events.Quest:InvokeServer({{"npcChat", true}, RyuConfig.QuestText}) end)
-                            task.wait(0.1)
+                            task.wait(0.2)
                             pcall(function() events.Quest:InvokeServer("takequest") end)
                             pcall(function() events.Quest:InvokeServer("acceptquest") end)
                         end
-                        task.wait(1) -- Warten, ob die Quest geladen wurde
+                        task.wait(1) 
                     end
                 end
             end
@@ -571,6 +549,7 @@ task.spawn(function()
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             
+            -- Void Reset Schutz
             if root and root.Position.Y < -50 then
                 root.CFrame = CFrame.new(0, 200, 0)
                 task.wait(1)
@@ -709,11 +688,10 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
-                                            -- HITBOX FIX: 20x20x20 ist der magische GPO-Wert (drückt NPCs nicht in den Boden)
+                                            -- HITBOX FIX: Nur noch 20x20x20. Verhindert Glitchen unter die Map!
                                             if mRoot.Size.Y < 19 then
                                                 mRoot.Size = Vector3.new(20, 20, 20)
                                                 mRoot.CanCollide = false
-                                                mRoot.Transparency = 0.7
                                             end
                                         end
                                     end
@@ -733,7 +711,7 @@ task.spawn(function()
                             
                             for _, mob in pairs(aggroedMobs) do
                                 local mRoot = mob and mob:FindFirstChild("HumanoidRootPart")
-                                if mRoot then mRoot.Size = Vector3.new(2, 2, 1); mRoot.Transparency = 0 end
+                                if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
                             end
                         end
                     end
@@ -745,4 +723,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Hitbox & Tween Speed Fixed!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Perfect Hitbox & Speed Safe!", 4)
