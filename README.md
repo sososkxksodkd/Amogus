@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - SMART AI & PATHFINDING)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - SMART AI ROUTING)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,51 +24,53 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART NPC & ENEMY SORTER
-local KnownQuests = {
-    "Ash the Tailor", "Tyson", "Robo", "Robert", "Kevin", "Helen", "Gozen", 
-    "Axe Hand Logan", "Captain Zhen", "Pharaoh Akshan", "Moria", "Coby", "Bomi", "Haku"
+--// SMART QUEST & ENEMY DATABASE (Die KI weiß jetzt alles!)
+local QuestDatabase = {
+    ["Daph"] = "Bandit",
+    ["Ash the Tailor"] = "Bandit",
+    ["Tyson"] = "Bandit Boss",
+    ["Robo"] = "Corrupt Marine",
+    ["Robert"] = "Sword Bandit",
+    ["Kevin"] = "Marine",
+    ["Helen"] = "Fishman",
+    ["Gozen"] = "Skypiean",
+    ["Axe Hand Logan"] = "Axe Hand Logan",
+    ["Captain Zhen"] = "Captain Zhen",
+    ["Moria"] = "Zombie",
+    ["Coby"] = "Marine",
+    ["Bomi"] = "Bandit",
+    ["Haku"] = "Snow Bandit"
 }
-local DynamicEnemies = {}
-local DynamicQuests = {}
 
+local DynamicQuests = {}
 local function SortNPCs()
     if Workspace:FindFirstChild("NPCs") then
         for _, npc in pairs(Workspace.NPCs:GetChildren()) do
             local hum = npc:FindFirstChildOfClass("Humanoid")
             if hum then
-                local isQuest = false
-                if table.find(KnownQuests, npc.Name) or string.find(npc.Name:lower(), "quest") then
-                    isQuest = true
-                end
-                
-                if isQuest then
+                if QuestDatabase[npc.Name] or string.find(npc.Name:lower(), "quest") then
                     if not table.find(DynamicQuests, npc.Name) then table.insert(DynamicQuests, npc.Name) end
-                else
-                    if not table.find(DynamicEnemies, npc.Name) then table.insert(DynamicEnemies, npc.Name) end
                 end
             end
         end
     end
-    table.sort(DynamicEnemies)
     table.sort(DynamicQuests)
 end
 SortNPCs()
 
-if #DynamicEnemies == 0 then DynamicEnemies = {"Bandit", "Bandit Boss", "Corrupt Marine"} end
-if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
+if #DynamicQuests == 0 then DynamicQuests = {"Daph", "Ash the Tailor", "Tyson"} end
 
 --// RYU CONFIGURATION
 local RyuConfig = {
     SpeedHack = false, SpeedValue = 35, 
+    Noclip = false, 
     
     AutoFarm = false,
     AutoQuest = false,
     DynamicHeight = false, 
     
-    TargetMob = DynamicEnemies[1],
     TargetIsland = "Town of Beginnings",
-    TargetNPC = DynamicQuests[1],
+    TargetNPC = DynamicQuests[1], -- TargetMob wurde gelöscht! Die KI entscheidet.
     TargetWeapon = "Combat",
     
     TweenSpeed = 55, 
@@ -79,8 +81,7 @@ local GPOIslands = {
     "Town of Beginnings", "Sandora", "Shell's Town", "Orange Town", 
     "Restaurant Baratie", "Roca Island", "Sphinx Island", "Marine Fort F-1", 
     "Fishman Island", "Colosseum", "Land of the Sky", "Marine Base G-1",
-    "Logue Town", "Kori Island", "Island Of Zou", "Gravito's Fort",
-    "Shark Park"
+    "Logue Town", "Kori Island", "Island Of Zou", "Gravito's Fort"
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -92,11 +93,6 @@ NotificationContainer.Size = UDim2.new(0, 260, 1, -40)
 NotificationContainer.Position = UDim2.new(1, -280, 0, 20)
 NotificationContainer.BackgroundTransparency = 1
 NotificationContainer.Parent = guiParent
-
-local NotifLayout = Instance.new("UIListLayout", NotificationContainer)
-NotifLayout.SortOrder = Enum.SortOrder.LayoutOrder
-NotifLayout.VerticalAlignment = Enum.VerticalAlignment.Bottom
-NotifLayout.Padding = UDim.new(0, 8)
 
 local RyuNotify = {}
 function RyuNotify:Send(title, text, duration)
@@ -124,32 +120,16 @@ function RyuNotify:Send(title, text, duration)
     end)
 end
 
+--// RAINBOW OVERHEAD TITLE
 local function AddRainbowTag(character)
     local head = character:WaitForChild("Head", 5)
     if head then
         if head:FindFirstChild("RyuHubTag") then head.RyuHubTag:Destroy() end
         local bg = Instance.new("BillboardGui")
-        bg.Name = "RyuHubTag"
-        bg.Size = UDim2.new(0, 200, 0, 50)
-        bg.StudsOffset = Vector3.new(0, 3, 0)
-        bg.AlwaysOnTop = true
-        bg.Parent = head
-        
+        bg.Name = "RyuHubTag"; bg.Size = UDim2.new(0, 200, 0, 50); bg.StudsOffset = Vector3.new(0, 3, 0); bg.AlwaysOnTop = true; bg.Parent = head
         local txt = Instance.new("TextLabel")
-        txt.Size = UDim2.new(1, 0, 1, 0)
-        txt.BackgroundTransparency = 1
-        txt.Text = "RYUHUB"
-        txt.Font = Enum.Font.GothamBlack
-        txt.TextSize = 22
-        txt.TextStrokeTransparency = 0
-        txt.Parent = bg
-        
-        task.spawn(function()
-            while bg.Parent do
-                txt.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
-                task.wait(0.1) 
-            end
-        end)
+        txt.Size = UDim2.new(1, 0, 1, 0); txt.BackgroundTransparency = 1; txt.Text = "RYUHUB"; txt.Font = Enum.Font.GothamBlack; txt.TextSize = 22; txt.TextStrokeTransparency = 0; txt.Parent = bg
+        task.spawn(function() while bg.Parent do txt.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1); task.wait(0.1) end end)
     end
 end
 if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
@@ -167,11 +147,9 @@ local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
 local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1; SubTitle.Text = "PC Exclusive Edition"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 
-local ResizeGrip = Instance.new("TextButton", MainFrame)
-ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
+local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-
 local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
 Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
 
@@ -181,34 +159,30 @@ UserInputService.InputChanged:Connect(function(input) if tDragStart and (input.U
 
 local rDragging, rDragStart, rStartSize = false, nil, nil
 ResizeGrip.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize end end)
-
 UserInputService.InputChanged:Connect(function(input)
     if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - rDragStart
-        local newWidth = math.max(450, rStartSize.X + delta.X)
-        local newHeight = math.max(300, rStartSize.Y + delta.Y)
-        currentMainSize = UDim2.new(0, newWidth, 0, newHeight)
+        currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y))
         MainFrame.Size = currentMainSize
     end
 end)
-
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if tDragStart then
             if not isDraggingBtn then
-                if MainFrame.Visible then 
-                    TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
-                else 
-                    MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = currentMainSize, Position = UDim2.new(0.5, -currentMainSize.X.Offset/2, 0.5, -currentMainSize.Y.Offset/2)}):Play() 
-                end
+                if MainFrame.Visible then TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false else MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = currentMainSize, Position = UDim2.new(0.5, -currentMainSize.X.Offset/2, 0.5, -currentMainSize.Y.Offset/2)}):Play() end
             end
             tDragStart = nil
         end
         rDragging = false
     end
 end)
-
 CloseBtn.Activated:Connect(function() TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
+
+local mDragging, mDragStart, mStartPos
+Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = true; mDragStart = input.Position; mStartPos = MainFrame.Position end end)
+Topbar.InputChanged:Connect(function(input) if mDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - mDragStart; MainFrame.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y) end end)
+Topbar.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = false end end)
 
 local ContentContainer = Instance.new("Frame", MainFrame); ContentContainer.Size = UDim2.new(1, -(SidebarWidth + 25), 1, -85); ContentContainer.Position = UDim2.new(0, SidebarWidth + 15, 0, 75); ContentContainer.BackgroundTransparency = 1
 local Sidebar = Instance.new("ScrollingFrame", MainFrame); Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0
@@ -216,9 +190,7 @@ local SideLayout = Instance.new("UIListLayout", Sidebar); SideLayout.Padding = U
 
 local Tabs = {}
 local function UpdateSidebarCanvas()
-    local totalH = 10
-    for _, t in pairs(Tabs) do totalH = totalH + 36 + 6; if t.IsOpen then totalH = totalH + t.SubLayout.AbsoluteContentSize.Y + 6 end end
-    Sidebar.CanvasSize = UDim2.new(0, 0, 0, totalH)
+    local totalH = 10; for _, t in pairs(Tabs) do totalH = totalH + 36 + 6; if t.IsOpen then totalH = totalH + t.SubLayout.AbsoluteContentSize.Y + 6 end end; Sidebar.CanvasSize = UDim2.new(0, 0, 0, totalH)
 end
 
 local function CreateMainTab(name)
@@ -310,7 +282,7 @@ end
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
-local SecAutoFarmMain = CreateSection(SubLeveling, "Smart Auto Farm")
+local SecAutoFarmMain = CreateSection(SubLeveling, "Smart AI Auto Farm")
 CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
@@ -326,7 +298,7 @@ end)
 
 local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
-CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
+-- DAS ENEMY DROPDOWN WURDE GELÖSCHT! DIE KI ENTSCHEIDET JETZT!
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
@@ -335,6 +307,13 @@ CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.Tween
 end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) 
     RyuConfig.KillHeight = val 
+end)
+
+local TabPlayer = CreateMainTab("Player")
+local SubMovement = CreateSubTab(TabPlayer, "Movement")
+local SecMovement = CreateSection(SubMovement, "Movement Settings")
+CreateToggle(SecMovement, "Noclip (Walk through walls)", RyuConfig.Noclip, function(state) 
+    RyuConfig.Noclip = state 
 end)
 
 --// ============================================================================
@@ -367,6 +346,7 @@ local function EquipCombat()
     end
 end
 
+-- ULTRA FAST M1
 local function PerformAttack()
     local inputModule = GetInputCallbacks()
     pcall(function()
@@ -381,13 +361,12 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE MIT SMART AVOIDANCE
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT OBSTACLE AVOIDANCE)
 --// ============================================================================
 local function DoMicroTween(root, targetCFrame)
     local startPos = root.Position
     local targetPos = targetCFrame.Position
     local dist = (targetPos - startPos).Magnitude
-    
     local speed = RyuConfig.TweenSpeed 
     local timeToTake = dist / speed
     
@@ -400,15 +379,14 @@ local function DoMicroTween(root, targetCFrame)
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then break end
         local alpha = (tick() - startTime) / timeToTake
-        
         local intermediatePos = startPos:Lerp(targetPos, alpha)
+        
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = intermediatePos end
         
         root.CFrame = CFrame.lookAt(intermediatePos, targetPos)
         RunService.Heartbeat:Wait()
     end
-    
     local bpFinal = root:FindFirstChild("RyuHover")
     if bpFinal then bpFinal.Position = targetPos end
     root.CFrame = targetCFrame
@@ -422,7 +400,7 @@ local function SafeTween(targetCFrame)
     local startPos = root.Position
     local targetPos = targetCFrame.Position
 
-    -- RAYCAST OBSTACLE AVOIDANCE (Pathfinding Bypass)
+    -- RAYCAST PATHFINDING: Erkennt Wände und weicht ihnen nach oben aus
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("NPCs")}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -430,9 +408,8 @@ local function SafeTween(targetCFrame)
     local raycastResult = Workspace:Raycast(startPos, targetPos - startPos, rayParams)
 
     if raycastResult and raycastResult.Instance and raycastResult.Instance.CanCollide then
-        -- Hindernis erkannt! Mache einen "Sky-Hop" drüber
-        local hopY = math.max(raycastResult.Position.Y + 30, startPos.Y + 30)
-        
+        -- Wand im Weg! Wir "hoppen" sicher über das Gebäude
+        local hopY = math.max(raycastResult.Position.Y + 35, startPos.Y + 35)
         DoMicroTween(root, CFrame.new(startPos.X, hopY, startPos.Z))
         DoMicroTween(root, CFrame.new(targetPos.X, hopY, targetPos.Z))
     end
@@ -440,29 +417,42 @@ local function SafeTween(targetCFrame)
     DoMicroTween(root, targetCFrame)
 end
 
+--// GPO-SAFE NOCLIP ENGINE
+RunService.Stepped:Connect(function()
+    if RyuConfig.Noclip or RyuConfig.AutoFarm or RyuConfig.AutoQuest then
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
+                    v.CanCollide = false 
+                end
+            end
+        end
+    end
+end)
+
 --// ============================================================================
---// DYNAMIC QUEST SCANNER
+--// DYNAMIC QUEST SCANNER (Zieht immer exakt die benötigte Menge Mobs)
 --// ============================================================================
 local function GetRequiredKills()
-    local required = 5 -- Standardwert
+    local required = 5 -- Standard, falls keine Quest erkannt wird
     pcall(function()
         local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
         if playerGui then
             for _, v in pairs(playerGui:GetDescendants()) do
                 if v:IsA("TextLabel") and v.Visible then
-                    -- Sucht nach "1/5", "Defeated: 2 / 8" etc. auf dem Bildschirm
+                    -- Sucht nach dem Muster "1/5", "2 / 8" etc.
                     local current, max = string.match(v.Text, "(%d+)%s*/%s*(%d+)")
                     if current and max then
                         local remaining = tonumber(max) - tonumber(current)
-                        if remaining > 0 then
-                            required = remaining
-                        end
+                        if remaining > 0 then required = remaining end
                     end
                 end
             end
         end
     end)
-    return math.clamp(required, 1, 8) -- Maximal 8 auf einmal, um Lags zu verhindern
+    -- Limitiert auf 5 gleichzeitig, um Kicks durch zu krasse Mob-Trauben zu verhindern
+    return math.clamp(required, 1, 5) 
 end
 
 local function GetCurrentQuest()
@@ -474,6 +464,7 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         
+        --// SMART AUTO QUEST (MIT HOLD-DURATION FIX)
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
                 local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
@@ -484,24 +475,27 @@ task.spawn(function()
                     local root = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if root then
-                        SafeTween(npcPos * CFrame.new(0, 0, 3))
+                        SafeTween(npcPos * CFrame.new(0, 0, 4))
                         root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                         task.wait(0.5)
                         
+                        -- Prompts perfekt halten
                         if fireproximityprompt then
                             for _, p in pairs(npc:GetDescendants()) do
                                 if p:IsA("ProximityPrompt") then
-                                    fireproximityprompt(p, 1, true)
-                                    task.wait(0.1)
-                                    fireproximityprompt(p, 0, true)
+                                    p.RequiresLineOfSight = false
+                                    fireproximityprompt(p, 1, true) -- Beginne Drücken
+                                    task.wait(p.HoldDuration + 0.1) -- Warte exakt die Haltezeit!
+                                    fireproximityprompt(p, 0, true) -- Beende Drücken
                                 end
                             end
                         end
-                        task.wait(0.5)
+                        task.wait(0.8)
                         
                         local events = ReplicatedStorage:FindFirstChild("Events")
                         if events and events:FindFirstChild("Quest") then 
                             pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
+                            task.wait(0.2)
                             pcall(function() events.Quest:InvokeServer({{"npcChat", true}}) end)
                             task.wait(0.3)
                             pcall(function() events.Quest:InvokeServer("takequest") end)
@@ -513,7 +507,8 @@ task.spawn(function()
             end
         end
 
-        if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
+        --// SMART MOB SELECTION & FARM LOOP
+        if RyuConfig.AutoFarm and RyuConfig.TargetNPC ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -521,11 +516,14 @@ task.spawn(function()
             if root and hum and hum.Health > 0 then
                 ToggleHover(true) 
                 
+                -- KI: Welcher NPC wurde ausgewählt? Das ist das Ziel!
+                local targetMobName = QuestDatabase[RyuConfig.TargetNPC] or "Bandit"
+                
                 local npcs = Workspace:FindFirstChild("NPCs")
                 if npcs then
                     local validMobs = {}
                     for _, npc in pairs(npcs:GetChildren()) do
-                        if npc.Name == RyuConfig.TargetMob then
+                        if npc.Name == targetMobName then
                             local mHum = npc:FindFirstChildOfClass("Humanoid")
                             local mRoot = npc:FindFirstChild("HumanoidRootPart")
                             if mHum and mRoot and mHum.Health == mHum.MaxHealth then
@@ -539,7 +537,7 @@ task.spawn(function()
                     
                     EquipCombat()
                     
-                    -- PHASE 1: AGGRO SAMMELN
+                    -- PHASE 1: AGGRO SAMMELN (Genau die benötigte Menge)
                     for _, mob in pairs(validMobs) do
                         if not RyuConfig.AutoFarm or hum.Health <= 0 then break end
                         if #aggroedMobs >= neededKills then break end
