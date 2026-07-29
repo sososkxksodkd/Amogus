@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FLING FIX & SAFE TWEEN)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - ANTI-CHEAT BYPASS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -149,7 +149,13 @@ UserInputService.InputChanged:Connect(function(input) if tDragStart and (input.U
 
 local rDragging, rDragStart, rStartSize = false, nil, nil
 ResizeGrip.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize end end)
-UserInputService.InputChanged:Connect(function(input) if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - rDragStart; currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y)); MainFrame.Size = currentMainSize end end)
+UserInputService.InputChanged:Connect(function(input)
+    if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - rDragStart
+        currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y))
+        MainFrame.Size = currentMainSize
+    end
+end)
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if tDragStart then
@@ -239,19 +245,15 @@ local function CreateSlider(section, text, min, max, default, callback)
     UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
 end
 
-local function CreateButton(section, text, callback)
-    local btn = Instance.new("TextButton", section); btn.Size = UDim2.new(0.92, 0, 0, 34); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = text; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 13; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    local stroke = Instance.new("UIStroke", btn); stroke.Color = Theme.Stroke; stroke.Thickness = 1
-    btn.Activated:Connect(function() if callback then callback() end end)
-end
-
---// ANTI-FLING HOVER SYSTEM (100% Sicher, Keine Kicks)
+--// GOD MODE & ANTI FLING SYSTEM
 local function ToggleHover(state)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not root then return end
     
     if state then
+        if hum then hum.PlatformStand = true end -- GOD MODE ON: Keine Physik-Reaktion mehr!
         local bv = root:FindFirstChild("RyuHover")
         if not bv then
             bv = Instance.new("BodyVelocity")
@@ -261,6 +263,7 @@ local function ToggleHover(state)
             bv.Parent = root
         end
     else
+        if hum then hum.PlatformStand = false end
         local bv = root:FindFirstChild("RyuHover")
         if bv then bv:Destroy() end
     end
@@ -275,14 +278,8 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
-
-CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
-    RyuConfig.DynamicHeight = state 
-end)
-
-CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) 
-    RyuConfig.AutoQuest = state 
-end)
+CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) RyuConfig.DynamicHeight = state end)
+CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
 local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
@@ -291,37 +288,6 @@ CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC"
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
 CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) RyuConfig.KillHeight = val end)
-
--- NEU: Sicherer Teleport zur Cave
-CreateButton(SecFarmAdvanced, "Teleport to Fishman Cave", function()
-    local islandObj = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
-    if islandObj then
-        local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
-        -- Sky-Hop Teleport (500 Studs hoch, dann runter)
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then
-            local startPos = root.Position
-            local targetPos = pos.Position
-            
-            ToggleHover(true)
-            local function T(c)
-                local dist = (c.Position - root.Position).Magnitude
-                local info = TweenInfo.new(dist / 150, Enum.EasingStyle.Linear)
-                local tw = TweenService:Create(root, info, {CFrame = c})
-                tw:Play()
-                tw.Completed:Wait()
-            end
-            
-            T(CFrame.new(startPos.X, 500, startPos.Z))
-            T(CFrame.new(targetPos.X, 500, targetPos.Z))
-            T(CFrame.new(targetPos.X, targetPos.Y + 5, targetPos.Z))
-            ToggleHover(false)
-            RyuNotify:Send("Teleport", "Erfolgreich angekommen!", 3)
-        end
-    else
-        RyuNotify:Send("Fehler", "Fishman Cave nicht gefunden!", 3)
-    end
-end)
 
 --// ============================================================================
 --// MODULE HOOKING: PC COMBAT ENGINE
@@ -367,7 +333,7 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE SKY-HOP TWEEN ENGINE (KEIN RAYCAST, KEIN NOCLIP!)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (Y-AXIS BYPASS FIX)
 --// ============================================================================
 local function DoMicroTween(root, targetCFrame)
     local startPos = root.Position
@@ -399,27 +365,44 @@ local function SafeTween(targetCFrame)
     local startPos = root.Position
     local targetPos = targetCFrame.Position
     local dist = (targetPos - startPos).Magnitude
-    
-    -- Wenn das Ziel weit weg ist (Insel-Wechsel oder Gebäude im Weg), machen wir den Sky-Hop!
+
+    -- ANTI-CHEAT BYPASS: Kein extremes Y=500 mehr!
     if dist > 150 then
-        -- Fliege gerade hoch auf 500 Studs (Safe Zone)
-        local upPos = Vector3.new(startPos.X, 500, startPos.Z)
-        -- Fliege rüber zum Ziel auf 500 Studs
-        local acrossPos = Vector3.new(targetPos.X, 500, targetPos.Z)
+        -- Wir fliegen nur knapp und sicher über die Map (Y-Check Bypass)
+        local safeY = math.max(startPos.Y, targetPos.Y) + 45
+        local upPos = Vector3.new(startPos.X, safeY, startPos.Z)
+        local acrossPos = Vector3.new(targetPos.X, safeY, targetPos.Z)
         
         DoMicroTween(root, CFrame.new(upPos))
         DoMicroTween(root, CFrame.new(acrossPos))
     end
 
-    -- Fliege sanft von oben auf das Ziel herab
     DoMicroTween(root, targetCFrame)
 end
+
+--// ANTI-FLING & VELOCITY LOCK PROTECTOR
+RunService.Stepped:Connect(function()
+    if RyuConfig.AutoFarm or RyuConfig.AutoQuest then
+        local char = LocalPlayer.Character
+        if char then
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then
+                -- Neutralisiert jede Fling-Energie von M1 Schlägen sofort!
+                root.Velocity = Vector3.new(0, 0, 0)
+                root.RotVelocity = Vector3.new(0, 0, 0)
+            end
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
+                    v.CanCollide = false 
+                end
+            end
+        end
+    end
+end)
 
 --// ============================================================================
 --// DYNAMIC QUEST SCANNER & AUTO LEVELING
 --// ============================================================================
-
--- Sucht oben links im Bildschirm nach dem UI-Tracker
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
@@ -432,7 +415,7 @@ local function HasActiveQuest()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if pg then
             for _, v in pairs(pg:GetDescendants()) do
-                -- Überprüfe nur Elemente oben links (X und Y unter 300 Pixel)
+                -- Checkt nur oben links (die Quest Tracker Position)
                 if v:IsA("TextLabel") and v.Visible and v.AbsolutePosition.X < 300 and v.AbsolutePosition.Y < 300 then
                     if v.Text:match("%d+/%d+") or v.Text:match("%d+%s*/%s*%d+") then 
                         hasQuest = true 
@@ -442,10 +425,6 @@ local function HasActiveQuest()
         end
     end)
     return hasQuest
-end
-
-local function GetRequiredKills()
-    return 5 -- Immer 5 für maximale Geschwindigkeit!
 end
 
 local function UpdateAutoLeveling()
@@ -495,7 +474,6 @@ task.spawn(function()
         
         --// SMART AUTO QUEST (OHNE SPAM!)
         if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" then
-            -- NUR WENN KEINE QUEST AKTIV IST
             if not HasActiveQuest() then
                 local npc = Workspace:FindFirstChild(activeNPC, true)
                 
@@ -503,7 +481,7 @@ task.spawn(function()
                     local islandObj = Workspace:FindFirstChild(activeIsland, true)
                     if islandObj then
                         local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
-                        SafeTween(pos * CFrame.new(0, 50, 0)) 
+                        SafeTween(pos * CFrame.new(0, 45, 0)) 
                         task.wait(1)
                         
                         if activeIsland ~= lastIslandVisited then
@@ -555,7 +533,7 @@ task.spawn(function()
             end
         end
 
-        --// SMART MOB SELECTION & GATHER LOOP (IMMER 5 MOBS!)
+        --// SMART MOB SELECTION & GATHER LOOP (ANTI UNDERWATER FLING)
         if RyuConfig.AutoFarm and activeNPC ~= "" and HasActiveQuest() then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -580,7 +558,8 @@ task.spawn(function()
                             if npc.Name == RyuConfig.TargetMob then
                                 local mHum = npc:FindFirstChildOfClass("Humanoid")
                                 local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                                if mHum and mRoot and mHum.Health > 0 and not table.find(aggroedMobs, npc) then
+                                -- Ignoriert Mobs die tief unters Wasser gebuggt sind (Y < 15)
+                                if mHum and mRoot and mHum.Health > 0 and mRoot.Position.Y > 10 and not table.find(aggroedMobs, npc) then
                                     table.insert(currentValid, npc)
                                 end
                             end
@@ -596,7 +575,9 @@ task.spawn(function()
                             local flatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             
-                            local attackPos = mRoot.Position + (flatDir.Unit * 2)
+                            -- Safe-Y Grenze verhindert Tauchen
+                            local safeY = math.max(mRoot.Position.Y, 20)
+                            local attackPos = Vector3.new(mRoot.Position.X, safeY, mRoot.Position.Z) + (flatDir.Unit * 2)
                             SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
                             
                             local startHp = mHum.Health
@@ -606,7 +587,7 @@ task.spawn(function()
                             task.spawn(function()
                                 while isAttacking and RyuConfig.AutoFarm do
                                     PerformAttack()
-                                    task.wait(0.1) -- Verhindert Server-Crashes
+                                    task.wait(0.1) 
                                 end
                             end)
                             
@@ -624,14 +605,15 @@ task.spawn(function()
                         end
                     end
                     
-                    -- PHASE 2: KILLEN (FLING-SAFE)
+                    -- PHASE 2: KILLEN (FLING-SAFE & UNDERWATER SAFE)
                     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
                         EquipCombat()
                         
                         local firstMobRoot = aggroedMobs[1]:FindFirstChild("HumanoidRootPart")
                         if firstMobRoot then
+                            local safeTargetY = math.max(firstMobRoot.Position.Y, 20)
                             local currentHeightOffset = RyuConfig.KillHeight 
-                            local skyPos = firstMobRoot.Position + Vector3.new(0, currentHeightOffset, 0)
+                            local skyPos = Vector3.new(firstMobRoot.Position.X, safeTargetY + currentHeightOffset, firstMobRoot.Position.Z)
                             
                             SafeTween(CFrame.new(skyPos))
                             
@@ -660,7 +642,7 @@ task.spawn(function()
                             task.spawn(function()
                                 while isKilling and RyuConfig.AutoFarm do
                                     PerformAttack()
-                                    task.wait(0.1) -- Optimaler, sicherer Schlagrhythmus!
+                                    task.wait(0.1) 
                                 end
                             end)
                             
@@ -677,7 +659,8 @@ task.spawn(function()
                                     myLastHealth = hum.Health 
                                 end
                                 
-                                skyPos = firstMobRoot.Position + Vector3.new(0, currentHeightOffset, 0)
+                                safeTargetY = math.max(firstMobRoot.Position.Y, 20)
+                                skyPos = Vector3.new(firstMobRoot.Position.X, safeTargetY + currentHeightOffset, firstMobRoot.Position.Z)
 
                                 local aliveCount = 0
                                 local targetLook = nil
@@ -691,7 +674,6 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
-                                            -- 50x50 Hitbox Garantie!
                                             if mRoot.Size.Y < 45 then
                                                 mRoot.Size = Vector3.new(50, 50, 50)
                                                 mRoot.CanCollide = false
@@ -702,10 +684,9 @@ task.spawn(function()
                                 
                                 if aliveCount == 0 then break end 
                                 
-                                -- Position nur updaten, wenn das Ziel sich bewegt, verhindert Fling komplett!
                                 local dist = (root.Position - skyPos).Magnitude
                                 if dist > 2 then
-                                    root.CFrame = CFrame.lookAt(skyPos, Vector3.new(targetLook.X, skyPos.Y, targetLook.Z))
+                                    root.CFrame = CFrame.new(skyPos, Vector3.new(targetLook.X, skyPos.Y, targetLook.Z))
                                 end
                                 
                                 RunService.Heartbeat:Wait()
@@ -727,4 +708,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Safe AI Loaded!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Fling Fixed & Safe Tween Active!", 4)
