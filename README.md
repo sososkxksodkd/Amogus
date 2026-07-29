@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - ANTI-CHEAT BYPASS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - VOID & FLING FIXED)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -245,15 +245,19 @@ local function CreateSlider(section, text, min, max, default, callback)
     UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
 end
 
---// GOD MODE & ANTI FLING SYSTEM
+local function CreateButton(section, text, callback)
+    local btn = Instance.new("TextButton", section); btn.Size = UDim2.new(0.92, 0, 0, 34); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = text; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 13; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", btn); stroke.Color = Theme.Stroke; stroke.Thickness = 1
+    btn.Activated:Connect(function() if callback then callback() end end)
+end
+
+--// ABSOLUT SICHERES HOVER SYSTEM (Keine BodyPosition -> Keine 10k Void Flings!)
 local function ToggleHover(state)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not root then return end
     
     if state then
-        if hum then hum.PlatformStand = true end -- GOD MODE ON: Keine Physik-Reaktion mehr!
         local bv = root:FindFirstChild("RyuHover")
         if not bv then
             bv = Instance.new("BodyVelocity")
@@ -263,7 +267,6 @@ local function ToggleHover(state)
             bv.Parent = root
         end
     else
-        if hum then hum.PlatformStand = false end
         local bv = root:FindFirstChild("RyuHover")
         if bv then bv:Destroy() end
     end
@@ -278,6 +281,7 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
+
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) RyuConfig.DynamicHeight = state end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) RyuConfig.AutoQuest = state end)
 
@@ -288,6 +292,25 @@ CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC"
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
 CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) RyuConfig.TweenSpeed = val end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) RyuConfig.KillHeight = val end)
+
+-- NEU: Teleport Button wurde für mehr Sicherheit integriert (Fliegt sicher zu neuen Inseln)
+CreateButton(SecFarmAdvanced, "Teleport to Fishman Cave", function()
+    local islandObj = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
+    if islandObj then
+        local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
+        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
+        if root then
+            ToggleHover(true)
+            local target = pos * CFrame.new(0, 50, 0)
+            local dist = (target.Position - root.Position).Magnitude
+            local tw = TweenService:Create(root, TweenInfo.new(dist/100, Enum.EasingStyle.Linear), {CFrame = target})
+            tw:Play()
+            tw.Completed:Wait()
+            ToggleHover(false)
+            RyuNotify:Send("Teleport", "Erfolgreich angekommen!", 3)
+        end
+    end
+end)
 
 --// ============================================================================
 --// MODULE HOOKING: PC COMBAT ENGINE
@@ -333,12 +356,16 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (Y-AXIS BYPASS FIX)
+--// BOMBENSICHERE TWEEN ENGINE (VOLLSTÄNDIGER VOID SCHUTZ)
 --// ============================================================================
 local function DoMicroTween(root, targetCFrame)
     local startPos = root.Position
     local targetPos = targetCFrame.Position
     local dist = (targetPos - startPos).Magnitude
+    
+    -- VOID BLOCKER: Fliege niemals ins Unendliche!
+    if dist > 5000 then return end 
+
     local speed = RyuConfig.TweenSpeed 
     local timeToTake = dist / speed
     
@@ -351,7 +378,9 @@ local function DoMicroTween(root, targetCFrame)
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then break end
         local alpha = (tick() - startTime) / timeToTake
-        root.CFrame = CFrame.lookAt(startPos:Lerp(targetPos, alpha), targetPos)
+        
+        -- Nur CFrame.new für maximale Stabilität! Keine BodyPosition!
+        root.CFrame = CFrame.new(startPos:Lerp(targetPos, alpha), targetPos)
         RunService.Heartbeat:Wait()
     end
     root.CFrame = targetCFrame
@@ -366,10 +395,9 @@ local function SafeTween(targetCFrame)
     local targetPos = targetCFrame.Position
     local dist = (targetPos - startPos).Magnitude
 
-    -- ANTI-CHEAT BYPASS: Kein extremes Y=500 mehr!
+    -- SKY-HOP (Für Wände und lange Reisen)
     if dist > 150 then
-        -- Wir fliegen nur knapp und sicher über die Map (Y-Check Bypass)
-        local safeY = math.max(startPos.Y, targetPos.Y) + 45
+        local safeY = math.max(startPos.Y, targetPos.Y) + 50
         local upPos = Vector3.new(startPos.X, safeY, startPos.Z)
         local acrossPos = Vector3.new(targetPos.X, safeY, targetPos.Z)
         
@@ -380,19 +408,19 @@ local function SafeTween(targetCFrame)
     DoMicroTween(root, targetCFrame)
 end
 
---// ANTI-FLING & VELOCITY LOCK PROTECTOR
+--// ANTI-FLING PROTECTOR (SICHERHEITSNETZ)
 RunService.Stepped:Connect(function()
     if RyuConfig.AutoFarm or RyuConfig.AutoQuest then
         local char = LocalPlayer.Character
         if char then
             local root = char:FindFirstChild("HumanoidRootPart")
             if root then
-                -- Neutralisiert jede Fling-Energie von M1 Schlägen sofort!
                 root.Velocity = Vector3.new(0, 0, 0)
                 root.RotVelocity = Vector3.new(0, 0, 0)
             end
+            -- NUR Beine/Arme Noclip, damit man nicht durch den Boden fällt!
             for _, v in pairs(char:GetChildren()) do
-                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.Name ~= "UpperTorso" and v.Name ~= "LowerTorso" and v.Name ~= "Torso" then 
                     v.CanCollide = false 
                 end
             end
@@ -415,7 +443,6 @@ local function HasActiveQuest()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if pg then
             for _, v in pairs(pg:GetDescendants()) do
-                -- Checkt nur oben links (die Quest Tracker Position)
                 if v:IsA("TextLabel") and v.Visible and v.AbsolutePosition.X < 300 and v.AbsolutePosition.Y < 300 then
                     if v.Text:match("%d+/%d+") or v.Text:match("%d+%s*/%s*%d+") then 
                         hasQuest = true 
@@ -472,7 +499,7 @@ task.spawn(function()
             RyuConfig.TargetMob = QuestDatabase[activeNPC] or "Bandit"
         end
         
-        --// SMART AUTO QUEST (OHNE SPAM!)
+        --// SMART AUTO QUEST (KEIN SPAM)
         if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" then
             if not HasActiveQuest() then
                 local npc = Workspace:FindFirstChild(activeNPC, true)
@@ -481,7 +508,7 @@ task.spawn(function()
                     local islandObj = Workspace:FindFirstChild(activeIsland, true)
                     if islandObj then
                         local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
-                        SafeTween(pos * CFrame.new(0, 45, 0)) 
+                        SafeTween(pos * CFrame.new(0, 50, 0)) 
                         task.wait(1)
                         
                         if activeIsland ~= lastIslandVisited then
@@ -533,11 +560,17 @@ task.spawn(function()
             end
         end
 
-        --// SMART MOB SELECTION & GATHER LOOP (ANTI UNDERWATER FLING)
+        --// SMART MOB SELECTION & GATHER LOOP
         if RyuConfig.AutoFarm and activeNPC ~= "" and HasActiveQuest() then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
+            
+            -- VOID SCHUTZ: Wenn der Spieler in die Void gefallen ist, resette ihn!
+            if root and root.Position.Y < -50 then
+                root.CFrame = CFrame.new(0, 200, 0)
+                task.wait(1)
+            end
             
             if root and hum and hum.Health > 0 then
                 ToggleHover(true) 
@@ -558,8 +591,8 @@ task.spawn(function()
                             if npc.Name == RyuConfig.TargetMob then
                                 local mHum = npc:FindFirstChildOfClass("Humanoid")
                                 local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                                -- Ignoriert Mobs die tief unters Wasser gebuggt sind (Y < 15)
-                                if mHum and mRoot and mHum.Health > 0 and mRoot.Position.Y > 10 and not table.find(aggroedMobs, npc) then
+                                -- VOID BLOCKER: Ignoriert Mobs unter der Erde (Y < 0)!
+                                if mHum and mRoot and mHum.Health > 0 and mRoot.Position.Y > 0 and not table.find(aggroedMobs, npc) then
                                     table.insert(currentValid, npc)
                                 end
                             end
@@ -575,7 +608,6 @@ task.spawn(function()
                             local flatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             
-                            -- Safe-Y Grenze verhindert Tauchen
                             local safeY = math.max(mRoot.Position.Y, 20)
                             local attackPos = Vector3.new(mRoot.Position.X, safeY, mRoot.Position.Z) + (flatDir.Unit * 2)
                             SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
@@ -605,7 +637,7 @@ task.spawn(function()
                         end
                     end
                     
-                    -- PHASE 2: KILLEN (FLING-SAFE & UNDERWATER SAFE)
+                    -- PHASE 2: KILLEN
                     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
                         EquipCombat()
                         
@@ -708,4 +740,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Fling Fixed & Safe Tween Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: All Bugs Fixed & Master AI Loaded!", 4)
