@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - ULTIMATE AUTO PROGRESSION)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FISHMAN ROUTE PREP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART QUEST, ENEMY & ISLAND DATABASE (Die Allwissende KI)
+--// SMART QUEST & ENEMY DATABASE
 local QuestDatabase = {
     ["Daph"] = "Bandit",
     ["Ash the Tailor"] = "Bandit",
@@ -38,12 +38,12 @@ local QuestDatabase = {
     ["Haku"] = "Snow Bandit"
 }
 
---// GPO AUTO LEVELING ROUTE (Level = {NPC, Mob, Island})
+--// GPO AUTO LEVELING ROUTE (Vorbereitet für Fishman)
 local AutoLevelRoute = {
     {Min = 1, Max = 15, NPC = "Daph", Mob = "Bandit", Island = "Town of Beginnings"},
     {Min = 15, Max = 25, NPC = "Kevin", Mob = "Marine", Island = "Marine Fort F-1"},
     {Min = 25, Max = 40, NPC = "Robert", Mob = "Sword Bandit", Island = "Roca Island"},
-    {Min = 40, Max = 1000, NPC = "Gozen", Mob = "Skypiean", Island = "Land of the Sky"} 
+    {Min = 40, Max = 1000, NPC = "Helen", Mob = "Fishman", Island = "Fishman Island"} 
 }
 
 local DynamicQuests = {"[AUTO SMART LEVELING]"}
@@ -69,8 +69,10 @@ local RyuConfig = {
     
     TargetNPC = DynamicQuests[1], 
     TargetMob = "Bandit", 
-    TargetIsland = "Town of Beginnings",
     TargetWeapon = "Combat",
+    
+    QuestText = "yes", -- NEU: Der Text für die Quest-Annahme
+    FishmanCaveMode = false, -- NEU: Der Modus für die Custom Route
     
     TweenSpeed = 45, 
     KillHeight = 7, 
@@ -112,7 +114,6 @@ function RyuNotify:Send(title, text, duration)
     end)
 end
 
---// RAINBOW OVERHEAD TITLE
 local function AddRainbowTag(character)
     local head = character:WaitForChild("Head", 5)
     if head then
@@ -274,6 +275,11 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     if not state then ToggleHover(false) end 
 end)
 
+-- NEU: Fishman Cave Mode Switch
+CreateToggle(SecAutoFarmMain, "Use Fishman Cave Route", RyuConfig.FishmanCaveMode, function(state) 
+    RyuConfig.FishmanCaveMode = state 
+end)
+
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
     RyuConfig.DynamicHeight = state 
 end)
@@ -320,11 +326,11 @@ local function EquipCombat()
     end
 end
 
+-- NEU: ULTRA FAST M1 (Ohne Blockieren)
 local function PerformAttack()
     local inputModule = GetInputCallbacks()
     pcall(function()
         if inputModule and inputModule.Utils.canAutoM1() then
-            inputModule.Callbacks.Attack:PC_Activate()
             inputModule.Callbacks.Attack:PC_Activate()
         else
             VirtualUser:CaptureController()
@@ -334,7 +340,7 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (RAYCAST AVOIDANCE - KEIN NOCLIP!)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (RAYCAST AVOIDANCE)
 --// ============================================================================
 local function DoMicroTween(root, targetCFrame)
     local startPos = root.Position
@@ -373,7 +379,6 @@ local function SafeTween(targetCFrame)
     local startPos = root.Position
     local targetPos = targetCFrame.Position
 
-    -- PATHFINDING: Erkennt Wände und umgeht sie legal!
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("NPCs")}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -392,25 +397,6 @@ end
 --// ============================================================================
 --// DYNAMIC QUEST SCANNER & AUTO LEVELING
 --// ============================================================================
-local function GetRequiredKills()
-    local required = 5 
-    pcall(function()
-        local playerGui = LocalPlayer:FindFirstChild("PlayerGui")
-        if playerGui then
-            for _, v in pairs(playerGui:GetDescendants()) do
-                if v:IsA("TextLabel") and v.Visible then
-                    local current, max = string.match(v.Text, "(%d+)%s*/%s*(%d+)")
-                    if current and max then
-                        local remaining = tonumber(max) - tonumber(current)
-                        if remaining > 0 then required = remaining end
-                    end
-                end
-            end
-        end
-    end)
-    return math.clamp(required, 1, 5) 
-end
-
 local function GetCurrentQuest()
     local q = LocalPlayer:FindFirstChild("Quest")
     return q and q:FindFirstChild("CurrentQuest") and q.CurrentQuest.Value or "None"
@@ -418,7 +404,7 @@ end
 
 local function UpdateAutoLeveling()
     if RyuConfig.TargetNPC ~= "[AUTO SMART LEVELING]" then 
-        return RyuConfig.TargetNPC, RyuConfig.TargetIsland
+        return RyuConfig.TargetNPC, nil
     end
     
     local levelFolder = LocalPlayer:FindFirstChild("Data") and LocalPlayer.Data:FindFirstChild("Level")
@@ -430,9 +416,10 @@ local function UpdateAutoLeveling()
             return route.NPC, route.Island
         end
     end
-    return "Gozen", "Land of the Sky" 
+    return "Helen", "Fishman Island" 
 end
 
+-- CLICKER FIX
 local function ClickQuestDialog()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -440,7 +427,7 @@ local function ClickQuestDialog()
             for _, v in pairs(pg:GetDescendants()) do
                 if v:IsA("TextButton") and v.Visible then
                     local txt = v.Text:lower()
-                    if txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("okay") then
+                    if txt:match(RyuConfig.QuestText:lower()) or txt:match("yes") or txt:match("accept") or txt:match("sure") then
                         for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                         for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
                     end
@@ -454,17 +441,24 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         
+        -- CUSTOM FISHMAN CAVE ROUTE
+        if RyuConfig.FishmanCaveMode and RyuConfig.AutoFarm then
+            -- PLATZHALTER: Hier kommt die Logik rein!
+            -- 1. Fliege zum blauen Teleporter.
+            -- 2. Teleportiere in die Höhle.
+            -- 3. Setze Spawn Point.
+        end
+
         local activeNPC, activeIsland = UpdateAutoLeveling()
         if RyuConfig.TargetNPC ~= "[AUTO SMART LEVELING]" then
             RyuConfig.TargetMob = QuestDatabase[activeNPC] or "Bandit"
         end
         
-        --// SMART AUTO QUEST (MIT ISLAND TELEPORT)
-        if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" then
+        --// SMART AUTO QUEST 
+        if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" and not RyuConfig.FishmanCaveMode then
             if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
                 local npc = Workspace:FindFirstChild(activeNPC, true)
                 
-                -- Wenn NPC nicht gefunden, reise zur Insel!
                 if not npc and activeIsland then
                     local islandObj = Workspace:FindFirstChild(activeIsland, true)
                     if islandObj then
@@ -502,7 +496,7 @@ task.spawn(function()
                         if events and events:FindFirstChild("Quest") then 
                             pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
                             task.wait(0.2)
-                            pcall(function() events.Quest:InvokeServer({{"npcChat", true}}) end)
+                            pcall(function() events.Quest:InvokeServer({{"npcChat", true}, RyuConfig.QuestText}) end) -- Custom Quest Text gesendet
                             task.wait(0.3)
                             pcall(function() events.Quest:InvokeServer("takequest") end)
                             pcall(function() events.Quest:InvokeServer("acceptquest") end)
@@ -513,7 +507,7 @@ task.spawn(function()
             end
         end
 
-        --// SMART MOB SELECTION & GATHER LOOP
+        --// SMART MOB SELECTION & GATHER LOOP (IMMER 5 MOBS!)
         if RyuConfig.AutoFarm and activeNPC ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -524,17 +518,15 @@ task.spawn(function()
                 local npcs = Workspace:FindFirstChild("NPCs")
                 
                 if npcs then
-                    local neededKills = GetRequiredKills()
+                    local neededKills = 5 -- Fixiert auf 5 für maximale Effizienz!
                     local aggroedMobs = {}
                     
                     EquipCombat()
                     
-                    -- DIE 5-MOB GARANTIE SCHLEIFE
                     local gatherStart = tick()
                     while RyuConfig.AutoFarm and hum.Health > 0 and #aggroedMobs < neededKills do
-                        if tick() - gatherStart > 20 then break end -- 20 Sek Timeout, falls keine mehr spawnen
+                        if tick() - gatherStart > 20 then break end 
                         
-                        -- Finde ständig frische Mobs
                         local currentValid = {}
                         for _, npc in pairs(npcs:GetChildren()) do
                             if npc.Name == RyuConfig.TargetMob then
@@ -546,7 +538,7 @@ task.spawn(function()
                             end
                         end
                         
-                        if #currentValid == 0 then break end -- Keine weiteren da, breche ab und kille Rest
+                        if #currentValid == 0 then break end 
                         
                         local mob = currentValid[1]
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
@@ -562,6 +554,15 @@ task.spawn(function()
                             local startHp = mHum.Health
                             local timeout = tick()
                             
+                            -- NEU: Asynchroner Attack-Spammer!
+                            local isAttacking = true
+                            task.spawn(function()
+                                while isAttacking and RyuConfig.AutoFarm do
+                                    PerformAttack()
+                                    task.wait()
+                                end
+                            end)
+                            
                             while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
                                 if tick() - timeout > 3 then break end 
                                 
@@ -569,9 +570,10 @@ task.spawn(function()
                                 if bp then bp.Position = mRoot.Position + (flatDir.Unit * 2) end
                                 root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
                                 
-                                PerformAttack()
                                 RunService.Heartbeat:Wait()
                             end
+                            
+                            isAttacking = false -- Stoppt den Spammer für den Wechsel
                             
                             if mHum.Health > 0 and mHum.Health < startHp then
                                 table.insert(aggroedMobs, mob)
@@ -579,7 +581,7 @@ task.spawn(function()
                         end
                     end
                     
-                    -- PHASE 2: SMART GROUPING & KILLEN
+                    -- PHASE 2: KILLEN
                     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
                         EquipCombat()
                         
@@ -614,6 +616,15 @@ task.spawn(function()
                             local killTimeout = tick()
                             local myLastHealth = hum.Health
                             
+                            -- NEU: Asynchroner Attack-Spammer für die Kill-Phase!
+                            local isKilling = true
+                            task.spawn(function()
+                                while isKilling and RyuConfig.AutoFarm do
+                                    PerformAttack()
+                                    task.wait()
+                                end
+                            end)
+                            
                             while RyuConfig.AutoFarm and hum.Health > 0 do
                                 if tick() - killTimeout > 25 then break end 
                                 
@@ -621,7 +632,6 @@ task.spawn(function()
                                     if RyuConfig.DynamicHeight then
                                         currentHeightOffset = currentHeightOffset + 1.5
                                         RyuConfig.KillHeight = currentHeightOffset 
-                                        RyuNotify:Send("Anti-Hit", "Schaden erkannt! Gehe höher: " .. currentHeightOffset .. " Studs", 2)
                                     end
                                     myLastHealth = hum.Health
                                 elseif hum.Health > myLastHealth then
@@ -660,9 +670,10 @@ task.spawn(function()
                                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetLook.X, root.Position.Y, targetLook.Z))
                                 end
                                 
-                                PerformAttack()
                                 RunService.Heartbeat:Wait()
                             end
+                            
+                            isKilling = false -- Stoppt den Spammer
                             
                             for _, mob in pairs(aggroedMobs) do
                                 local mRoot = mob and mob:FindFirstChild("HumanoidRootPart")
@@ -678,4 +689,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Ultimate AI Leveling Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Route Loaded!", 4)
