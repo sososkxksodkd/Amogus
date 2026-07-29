@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - PERFECT CONTROL)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - SMART GROUP & FAST M1)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -14,8 +14,8 @@ local VirtualUser = game:GetService("VirtualUser")
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
---// GUI SECURITY & CLEANUP
-local guiParent = LocalPlayer:WaitForChild("PlayerGui")
+--// GUI SECURITY & CLEANUP (Volt Safe)
+local guiParent = LocalPlayer:WaitForChild("PlayerGui", 10) or LocalPlayer:FindFirstChild("PlayerGui")
 pcall(function() 
     if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end 
 end)
@@ -61,7 +61,7 @@ if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
 --// RYU CONFIGURATION
 local RyuConfig = {
     SpeedHack = false, SpeedValue = 35, 
-    Noclip = false, -- NEUER NOCLIP TOGGLE
+    Noclip = false, 
     
     AutoFarm = false,
     AutoQuest = false,
@@ -73,7 +73,7 @@ local RyuConfig = {
     TargetWeapon = "Combat",
     
     TweenSpeed = 55, 
-    KillHeight = 7, -- NEU: Slider-Wert für die Kill-Höhe
+    KillHeight = 7, 
 }
 
 local GPOIslands = {
@@ -124,6 +124,38 @@ function RyuNotify:Send(title, text, duration)
         fadeOut:Play(); fadeOut.Completed:Wait(); NotifFrame:Destroy()
     end)
 end
+
+--// RAINBOW OVERHEAD TITLE (Volt Optimized)
+local function AddRainbowTag(character)
+    local head = character:WaitForChild("Head", 5)
+    if head then
+        if head:FindFirstChild("RyuHubTag") then head.RyuHubTag:Destroy() end
+        local bg = Instance.new("BillboardGui")
+        bg.Name = "RyuHubTag"
+        bg.Size = UDim2.new(0, 200, 0, 50)
+        bg.StudsOffset = Vector3.new(0, 3, 0)
+        bg.AlwaysOnTop = true
+        bg.Parent = head
+        
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, 0, 1, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = "RYUHUB"
+        txt.Font = Enum.Font.GothamBlack
+        txt.TextSize = 22
+        txt.TextStrokeTransparency = 0
+        txt.Parent = bg
+        
+        task.spawn(function()
+            while bg.Parent do
+                txt.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                task.wait(0.1) 
+            end
+        end)
+    end
+end
+if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
 
 --// UI SETUP (Reskalierbar)
 local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50) }
@@ -300,9 +332,11 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
+
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
     RyuConfig.DynamicHeight = state 
 end)
+
 CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) 
     RyuConfig.AutoQuest = state 
 end)
@@ -316,7 +350,6 @@ local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
 CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) 
     RyuConfig.TweenSpeed = val 
 end)
--- NEU: Kill Height Offset Slider (Minus für Underground, Plus für Himmel)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) 
     RyuConfig.KillHeight = val 
 end)
@@ -324,7 +357,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 local SecMovement = CreateSection(SubMovement, "Movement Settings")
--- NEU: Globaler Noclip Toggle
+
 CreateToggle(SecMovement, "Noclip (Walk through walls)", RyuConfig.Noclip, function(state) 
     RyuConfig.Noclip = state 
 end)
@@ -359,10 +392,13 @@ local function EquipCombat()
     end
 end
 
+-- NEU: EXTRA SCHNELLE SCHLÄGE
 local function PerformAttack()
     local inputModule = GetInputCallbacks()
     pcall(function()
         if inputModule and inputModule.Utils.canAutoM1() then
+            -- Wir feuern M1 doppelt ab für absolute Höchstgeschwindigkeit
+            inputModule.Callbacks.Attack:PC_Activate()
             inputModule.Callbacks.Attack:PC_Activate()
         else
             VirtualUser:CaptureController()
@@ -410,13 +446,14 @@ local function SafeTween(targetCFrame)
     root.CFrame = targetCFrame
 end
 
--- FIX: Globales, robustes Noclip-System
+--// NEUES GPO-SICHERES NOCLIP SYSTEM
 RunService.Stepped:Connect(function()
     if RyuConfig.Noclip or RyuConfig.AutoFarm or RyuConfig.AutoQuest then
         local char = LocalPlayer.Character
         if char then
-            for _, v in pairs(char:GetDescendants()) do
-                if v:IsA("BasePart") and v.CanCollide then 
+            -- Mache alles durchlässig AUSSER dem Kern, um Kicks zu vermeiden!
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
                     v.CanCollide = false 
                 end
             end
@@ -425,7 +462,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// GPO MASTER KITE FARM (WITH SLIDER HEIGHT & AUTO QUEST FIX)
+--// GPO MASTER KITE FARM (SMART GROUPING & QUEST FIX)
 --// ============================================================================
 local function GetCurrentQuest()
     local q = LocalPlayer:FindFirstChild("Quest")
@@ -436,40 +473,42 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         
-        -- FIX: Verbessertes AutoQuest (Nutzt ProximityPrompt + Remotes aus der Nähe)
+        -- FIX: KOMPLETT ÜBERARBEITETES AUTO-QUEST
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
                 local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npc then
                     ToggleHover(true)
                     local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
-                    -- Fliege ganz nah heran (3 Studs statt 5) und schaue NPC an
                     local char = LocalPlayer.Character
                     local root = char and char:FindFirstChild("HumanoidRootPart")
+                    
                     if root then
                         SafeTween(npcPos * CFrame.new(0, 0, 3))
                         root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
-                        task.wait(0.3)
+                        task.wait(0.5)
                         
-                        -- Löse ProximityPrompt aus, falls vorhanden (GPO nutzt das oft!)
+                        -- Prompts virtuell GEDRÜCKT HALTEN (wie ein echter Spieler)
                         if fireproximityprompt then
                             for _, p in pairs(npc:GetDescendants()) do
                                 if p:IsA("ProximityPrompt") then
-                                    fireproximityprompt(p)
+                                    fireproximityprompt(p, 1, true)
+                                    task.wait(0.1)
+                                    fireproximityprompt(p, 0, true)
                                 end
                             end
                         end
-                        task.wait(0.2)
+                        task.wait(0.5)
                         
-                        -- Feure die Remotes als Fallback ab
                         local events = ReplicatedStorage:FindFirstChild("Events")
                         if events and events:FindFirstChild("Quest") then 
                             pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
                             pcall(function() events.Quest:InvokeServer({{"npcChat", true}}) end)
-                            task.wait(0.2)
+                            task.wait(0.3)
                             pcall(function() events.Quest:InvokeServer("takequest") end)
                             pcall(function() events.Quest:InvokeServer("acceptquest") end)
                         end
+                        task.wait(0.5)
                     end
                 end
             end
@@ -498,9 +537,9 @@ task.spawn(function()
                     
                     local aggroedMobs = {}
                     
-                    -- PHASE 1: AGGRO SAMMELN
                     EquipCombat()
                     
+                    -- PHASE 1: AGGRO SAMMELN
                     for _, mob in pairs(validMobs) do
                         if not RyuConfig.AutoFarm or hum.Health <= 0 then break end
                         if #aggroedMobs >= 5 then break end
@@ -526,7 +565,7 @@ task.spawn(function()
                                 root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
                                 
                                 PerformAttack()
-                                task.wait(0.05)
+                                RunService.Heartbeat:Wait() -- Null Verzögerung! Fäuste fliegen sofort!
                             end
                             
                             if mHum.Health > 0 and mHum.Health < startHp then
@@ -535,28 +574,50 @@ task.spawn(function()
                         end
                     end
                     
-                    -- PHASE 2: TÖTEN
+                    -- PHASE 2: SMART GROUPING & KILLEN
                     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
                         EquipCombat()
                         
                         local firstMobRoot = aggroedMobs[1]:FindFirstChild("HumanoidRootPart")
                         if firstMobRoot then
-                            -- Greift auf den Slider-Wert zurück (z.B. 7 oder -10)
                             local currentHeightOffset = RyuConfig.KillHeight 
                             local skyPos = firstMobRoot.Position + Vector3.new(0, currentHeightOffset, 0)
                             
                             SafeTween(CFrame.new(skyPos))
                             
+                            -- NEU: WARTEN BIS ALLE 5 GEGNER DA SIND! (Smart Grouping)
+                            local gatherTimeout = tick()
+                            while RyuConfig.AutoFarm and hum.Health > 0 do
+                                if tick() - gatherTimeout > 6 then break end 
+                                
+                                local allHere = true
+                                for _, mob in pairs(aggroedMobs) do
+                                    local mRoot = mob and mob:FindFirstChild("HumanoidRootPart")
+                                    local mHum = mob and mob:FindFirstChildOfClass("Humanoid")
+                                    if mRoot and mHum and mHum.Health > 0 then
+                                        local dist = (Vector2.new(mRoot.Position.X, mRoot.Position.Z) - Vector2.new(root.Position.X, root.Position.Z)).Magnitude
+                                        if dist > 15 then allHere = false end
+                                    end
+                                end
+                                
+                                local bp = root:FindFirstChild("RyuHover")
+                                if bp then bp.Position = skyPos end
+                                
+                                if allHere then break end
+                                RunService.Heartbeat:Wait()
+                            end
+                            
                             local killTimeout = tick()
                             local myLastHealth = hum.Health
                             
+                            -- DAS GEMETZEL STARTET
                             while RyuConfig.AutoFarm and hum.Health > 0 do
                                 if tick() - killTimeout > 25 then break end 
                                 
-                                -- DYNAMIC HEIGHT CHECK
                                 if hum.Health < myLastHealth then
                                     if RyuConfig.DynamicHeight then
                                         currentHeightOffset = currentHeightOffset + 1.5
+                                        RyuConfig.KillHeight = currentHeightOffset 
                                         RyuNotify:Send("Anti-Hit", "Schaden erkannt! Gehe höher: " .. currentHeightOffset .. " Studs", 2)
                                     end
                                     myLastHealth = hum.Health
@@ -596,7 +657,7 @@ task.spawn(function()
                                 end
                                 
                                 PerformAttack()
-                                RunService.Heartbeat:Wait()
+                                RunService.Heartbeat:Wait() -- Maximum Schlag-Geschwindigkeit
                             end
                             
                             for _, mob in pairs(aggroedMobs) do
@@ -613,4 +674,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Fully Custom Kill Height & Quest Fix Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Smart Grouping & M1 Overdrive Active!", 4)
