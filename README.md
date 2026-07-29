@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FISHMAN CAVE BYPASS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - ANTI-FLING & CAVE TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -38,12 +38,12 @@ local QuestDatabase = {
     ["Haku"] = "Snow Bandit"
 }
 
---// GPO AUTO LEVELING ROUTE (Mit Fishman Cave Direkt-Routing)
+--// GPO AUTO LEVELING ROUTE
 local AutoLevelRoute = {
     {Min = 1, Max = 15, NPC = "Daph", Mob = "Bandit", Island = "Town of Beginnings"},
     {Min = 15, Max = 25, NPC = "Kevin", Mob = "Marine", Island = "Marine Fort F-1"},
     {Min = 25, Max = 40, NPC = "Robert", Mob = "Sword Bandit", Island = "Roca Island"},
-    {Min = 40, Max = 1000, NPC = "Helen", Mob = "Fishman", Island = "Fishman Cave"} -- Geht nun direkt zur Höhle laut Dex!
+    {Min = 40, Max = 1000, NPC = "Helen", Mob = "Fishman", Island = "Fishman Cave"} 
 }
 
 local DynamicQuests = {"[AUTO SMART LEVELING]"}
@@ -71,7 +71,7 @@ local RyuConfig = {
     TargetMob = "Bandit", 
     TargetWeapon = "Combat",
     
-    QuestText = "...", -- Standard, wird durch AutoClicker abgedeckt
+    QuestText = "...", 
     
     TweenSpeed = 55, 
     KillHeight = 7, 
@@ -141,7 +141,8 @@ local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0,
 
 local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0); Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
+local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
 
 local tDragStart, tStartPos, isDraggingBtn = nil, nil, false
 ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingBtn = false; tDragStart = input.Position; tStartPos = ToggleBtn.Position end end)
@@ -149,7 +150,13 @@ UserInputService.InputChanged:Connect(function(input) if tDragStart and (input.U
 
 local rDragging, rDragStart, rStartSize = false, nil, nil
 ResizeGrip.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize end end)
-UserInputService.InputChanged:Connect(function(input) if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - rDragStart; currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y)); MainFrame.Size = currentMainSize end end)
+UserInputService.InputChanged:Connect(function(input)
+    if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - rDragStart
+        currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y))
+        MainFrame.Size = currentMainSize
+    end
+end)
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if tDragStart then
@@ -239,13 +246,24 @@ local function CreateSlider(section, text, min, max, default, callback)
     UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
 end
 
---// ANTI-FLING HOVER SYSTEM
+--// NEU: Einfacher Button Maker
+local function CreateButton(section, text, callback)
+    local btn = Instance.new("TextButton", section); btn.Size = UDim2.new(0.92, 0, 0, 34); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = text; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 13; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", btn); stroke.Color = Theme.Stroke; stroke.Thickness = 1
+    btn.Activated:Connect(function() if callback then callback() end end)
+end
+
+--// ANTI-FLING HOVER SYSTEM (Verhindert, dass M1 dich wegschleudert)
 local function ToggleHover(state)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
     if state then
+        -- M1 Lunge Kills: Setze Velocity sofort auf 0
+        root.Velocity = Vector3.new(0, 0, 0)
+        root.RotVelocity = Vector3.new(0, 0, 0)
+        
         local bp = root:FindFirstChild("RyuHover")
         if not bp then
             bp = Instance.new("BodyPosition")
@@ -279,6 +297,19 @@ end)
 CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) 
     RyuConfig.AutoQuest = state 
 end)
+
+-- NEU: Teleport Button für Fishman Cave
+CreateButton(SecAutoFarmMain, "Teleport to Fishman Cave", function()
+    local islandObj = Workspace:FindFirstChild("Fishman Cave", true)
+    if islandObj then
+        local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
+        SafeTween(pos * CFrame.new(0, 50, 0))
+        RyuNotify:Send("Teleport", "Erfolgreich zur Fishman Cave geflogen!", 3)
+    else
+        RyuNotify:Send("Fehler", "Fishman Cave nicht gefunden!", 3)
+    end
+end)
+
 
 local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
@@ -353,6 +384,10 @@ local function DoMicroTween(root, targetCFrame)
         local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
         
+        -- M1 Fling Fix
+        root.Velocity = Vector3.new(0, 0, 0)
+        root.RotVelocity = Vector3.new(0, 0, 0)
+
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = intermediatePos end
         
@@ -364,7 +399,7 @@ local function DoMicroTween(root, targetCFrame)
     root.CFrame = targetCFrame
 end
 
-local function SafeTween(targetCFrame)
+function SafeTween(targetCFrame)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
@@ -372,7 +407,6 @@ local function SafeTween(targetCFrame)
     local startPos = root.Position
     local targetPos = targetCFrame.Position
 
-    -- PATHFINDING: Erkennt Wände und umgeht sie legal!
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("NPCs")}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -387,6 +421,32 @@ local function SafeTween(targetCFrame)
 
     DoMicroTween(root, targetCFrame)
 end
+
+--// GPO-SAFE NOCLIP ENGINE & FLING PREVENTER
+RunService.Stepped:Connect(function()
+    if RyuConfig.AutoFarm or RyuConfig.AutoQuest then
+        local char = LocalPlayer.Character
+        if char then
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then
+                -- Neutralisiert sofort alle Attack-Lunges des Spiels
+                root.Velocity = Vector3.new(0, 0, 0)
+                root.RotVelocity = Vector3.new(0, 0, 0)
+                for _, v in pairs(root:GetChildren()) do
+                    if v:IsA("BodyVelocity") and v.Name ~= "RyuHover" then
+                        v:Destroy()
+                    end
+                end
+            end
+            -- Mache Arme/Beine durchlässig, aber lasse den Kern intakt!
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
+                    v.CanCollide = false 
+                end
+            end
+        end
+    end
+end)
 
 --// ============================================================================
 --// DYNAMIC QUEST SCANNER & AUTO LEVELING
@@ -413,7 +473,7 @@ local function UpdateAutoLeveling()
     return "Helen", "Fishman Cave" 
 end
 
--- CLICKER FIX: Sucht nach 3 Punkten oder Bestätigungen
+-- CLICKER FIX
 local function ClickQuestDialog()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -421,7 +481,6 @@ local function ClickQuestDialog()
             for _, v in pairs(pg:GetDescendants()) do
                 if v:IsA("TextButton") and v.Visible then
                     local txt = v.Text:lower()
-                    -- GPO NPCs haben oft "..." oder "…"
                     if txt:match("%.%.%.") or txt:match("…") or txt:match(RyuConfig.QuestText:lower()) or txt:match("yes") or txt:match("accept") or txt:match("sure") then
                         for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                         for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
@@ -437,7 +496,7 @@ task.spawn(function()
     
     while true do
         task.wait(0.1)
-        
+
         local activeNPC, activeIsland = UpdateAutoLeveling()
         if RyuConfig.TargetNPC ~= "[AUTO SMART LEVELING]" then
             RyuConfig.TargetMob = QuestDatabase[activeNPC] or "Bandit"
@@ -448,7 +507,6 @@ task.spawn(function()
             if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
                 local npc = Workspace:FindFirstChild(activeNPC, true)
                 
-                -- Insel-Reise & Spawn Logik
                 if not npc and activeIsland then
                     local islandObj = Workspace:FindFirstChild(activeIsland, true)
                     if islandObj then
@@ -456,7 +514,6 @@ task.spawn(function()
                         SafeTween(pos * CFrame.new(0, 100, 0))
                         task.wait(1)
                         
-                        -- Setze den Spawn Point bei Ankunft auf neuer Insel
                         if activeIsland ~= lastIslandVisited then
                             pcall(function() ReplicatedStorage.Events.SetSpawn:FireServer() end)
                             lastIslandVisited = activeIsland
@@ -474,7 +531,6 @@ task.spawn(function()
                         root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                         task.wait(0.5)
                         
-                        -- Setze Spawn am Quest NPC, falls noch nicht geschehen
                         if activeIsland and activeIsland ~= lastIslandVisited then
                             pcall(function() ReplicatedStorage.Events.SetSpawn:FireServer() end)
                             lastIslandVisited = activeIsland
@@ -557,7 +613,6 @@ task.spawn(function()
                             local startHp = mHum.Health
                             local timeout = tick()
                             
-                            -- NEU: Asynchroner Attack-Spammer!
                             local isAttacking = true
                             task.spawn(function()
                                 while isAttacking and RyuConfig.AutoFarm do
@@ -569,6 +624,8 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
                                 if tick() - timeout > 3 then break end 
                                 
+                                root.Velocity = Vector3.new(0, 0, 0)
+                                root.RotVelocity = Vector3.new(0, 0, 0)
                                 local bp = root:FindFirstChild("RyuHover")
                                 if bp then bp.Position = mRoot.Position + (flatDir.Unit * 2) end
                                 root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
@@ -609,6 +666,8 @@ task.spawn(function()
                                     end
                                 end
                                 
+                                root.Velocity = Vector3.new(0, 0, 0)
+                                root.RotVelocity = Vector3.new(0, 0, 0)
                                 local bp = root:FindFirstChild("RyuHover")
                                 if bp then bp.Position = skyPos end
                                 
@@ -619,7 +678,6 @@ task.spawn(function()
                             local killTimeout = tick()
                             local myLastHealth = hum.Health
                             
-                            -- NEU: Asynchroner Attack-Spammer für die Kill-Phase!
                             local isKilling = true
                             task.spawn(function()
                                 while isKilling and RyuConfig.AutoFarm do
@@ -655,7 +713,6 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
-                                            -- 50x50 Hitbox Garantie!
                                             if mRoot.Size.Y < 45 then
                                                 mRoot.Size = Vector3.new(50, 50, 50)
                                                 mRoot.CanCollide = false
@@ -666,6 +723,8 @@ task.spawn(function()
                                 
                                 if aliveCount == 0 then break end 
                                 
+                                root.Velocity = Vector3.new(0, 0, 0)
+                                root.RotVelocity = Vector3.new(0, 0, 0)
                                 local bp = root:FindFirstChild("RyuHover")
                                 if bp then bp.Position = skyPos end
                                 
@@ -692,4 +751,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Leveling & Auto-Spawn Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Leveling & Anti-Fling Active!", 4)
