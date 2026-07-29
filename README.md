@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FISHMAN ROUTE PREP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FISHMAN CAVE BYPASS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -38,12 +38,12 @@ local QuestDatabase = {
     ["Haku"] = "Snow Bandit"
 }
 
---// GPO AUTO LEVELING ROUTE (Vorbereitet für Fishman)
+--// GPO AUTO LEVELING ROUTE (Mit Fishman Cave Direkt-Routing)
 local AutoLevelRoute = {
     {Min = 1, Max = 15, NPC = "Daph", Mob = "Bandit", Island = "Town of Beginnings"},
     {Min = 15, Max = 25, NPC = "Kevin", Mob = "Marine", Island = "Marine Fort F-1"},
     {Min = 25, Max = 40, NPC = "Robert", Mob = "Sword Bandit", Island = "Roca Island"},
-    {Min = 40, Max = 1000, NPC = "Helen", Mob = "Fishman", Island = "Fishman Island"} 
+    {Min = 40, Max = 1000, NPC = "Helen", Mob = "Fishman", Island = "Fishman Cave"} -- Geht nun direkt zur Höhle laut Dex!
 }
 
 local DynamicQuests = {"[AUTO SMART LEVELING]"}
@@ -71,10 +71,9 @@ local RyuConfig = {
     TargetMob = "Bandit", 
     TargetWeapon = "Combat",
     
-    QuestText = "yes", -- NEU: Der Text für die Quest-Annahme
-    FishmanCaveMode = false, -- NEU: Der Modus für die Custom Route
+    QuestText = "...", -- Standard, wird durch AutoClicker abgedeckt
     
-    TweenSpeed = 45, 
+    TweenSpeed = 55, 
     KillHeight = 7, 
 }
 
@@ -142,8 +141,7 @@ local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0,
 
 local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
+local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0); Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
 
 local tDragStart, tStartPos, isDraggingBtn = nil, nil, false
 ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingBtn = false; tDragStart = input.Position; tStartPos = ToggleBtn.Position end end)
@@ -151,13 +149,7 @@ UserInputService.InputChanged:Connect(function(input) if tDragStart and (input.U
 
 local rDragging, rDragStart, rStartSize = false, nil, nil
 ResizeGrip.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize end end)
-UserInputService.InputChanged:Connect(function(input)
-    if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - rDragStart
-        currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y))
-        MainFrame.Size = currentMainSize
-    end
-end)
+UserInputService.InputChanged:Connect(function(input) if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - rDragStart; currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y)); MainFrame.Size = currentMainSize end end)
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if tDragStart then
@@ -170,6 +162,11 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 CloseBtn.Activated:Connect(function() TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
+
+local mDragging, mDragStart, mStartPos
+Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = true; mDragStart = input.Position; mStartPos = MainFrame.Position end end)
+Topbar.InputChanged:Connect(function(input) if mDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - mDragStart; MainFrame.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y) end end)
+Topbar.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = false end end)
 
 local ContentContainer = Instance.new("Frame", MainFrame); ContentContainer.Size = UDim2.new(1, -(SidebarWidth + 25), 1, -85); ContentContainer.Position = UDim2.new(0, SidebarWidth + 15, 0, 75); ContentContainer.BackgroundTransparency = 1
 local Sidebar = Instance.new("ScrollingFrame", MainFrame); Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0
@@ -275,11 +272,6 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     if not state then ToggleHover(false) end 
 end)
 
--- NEU: Fishman Cave Mode Switch
-CreateToggle(SecAutoFarmMain, "Use Fishman Cave Route", RyuConfig.FishmanCaveMode, function(state) 
-    RyuConfig.FishmanCaveMode = state 
-end)
-
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
     RyuConfig.DynamicHeight = state 
 end)
@@ -326,11 +318,12 @@ local function EquipCombat()
     end
 end
 
--- NEU: ULTRA FAST M1 (Ohne Blockieren)
+-- ULTRA FAST M1
 local function PerformAttack()
     local inputModule = GetInputCallbacks()
     pcall(function()
         if inputModule and inputModule.Utils.canAutoM1() then
+            inputModule.Callbacks.Attack:PC_Activate()
             inputModule.Callbacks.Attack:PC_Activate()
         else
             VirtualUser:CaptureController()
@@ -340,7 +333,7 @@ local function PerformAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (RAYCAST AVOIDANCE)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (RAYCAST AVOIDANCE - KEIN NOCLIP!)
 --// ============================================================================
 local function DoMicroTween(root, targetCFrame)
     local startPos = root.Position
@@ -379,6 +372,7 @@ local function SafeTween(targetCFrame)
     local startPos = root.Position
     local targetPos = targetCFrame.Position
 
+    -- PATHFINDING: Erkennt Wände und umgeht sie legal!
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("NPCs")}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -416,10 +410,10 @@ local function UpdateAutoLeveling()
             return route.NPC, route.Island
         end
     end
-    return "Helen", "Fishman Island" 
+    return "Helen", "Fishman Cave" 
 end
 
--- CLICKER FIX
+-- CLICKER FIX: Sucht nach 3 Punkten oder Bestätigungen
 local function ClickQuestDialog()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -427,7 +421,8 @@ local function ClickQuestDialog()
             for _, v in pairs(pg:GetDescendants()) do
                 if v:IsA("TextButton") and v.Visible then
                     local txt = v.Text:lower()
-                    if txt:match(RyuConfig.QuestText:lower()) or txt:match("yes") or txt:match("accept") or txt:match("sure") then
+                    -- GPO NPCs haben oft "..." oder "…"
+                    if txt:match("%.%.%.") or txt:match("…") or txt:match(RyuConfig.QuestText:lower()) or txt:match("yes") or txt:match("accept") or txt:match("sure") then
                         for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                         for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
                     end
@@ -438,33 +433,35 @@ local function ClickQuestDialog()
 end
 
 task.spawn(function()
+    local lastIslandVisited = ""
+    
     while true do
         task.wait(0.1)
         
-        -- CUSTOM FISHMAN CAVE ROUTE
-        if RyuConfig.FishmanCaveMode and RyuConfig.AutoFarm then
-            -- PLATZHALTER: Hier kommt die Logik rein!
-            -- 1. Fliege zum blauen Teleporter.
-            -- 2. Teleportiere in die Höhle.
-            -- 3. Setze Spawn Point.
-        end
-
         local activeNPC, activeIsland = UpdateAutoLeveling()
         if RyuConfig.TargetNPC ~= "[AUTO SMART LEVELING]" then
             RyuConfig.TargetMob = QuestDatabase[activeNPC] or "Bandit"
         end
         
-        --// SMART AUTO QUEST 
-        if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" and not RyuConfig.FishmanCaveMode then
+        --// SMART AUTO QUEST (MIT ISLAND TELEPORT & SPAWN SET)
+        if RyuConfig.AutoQuest and activeNPC and activeNPC ~= "" then
             if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
                 local npc = Workspace:FindFirstChild(activeNPC, true)
                 
+                -- Insel-Reise & Spawn Logik
                 if not npc and activeIsland then
                     local islandObj = Workspace:FindFirstChild(activeIsland, true)
                     if islandObj then
                         local pos = islandObj:IsA("Model") and islandObj:GetPivot() or islandObj.CFrame
                         SafeTween(pos * CFrame.new(0, 100, 0))
                         task.wait(1)
+                        
+                        -- Setze den Spawn Point bei Ankunft auf neuer Insel
+                        if activeIsland ~= lastIslandVisited then
+                            pcall(function() ReplicatedStorage.Events.SetSpawn:FireServer() end)
+                            lastIslandVisited = activeIsland
+                            RyuNotify:Send("Spawn Set", "Spawn für " .. activeIsland .. " gesichert!", 3)
+                        end
                     end
                 elseif npc then
                     ToggleHover(true)
@@ -476,6 +473,12 @@ task.spawn(function()
                         SafeTween(npcPos * CFrame.new(0, 0, 3))
                         root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                         task.wait(0.5)
+                        
+                        -- Setze Spawn am Quest NPC, falls noch nicht geschehen
+                        if activeIsland and activeIsland ~= lastIslandVisited then
+                            pcall(function() ReplicatedStorage.Events.SetSpawn:FireServer() end)
+                            lastIslandVisited = activeIsland
+                        end
                         
                         if fireproximityprompt then
                             for _, p in pairs(npc:GetDescendants()) do
@@ -496,7 +499,7 @@ task.spawn(function()
                         if events and events:FindFirstChild("Quest") then 
                             pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
                             task.wait(0.2)
-                            pcall(function() events.Quest:InvokeServer({{"npcChat", true}, RyuConfig.QuestText}) end) -- Custom Quest Text gesendet
+                            pcall(function() events.Quest:InvokeServer({{"npcChat", true}, RyuConfig.QuestText}) end)
                             task.wait(0.3)
                             pcall(function() events.Quest:InvokeServer("takequest") end)
                             pcall(function() events.Quest:InvokeServer("acceptquest") end)
@@ -573,7 +576,7 @@ task.spawn(function()
                                 RunService.Heartbeat:Wait()
                             end
                             
-                            isAttacking = false -- Stoppt den Spammer für den Wechsel
+                            isAttacking = false 
                             
                             if mHum.Health > 0 and mHum.Health < startHp then
                                 table.insert(aggroedMobs, mob)
@@ -673,7 +676,7 @@ task.spawn(function()
                                 RunService.Heartbeat:Wait()
                             end
                             
-                            isKilling = false -- Stoppt den Spammer
+                            isKilling = false 
                             
                             for _, mob in pairs(aggroedMobs) do
                                 local mRoot = mob and mob:FindFirstChild("HumanoidRootPart")
@@ -689,4 +692,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Route Loaded!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Leveling & Auto-Spawn Active!", 4)
