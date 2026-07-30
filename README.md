@@ -1,10 +1,9 @@
 --// ============================================================================
---// RYU HUB - CLEAN MASTER BUILD (V5 - NO PLATFORM, PERFECT HOVER & SLIDERS)
+--// RYU HUB - CLEAN MASTER BUILD (V6 - NO JITTER, NO PLATFORM, FIXED SLIDERS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
-local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local Workspace = game:GetService("Workspace")
@@ -171,7 +170,7 @@ end
 WepLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() WepScroll.CanvasSize = UDim2.new(0, 0, 0, WepLayout.AbsoluteContentSize.Y) end)
 
 
---// UNIVERSELLE SLIDER ENGINE (100% Repariert)
+--// UNIVERSELLE SLIDER ENGINE (GEFIXT - Nutzt MouseButton1Down!)
 local function CreateUISlider(parent, posY, titleText, minVal, maxVal, defaultVal, callback)
     local label = Instance.new("TextLabel", parent)
     label.Size = UDim2.new(0.9, 0, 0, 18)
@@ -205,11 +204,9 @@ local function CreateUISlider(parent, posY, titleText, minVal, maxVal, defaultVa
         callback(val)
     end
 
-    bg.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 then
-            isDragging = true
-            updateSlider(input)
-        end
+    -- FIX: MouseButton1Down anstatt InputBegan, extrem verlässlich!
+    bg.MouseButton1Down:Connect(function()
+        isDragging = true
     end)
 
     UserInputService.InputEnded:Connect(function(input)
@@ -226,7 +223,7 @@ local function CreateUISlider(parent, posY, titleText, minVal, maxVal, defaultVa
 end
 
 -- Beide Slider instanziieren
-CreateUISlider(MainFrame, 275, "Abstand zum Gegner", 3, 15, RyuConfig.KillHeight, function(val)
+CreateUISlider(MainFrame, 275, "Abstand zum Gegner (Höhe)", 3, 15, RyuConfig.KillHeight, function(val)
     RyuConfig.KillHeight = val
 end)
 
@@ -239,65 +236,54 @@ end)
 local function ToggleHover(state)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not root then return end
     
     if state then
+        -- PlatformStand deaktiviert die Roblox-Gehphysik komplett -> Kein Fling möglich!
+        if hum then hum.PlatformStand = true end 
+        
         local bv = root:FindFirstChild("RyuHover")
         if not bv then
             bv = Instance.new("BodyVelocity")
             bv.Name = "RyuHover"
             bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bv.Velocity = Vector3.new(0, 0, 0) -- Hält den Spieler extrem stark in der Luft
+            bv.Velocity = Vector3.new(0, 0, 0) -- Hält den Spieler wie festgenagelt in der Luft
             bv.Parent = root
         end
     else
+        if hum then hum.PlatformStand = false end
         local bv = root:FindFirstChild("RyuHover")
         if bv then bv:Destroy() end
     end
 end
 
---// ABSOLUTER FLING & VOID PROTECTOR (Blockiert 100% aller Physik-Aussetzer)
-RunService.Stepped:Connect(function()
-    if RyuConfig.AutoFarm then
-        local char = LocalPlayer.Character
-        if char then
-            local root = char:FindFirstChild("HumanoidRootPart")
-            if root then
-                -- Stoppt JEDE Kraft, die das Spiel auf deinen Charakter ausüben will!
-                root.Velocity = Vector3.new(0, 0, 0)
-                root.RotVelocity = Vector3.new(0, 0, 0)
-            end
-            
-            -- Macht Arme und Beine durchlässig, damit sie nicht in Feinden hängenbleiben
-            for _, v in pairs(char:GetChildren()) do
-                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then 
-                    v.CanCollide = false 
-                end
-            end
-        end
-    end
-end)
-
-
---// SICHERER TWEEN (Bewegt den Charakter sanft zum Ziel)
-local function SafeTween(targetPos)
+--// SICHERER LERP-TWEEN (ZITTERFREI!)
+-- Nutzt KEIN TweenService mehr, sondern lupenreine Mathematik für den flüssigsten Flug.
+local function SafeLerp(targetCFrame)
     local char = LocalPlayer.Character
-    local hrp = char and char:FindFirstChild("HumanoidRootPart")
-    if not hrp then return end
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
 
-    local dist = (hrp.Position - targetPos).Magnitude
+    local startCFrame = root.CFrame
+    local dist = (startCFrame.Position - targetCFrame.Position).Magnitude
     local timeToTake = dist / RyuConfig.TweenSpeed
     
     if timeToTake < 0.1 then 
-        hrp.CFrame = CFrame.new(targetPos)
+        root.CFrame = targetCFrame
         return 
     end
 
-    ToggleHover(true) -- Sicherstellen, dass Hover aktiv ist
-    local twInfo = TweenInfo.new(timeToTake, Enum.EasingStyle.Linear)
-    local tw = TweenService:Create(hrp, twInfo, {CFrame = CFrame.new(targetPos)})
-    tw:Play()
-    tw.Completed:Wait()
+    local startTime = tick()
+    while tick() - startTime < timeToTake do
+        if not RyuConfig.AutoFarm then break end
+        local alpha = (tick() - startTime) / timeToTake
+        
+        -- Butterweiche Interpolation
+        root.CFrame = startCFrame:Lerp(targetCFrame, alpha)
+        RunService.Heartbeat:Wait()
+    end
+    root.CFrame = targetCFrame
 end
 
 --// AUTO ATTACK
@@ -315,6 +301,19 @@ local function EquipAndAttack()
     VirtualUser:ClickButton1(Vector2.new())
 end
 
+--// NOCLIP ENGINE (Damit du nicht an Bäumen oder Gegnern hängenbleibst)
+RunService.Stepped:Connect(function()
+    if RyuConfig.AutoFarm then
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then 
+                    v.CanCollide = false 
+                end
+            end
+        end
+    end
+end)
 
 --// AUTO FARM CORE LOOP (Zitterfrei & Void-Sicher)
 task.spawn(function()
@@ -351,8 +350,8 @@ task.spawn(function()
                         if mRoot and mHum then
                             local targetSkyPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
                             
-                            -- Anflug
-                            SafeTween(targetSkyPos)
+                            -- Anflug (Jetzt zitterfrei)
+                            SafeLerp(CFrame.new(targetSkyPos))
                             
                             -- Kampf Loop
                             while RyuConfig.AutoFarm and mHum and mHum.Health > 0 and hum.Health > 0 do
