@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - UP-HOP & QUEST FIX)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NATURAL AC BYPASS & FAST DIALOG)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -160,8 +160,7 @@ ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
-local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
+local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0); Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
 
 local tDragStart, tStartPos, isDraggingBtn = nil, nil, false
 ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingBtn = false; tDragStart = input.Position; tStartPos = ToggleBtn.Position end end)
@@ -339,7 +338,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// FISHMAN CAVE SMART TP SECTION (MIT UP-HOP BYPASS)
+--// NEU: FISHMAN CAVE SMART TP SECTION (Natürlicher AC-Bypass)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -358,14 +357,13 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         ToggleHover(true)
         
-        -- NEU: Up-Hop Logik (Anti-Cheat Bypass nach Oben)
         local function CustomLerp(tPos)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / RyuConfig.FishmanSpeed
-            if t < 0.1 then return end
+            if t < 0.1 then root.CFrame = CFrame.new(tPos) return end
             
-            -- Teilt die Strecke in 200-Stud-Häppchen auf
-            local steps = math.ceil(totalDist / 200)
+            -- Natürlicher Anti-Cheat Bypass: Stoppt alle 150 Studs kurz
+            local steps = math.ceil(totalDist / 150)
             local startPos = root.Position
             
             for i = 1, steps do
@@ -384,12 +382,11 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     RunService.Heartbeat:Wait()
                 end
                 
-                -- ANTI CHEAT BYPASS: Der Up-Hop!
+                -- DER PERFEKTE NATÜRLICHE STOPP (0.1 Sekunden ausschalten)
                 if i < steps then
                     ToggleHover(false)
                     root.Velocity = Vector3.new(0, 0, 0)
-                    root.CFrame = root.CFrame + Vector3.new(0, 15, 0) -- Drückt dich sicher 15 Studs nach oben
-                    task.wait(0.2) -- Kurz warten
+                    task.wait(0.1)
                     ToggleHover(true)
                 end
             end
@@ -418,13 +415,13 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         ToggleHover(true)
         
-        -- NEU: Up-Hop Logik auch für Boden-TP
         local function CustomLerp(tPos)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / RyuConfig.FishmanSpeed
-            if t < 0.1 then return end
+            if t < 0.1 then root.CFrame = CFrame.new(tPos) return end
             
-            local steps = math.ceil(totalDist / 200)
+            -- Natürlicher Anti-Cheat Bypass: Stoppt alle 150 Studs kurz
+            local steps = math.ceil(totalDist / 150)
             local startPos = root.Position
             
             for i = 1, steps do
@@ -443,18 +440,18 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     RunService.Heartbeat:Wait()
                 end
                 
-                -- ANTI CHEAT BYPASS: Der Up-Hop!
+                -- DER PERFEKTE NATÜRLICHE STOPP (0.1 Sekunden ausschalten)
                 if i < steps then
                     ToggleHover(false)
                     root.Velocity = Vector3.new(0, 0, 0)
-                    root.CFrame = root.CFrame + Vector3.new(0, 15, 0) -- Drückt dich sicher 15 Studs nach oben
-                    task.wait(0.2) -- Kurz warten
+                    task.wait(0.1)
                     ToggleHover(true)
                 end
             end
             root.CFrame = CFrame.new(tPos)
         end
         
+        -- Direkter Flug ohne Sky-Phase
         CustomLerp(targetPos + Vector3.new(0, 50, 0))
         ToggleHover(false)
         RyuNotify:Send("Smart TP", "Willkommen in der Fishman Cave!", 3)
@@ -562,7 +559,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: SMART QUEST SCANNER & CLICKER
+--// HARMONY CORE: SMART QUEST SCANNER & FAST CLICKER
 --// ============================================================================
 
 local isQuestActive = false
@@ -587,7 +584,7 @@ local function CheckQuestCompleted()
     return completed
 end
 
--- DIALOG KLICKER (Erweiterte, kugelsichere Strings!)
+-- NEU: AGGRESSIVER DAUER-KLICKER FÜR LANGE DIALOGE
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -595,8 +592,7 @@ local function PerformQuestClicking()
             for _, v in pairs(pg:GetDescendants()) do
                 if v:IsA("TextButton") and v.Visible then
                     local txt = v.Text:lower()
-                    -- txt:find() deckt automatisch Wörter wie "Okay!", "Okey!", "Yes" ab.
-                    if txt:find("okay") or txt:find("okey") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") then
+                    if txt:find("ok") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") then
                         for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                         for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
                     end
@@ -649,10 +645,11 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
+                    -- KLICKER LOOP (6 Sekunden Dauer-Feuer für lange Dialoge!)
                     local clickStart = tick()
-                    while tick() - clickStart < 3.5 do
+                    while tick() - clickStart < 6 do
                         PerformQuestClicking()
-                        task.wait(0.2)
+                        task.wait(0.1) -- Extrem schnelles Klicken!
                     end
                     
                     pcall(function()
@@ -825,4 +822,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Up-Hop & Enhanced Quest Clicker Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Perfect AC Bypass & Dialog Clicker Active!", 4)
