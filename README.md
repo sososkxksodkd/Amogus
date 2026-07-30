@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - HARMONY FIX & NO DROWNING)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - DOLPHIN HOP & QUEST TIMER)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -63,14 +63,6 @@ local RyuConfig = {
     TweenSpeed = 55, 
     KillHeight = 7, 
     FishmanSpeed = 150
-}
-
-local GPOIslands = {
-    "Town of Beginnings", "Sandora", "Shell's Town", "Orange Town", 
-    "Restaurant Baratie", "Roca Island", "Sphinx Island", "Marine Fort F-1", 
-    "Fishman Island", "Colosseum", "Land of the Sky", "Marine Base G-1",
-    "Logue Town", "Kori Island", "Island Of Zou", "Gravito's Fort",
-    "Shark Park"
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -156,7 +148,6 @@ local MainFrame = Instance.new("Frame"); MainFrame.Size = currentMainSize; MainF
 
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
-local SubTitle = Instance.new("TextLabel", Topbar); SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1; SubTitle.Text = "PC Exclusive Edition"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 
 local ResizeGrip = Instance.new("TextButton", MainFrame)
 ResizeGrip.Size = UDim2.new(0, 20, 0, 20)
@@ -169,8 +160,7 @@ ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
-local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
-Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
+local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0); Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
 
 local tDragStart, tStartPos, isDraggingBtn = nil, nil, false
 ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingBtn = false; tDragStart = input.Position; tStartPos = ToggleBtn.Position end end)
@@ -182,17 +172,13 @@ ResizeGrip.InputBegan:Connect(function(input)
         rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize
     end
 end)
-
 UserInputService.InputChanged:Connect(function(input)
     if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
         local delta = input.Position - rDragStart
-        local newWidth = math.max(450, rStartSize.X + delta.X)
-        local newHeight = math.max(300, rStartSize.Y + delta.Y)
-        currentMainSize = UDim2.new(0, newWidth, 0, newHeight)
+        currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y))
         MainFrame.Size = currentMainSize
     end
 end)
-
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if tDragStart then
@@ -352,7 +338,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// NEU: FISHMAN CAVE SMART TP SECTION (Mit Anti-Drowning Fix)
+--// FISHMAN CAVE SMART TP SECTION (MIT DOLPHIN-HOP)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -371,43 +357,40 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         ToggleHover(true)
         
+        -- NEU: Dolphin Hop Logik (Setzt Anti-Cheat zurück)
         local function CustomLerp(tPos)
-            local function doLerp(target)
-                local dist = (root.Position - target).Magnitude
-                local t = dist / RyuConfig.FishmanSpeed
-                if t < 0.1 then return end
+            local totalDist = (root.Position - tPos).Magnitude
+            local t = totalDist / RyuConfig.FishmanSpeed
+            if t < 0.1 then return end
+            
+            -- Teilt die Strecke in 200-Stud-Häppchen auf
+            local steps = math.ceil(totalDist / 200)
+            local startPos = root.Position
+            
+            for i = 1, steps do
+                local nextTarget = startPos:Lerp(tPos, i / steps)
+                local stepDist = (root.Position - nextTarget).Magnitude
+                local stepTime = stepDist / RyuConfig.FishmanSpeed
                 
-                local startPos = root.Position
-                local startTime = tick()
-                while tick() - startTime < t do
-                    local alpha = (tick() - startTime) / t
-                    local intermediatePos = startPos:Lerp(target, alpha)
+                local stepStart = tick()
+                while tick() - stepStart < stepTime do
+                    local alpha = (tick() - stepStart) / stepTime
+                    local intermediatePos = root.Position:Lerp(nextTarget, alpha)
                     
-                    -- ANTI-CHEAT / RUBBERBAND ERKENNUNG (Anti-Drowning Fix!)
-                    if (root.Position - intermediatePos).Magnitude > 30 then
-                        RyuNotify:Send("Anti-Cheat", "Bypass aktiv... Warte 1,5s", 1)
-                        root.Velocity = Vector3.new(0,0,0)
-                        
-                        -- FIX: Drückt den Spieler minimal hoch, ohne ToggleHover auszuschalten!
-                        -- Du bleibst in der Luft und fällst nicht ins Wasser.
-                        root.CFrame = root.CFrame + Vector3.new(0, 15, 0)
-                        
-                        task.wait(1.5)
-                        
-                        -- Neuberechnung nach dem Warten
-                        startPos = root.Position
-                        dist = (startPos - target).Magnitude
-                        t = dist / RyuConfig.FishmanSpeed
-                        startTime = tick()
-                    else
-                        local bp = root:FindFirstChild("RyuHover")
-                        if bp then bp.Position = intermediatePos end
-                        root.CFrame = CFrame.lookAt(intermediatePos, target)
-                    end
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = intermediatePos end
+                    root.CFrame = CFrame.lookAt(intermediatePos, nextTarget)
                     RunService.Heartbeat:Wait()
                 end
+                
+                -- ANTI CHEAT BYPASS: Der Drop!
+                if i < steps then
+                    ToggleHover(false)
+                    root.Velocity = Vector3.new(0, -50, 0) -- Drückt den Charakter kurz runter ins Wasser/Boden
+                    task.wait(0.3) -- Klatscht kurz auf, AC wird resettet
+                    ToggleHover(true)
+                end
             end
-            doLerp(tPos)
             root.CFrame = CFrame.new(tPos)
         end
         
@@ -433,47 +416,43 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         ToggleHover(true)
         
+        -- NEU: Dolphin Hop Logik auch für Boden-TP
         local function CustomLerp(tPos)
-            local function doLerp(target)
-                local dist = (root.Position - target).Magnitude
-                local t = dist / RyuConfig.FishmanSpeed
-                if t < 0.1 then return end
+            local totalDist = (root.Position - tPos).Magnitude
+            local t = totalDist / RyuConfig.FishmanSpeed
+            if t < 0.1 then return end
+            
+            local steps = math.ceil(totalDist / 200)
+            local startPos = root.Position
+            
+            for i = 1, steps do
+                local nextTarget = startPos:Lerp(tPos, i / steps)
+                local stepDist = (root.Position - nextTarget).Magnitude
+                local stepTime = stepDist / RyuConfig.FishmanSpeed
                 
-                local startPos = root.Position
-                local startTime = tick()
-                while tick() - startTime < t do
-                    local alpha = (tick() - startTime) / t
-                    local intermediatePos = startPos:Lerp(target, alpha)
+                local stepStart = tick()
+                while tick() - stepStart < stepTime do
+                    local alpha = (tick() - stepStart) / stepTime
+                    local intermediatePos = root.Position:Lerp(nextTarget, alpha)
                     
-                    -- ANTI-CHEAT / RUBBERBAND ERKENNUNG (Anti-Drowning Fix!)
-                    if (root.Position - intermediatePos).Magnitude > 30 then
-                        RyuNotify:Send("Anti-Cheat", "Bypass aktiv... Warte 1,5s", 1)
-                        root.Velocity = Vector3.new(0,0,0)
-                        
-                        -- FIX: Drückt den Spieler hoch, ohne ToggleHover auszuschalten!
-                        root.CFrame = root.CFrame + Vector3.new(0, 15, 0)
-                        
-                        task.wait(1.5)
-                        
-                        startPos = root.Position
-                        dist = (startPos - target).Magnitude
-                        t = dist / RyuConfig.FishmanSpeed
-                        startTime = tick()
-                    else
-                        local bp = root:FindFirstChild("RyuHover")
-                        if bp then bp.Position = intermediatePos end
-                        root.CFrame = CFrame.lookAt(intermediatePos, target)
-                    end
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = intermediatePos end
+                    root.CFrame = CFrame.lookAt(intermediatePos, nextTarget)
                     RunService.Heartbeat:Wait()
                 end
+                
+                -- ANTI CHEAT BYPASS: Der Drop!
+                if i < steps then
+                    ToggleHover(false)
+                    root.Velocity = Vector3.new(0, -50, 0)
+                    task.wait(0.3)
+                    ToggleHover(true)
+                end
             end
-            doLerp(tPos)
             root.CFrame = CFrame.new(tPos)
         end
         
-        -- Direkter Flug ohne Sky-Phase
         CustomLerp(targetPos + Vector3.new(0, 50, 0))
-        
         ToggleHover(false)
         RyuNotify:Send("Smart TP", "Willkommen in der Fishman Cave!", 3)
     end)
@@ -580,40 +559,33 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: SMART QUEST SCANNER
+--// HARMONY CORE: SMART QUEST SCANNER & CLICKER (NEU: MESSAGE SCANNER)
 --// ============================================================================
--- NEU: OBEN-LINKS QUEST SCANNER (Zielt fokussiert auf Oben Links!)
-local function HasActiveQuest()
-    local hasQuest = false
+
+local isQuestActive = false
+local questStartTime = 0
+
+-- NEU: Erkennt ausschließlich die "Quest Completed" Nachricht
+local function CheckQuestCompleted()
+    local completed = false
     pcall(function()
-        -- Methode 1: Zuverlässiger Data-Check
-        local q = LocalPlayer:FindFirstChild("Quest")
-        if q and q:FindFirstChild("CurrentQuest") then
-            local val = q.CurrentQuest.Value
-            if val ~= "" and val ~= "None" then hasQuest = true return end
-        end
-        
-        -- Methode 2: GUI Scanner - Fokussiert auf Position (Oben Links)
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if pg then
             for _, v in pairs(pg:GetDescendants()) do
                 if v:IsA("TextLabel") and v.Visible then
-                    -- Sucht nur UIs im oberen linken Quadranten (z.B. X < 500, Y < 500)
-                    if v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
-                        local txt = v.Text:lower()
-                        if txt:match("%d+/%d+") or txt:match("%d+%s*/%s*%d+") then
-                            hasQuest = true
-                            return
-                        end
+                    local txt = v.Text:lower()
+                    if txt:find("completed") or txt:find("complited") then
+                        completed = true
+                        return
                     end
                 end
             end
         end
     end)
-    return hasQuest
+    return completed
 end
 
--- DIALOG KLICKER (Zurückgebracht für das echte Quest-Gefühl)
+-- DIALOG KLICKER (Spammt alle Quest-Bestätigungen)
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -638,10 +610,19 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         
-        local hasQuest = HasActiveQuest()
+        -- Überprüfe, ob die Quest fertig ist oder das 2-Minuten-Timeout erreicht wurde
+        if isQuestActive then
+            if CheckQuestCompleted() then
+                isQuestActive = false
+                RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Hole neue...", 2)
+            elseif tick() - questStartTime > 120 then
+                isQuestActive = false
+                RyuNotify:Send("Auto Quest", "Timeout (2 Min)! Hole Quest neu...", 2)
+            end
+        end
         
-        --// PHASE 1: AUTO QUEST
-        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not hasQuest then
+        --// PHASE 1: AUTO QUEST (Priorität: Nur wenn wir KEINE Quest haben!)
+        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not isQuestActive then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
                 ToggleHover(true)
@@ -668,14 +649,14 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
-                    -- KLICKER LOOP (Klickt durch den Dialog, genau wie gewollt!)
+                    -- KLICKER LOOP (Spammt "Okay", "..." für 3.5 Sekunden)
                     local clickStart = tick()
                     while tick() - clickStart < 3.5 do
                         PerformQuestClicking()
                         task.wait(0.2)
                     end
                     
-                    -- Fallback Remotes (Sicherheitshalber im Hintergrund)
+                    -- Fallback Remotes
                     pcall(function()
                         local args = {{"npcChat", true}}
                         ReplicatedStorage.Events.Quest:InvokeServer(unpack(args))
@@ -683,13 +664,16 @@ task.spawn(function()
                         ReplicatedStorage.Events.Quest:InvokeServer("acceptquest")
                     end)
                     
-                    task.wait(1.5) -- Warten, damit der UI Scanner das "0/5" laden kann
+                    -- Erfolgreich angenommen: Tracker starten!
+                    isQuestActive = true
+                    questStartTime = tick()
+                    task.wait(1.5) 
                 end
             end
             
         --// PHASE 2: AUTO FARM (Startet nur: Wenn Quest vorhanden ODER AutoQuest aus ist!)
         -- DIESER CODE IST ZU 100% UNBERÜHRT, EXAKT WIE IM CHECKPOINT!
-        elseif RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" and (hasQuest or not RyuConfig.AutoQuest) then
+        elseif RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" and (isQuestActive or not RyuConfig.AutoQuest) then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -847,4 +831,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Quest-Dialog & Anti-Drown TP Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Dolphin Hop & Quest Timer Active!", 4)
