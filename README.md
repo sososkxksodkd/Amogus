@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (CLEAN MELEE, FAIL-SAFE & PORTAL TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE FARM & 1S PORTAL TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,28 +24,21 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// BEREINIGTE NPC & ENEMY LISTEN
-local DynamicEnemies = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"}
-local DynamicQuests = {"Becky", "Daph", "Tyson", "Helen"}
-
---// RYU CONFIGURATION
+--// RYU CONFIGURATION (HARDCODED FÜR FISHMAN CAVE)
 local RyuConfig = {
-    Noclip = false, 
     AutoFarm = false,
     AutoQuest = false,
-    DynamicHeight = false, 
+    QuestInterval = 45, 
     
-    TargetMob = DynamicEnemies[1],
-    TargetNPC = DynamicQuests[1],
-    TargetWeapon = "Combat",
+    TargetMob = "Fishman Karate User", -- Automatisch festgelegt
+    TargetNPC = "Becky",               -- Automatisch festgelegt
+    TargetWeapon = "Combat",           -- Standard Waffe
     
     TweenSpeed = 50, 
     KillHeight = 7, 
     FishmanSpeed = 150, 
     ElevatorSpeed = 150 
 }
-
-local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
 
 --// NOTIFICATION SYSTEM
 local NotificationContainer = Instance.new("Frame")
@@ -129,7 +122,14 @@ local MainFrame = Instance.new("Frame"); MainFrame.Size = currentMainSize; MainF
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
 
-local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
+local ResizeGrip = Instance.new("TextButton", MainFrame)
+ResizeGrip.Size = UDim2.new(0, 20, 0, 20)
+ResizeGrip.Position = UDim2.new(1, -20, 1, -20)
+ResizeGrip.BackgroundTransparency = 1
+ResizeGrip.Text = "◢"
+ResizeGrip.TextColor3 = Theme.SubText
+ResizeGrip.TextSize = 16
+ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
@@ -142,7 +142,21 @@ UserInputService.InputChanged:Connect(function(input) if tDragStart and (input.U
 local rDragging, rDragStart, rStartSize = false, nil, nil
 ResizeGrip.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize end end)
 UserInputService.InputChanged:Connect(function(input) if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - rDragStart; currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y)); MainFrame.Size = currentMainSize end end)
-UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then if tDragStart then if not isDraggingBtn then if MainFrame.Visible then TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false else MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = currentMainSize, Position = UDim2.new(0.5, -currentMainSize.X.Offset/2, 0.5, -currentMainSize.Y.Offset/2)}):Play() end end tDragStart = nil end rDragging = false end end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if tDragStart then
+            if not isDraggingBtn then
+                if MainFrame.Visible then 
+                    TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
+                else 
+                    MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = currentMainSize, Position = UDim2.new(0.5, -currentMainSize.X.Offset/2, 0.5, -currentMainSize.Y.Offset/2)}):Play() 
+                end
+            end
+            tDragStart = nil
+        end
+        rDragging = false
+    end
+end)
 
 CloseBtn.Activated:Connect(function() TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
 
@@ -198,18 +212,6 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
-local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
-    local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
-    local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
-    local scroll = Instance.new("ScrollingFrame", frame); scroll.Size = UDim2.new(1, 0, 0, 130); scroll.Position = UDim2.new(0, 0, 0, 25); scroll.BackgroundColor3 = Theme.Background; scroll.ScrollBarThickness = 4; Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
-    local listLayout = Instance.new("UIListLayout", scroll); listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    for _, itemName in ipairs(itemsList) do
-        local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. itemName; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-        btn.Activated:Connect(function() RyuConfig[targetConfigKey] = itemName; header.Text = headerText .. ": " .. itemName end)
-    end
-    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
-end
-
 local function CreateSlider(section, text, min, max, default, callback)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 50); frame.BackgroundTransparency = 1
     local label = Instance.new("TextLabel", frame); label.Size = UDim2.new(1, 0, 0, 20); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Theme.SubText; label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
@@ -231,7 +233,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// ANTI-FLING HOVER SYSTEM
+--// ANTI-FLING HOVER SYSTEM 
 --// ============================================================================
 local function ToggleHover(state)
     local char = LocalPlayer.Character
@@ -255,23 +257,21 @@ local function ToggleHover(state)
     end
 end
 
---// UI AUFBAU: FARM
+--// UI AUFBAU: FARM (FISHMAN CAVE FARM)
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
-local SecAutoFarmMain = CreateSection(SubLeveling, "Master Auto Farm (1-BY-1 FUSION)")
-CreateToggle(SecAutoFarmMain, "Enable Auto Farm & Quest", RyuConfig.AutoFarm, function(state) 
+local SecAutoFarmMain = CreateSection(SubLeveling, "FISHMAN CAVE FARM")
+CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
-CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
-    RyuConfig.DynamicHeight = state 
+CreateToggle(SecAutoFarmMain, "Auto Quest Link", RyuConfig.AutoQuest, function(state) 
+    RyuConfig.AutoQuest = state 
 end)
-
-local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
-CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
-CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
-CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
+CreateSlider(SecAutoFarmMain, "Quest Interval (Secs)", 10, 100, RyuConfig.QuestInterval, function(val) 
+    RyuConfig.QuestInterval = val 
+end)
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
 CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 10, 50, RyuConfig.TweenSpeed, function(val) 
@@ -281,11 +281,7 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
---// UI AUFBAU: PLAYER
-local TabPlayer = CreateMainTab("Player")
-local SubMovement = CreateSubTab(TabPlayer, "Movement")
-
-local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
+local SecMovement = CreateSection(SubLeveling, "Fishman Cave Movement")
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 150, RyuConfig.FishmanSpeed, function(val)
     RyuConfig.FishmanSpeed = val
 end)
@@ -309,7 +305,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         local platform = Instance.new("Part")
         platform.Name = "Part" 
-        platform.Size = Vector3.new(40, 3, 40) -- FIX: Plattform viel kleiner und unauffälliger
+        platform.Size = Vector3.new(40, 3, 40) 
         platform.Anchored = true
         platform.CanCollide = true
         platform.Transparency = 0.5
@@ -385,18 +381,18 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 60, 0)
-        task.wait(0.2)
-        
-        -- FIX: Teleportiere den Spieler direkt durch das Portal!
-        local areaTp = Workspace:FindFirstChild("AreaTeleporters")
-        if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
-            root.CFrame = areaTp.FirstSea.Fishman.Part.CFrame
-            RyuNotify:Send("Smart TP", "Teleportiere durchs Portal...", 2)
-            task.wait(0.5)
-        end
         
         platform:Destroy()
         ToggleHover(false)
+        RyuNotify:Send("Smart TP", "Warte 1 Sekunde für Portal-TP...", 3)
+        
+        -- FIX: 1 Sekunde Verzögerung, dann Teleport ins Portal!
+        task.wait(1)
+        local areaTp = Workspace:FindFirstChild("AreaTeleporters")
+        if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
+            root.CFrame = areaTp.FirstSea.Fishman.Part.CFrame
+            RyuNotify:Send("Smart TP", "Teleportiert durchs Portal!", 2)
+        end
     end)
 end)
 
@@ -416,7 +412,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         local platform = Instance.new("Part")
         platform.Name = "Part"
-        platform.Size = Vector3.new(40, 3, 40) -- FIX: Plattform viel kleiner
+        platform.Size = Vector3.new(40, 3, 40)
         platform.Anchored = true
         platform.CanCollide = true
         platform.Transparency = 0.5
@@ -489,24 +485,19 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 60, 0)
-        task.wait(0.2)
-        
-        -- FIX: Teleportiere den Spieler direkt durch das Portal!
-        local areaTp = Workspace:FindFirstChild("AreaTeleporters")
-        if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
-            root.CFrame = areaTp.FirstSea.Fishman.Part.CFrame
-            RyuNotify:Send("Smart TP", "Teleportiere durchs Portal...", 2)
-            task.wait(0.5)
-        end
         
         platform:Destroy()
         ToggleHover(false)
+        RyuNotify:Send("Smart TP", "Warte 1 Sekunde für Portal-TP...", 3)
+        
+        -- FIX: 1 Sekunde Verzögerung, dann Teleport ins Portal!
+        task.wait(1)
+        local areaTp = Workspace:FindFirstChild("AreaTeleporters")
+        if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
+            root.CFrame = areaTp.FirstSea.Fishman.Part.CFrame
+            RyuNotify:Send("Smart TP", "Teleportiert durchs Portal!", 2)
+        end
     end)
-end)
-
-local SecMisc = CreateSection(SubMovement, "Movement Settings")
-CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(state) 
-    RyuConfig.Noclip = state 
 end)
 
 --// ============================================================================
@@ -518,7 +509,6 @@ local function EquipTargetWeapon()
     if not hum then return false end
     
     local targetWep = RyuConfig.TargetWeapon
-    if not targetWep or targetWep == "" then targetWep = "Combat" end
     
     if char:FindFirstChild(targetWep) then return true end
     for _, item in pairs(char:GetChildren()) do
@@ -601,19 +591,6 @@ local function SafeTween(targetCFrame, customSpeed)
     if bpFinal then bpFinal.Position = targetPos end
     root.CFrame = targetCFrame
 end
-
-RunService.Stepped:Connect(function()
-    if RyuConfig.Noclip or RyuConfig.AutoFarm then
-        local char = LocalPlayer.Character
-        if char then
-            for _, v in pairs(char:GetChildren()) do
-                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
-                    v.CanCollide = false 
-                end
-            end
-        end
-    end
-end)
 
 --// ============================================================================
 --// HARMONY CORE: 1-BY-1 FARM, QUEST FUSION & FAIL-SAFE
@@ -755,7 +732,7 @@ task.spawn(function()
                         continue 
                     end
                     
-                    if not CheckQuestActive() then
+                    if RyuConfig.AutoQuest and not CheckQuestActive() then
                         break 
                     end
                     
@@ -788,4 +765,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Clean UI & Fail-Safe Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Fishman Cave Farm Active!", 4)
