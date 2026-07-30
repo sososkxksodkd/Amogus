@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - PERFECT HOVERBOARD & 5S DELAY)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - DIALOG FIX & TRAVEL SPEED)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -62,7 +62,7 @@ local RyuConfig = {
     
     TweenSpeed = 55, 
     KillHeight = 7, 
-    FishmanSpeed = 150
+    FishmanSpeed = 150 -- NEU: Einstellbare Reisegeschwindigkeit
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -338,7 +338,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// NEU: FISHMAN CAVE SMART TP SECTION (FLAT FLOOR & JUMP FIX)
+--// NEU: FISHMAN CAVE SMART TP SECTION (Regelbare Geschwindigkeit)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -355,147 +355,79 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        -- Erstelle den permanenten Fake-Boden für den Tween
-        local platform = Instance.new("Part")
-        platform.Name = "RyuTPPlatform"
-        platform.Size = Vector3.new(20, 1, 20)
-        platform.Anchored = true
-        platform.CanCollide = true
-        platform.Transparency = 0.5
-        platform.Material = Enum.Material.ForceField
-        platform.Color = Color3.fromRGB(0, 255, 255)
-        platform.Parent = Workspace
-        
         ToggleHover(true)
         
-        local function CustomLerp(tPos)
-            local totalDist = (root.Position - tPos).Magnitude
+        local function DolphinLerp(startPoint, endPoint)
+            local totalDist = (startPoint - endPoint).Magnitude
+            -- Benutze die eingestellte Geschwindigkeit aus RyuConfig
             local t = totalDist / RyuConfig.FishmanSpeed
-            if t < 0.1 then return end
+            if t < 0.1 then root.CFrame = CFrame.new(endPoint) return end
             
-            local startPos = root.Position
-            local startTime = tick()
+            local leaps = math.ceil(totalDist / 250)
+            local currentPos = startPoint
             
-            while tick() - startTime < t do
-                local alpha = (tick() - startTime) / t
-                local intermediatePos = startPos:Lerp(tPos, alpha)
+            for i = 1, leaps do
+                local chunkEnd = startPoint:Lerp(endPoint, i / leaps)
                 
-                -- ANTI-CHEAT ERKENNUNG
-                if (root.Position - intermediatePos).Magnitude > 40 then
+                if startPoint.Y > 1000 and i < leaps then
+                    local divePoint = currentPos:Lerp(chunkEnd, 0.5)
+                    divePoint = Vector3.new(divePoint.X, 25, divePoint.Z)
+                    
+                    local d1 = (root.Position - divePoint).Magnitude
+                    local t1 = d1 / RyuConfig.FishmanSpeed
+                    local st1 = tick()
+                    while tick() - st1 < t1 do
+                        local a = (tick() - st1) / t1
+                        local pos = currentPos:Lerp(divePoint, a)
+                        local bp = root:FindFirstChild("RyuHover")
+                        if bp then bp.Position = pos end
+                        root.CFrame = CFrame.lookAt(pos, divePoint)
+                        RunService.Heartbeat:Wait()
+                    end
+                    
                     ToggleHover(false)
-                    platform.CFrame = CFrame.new(0, 99999, 0) 
-                    
-                    -- FIX: Spieler springt kurz, wenn AC zuschlägt!
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum then hum.Jump = true end
-                    root.Velocity = Vector3.new(0, 50, 0)
-                    
-                    RyuNotify:Send("Anti-Cheat", "Rote Meldung/AC erkannt! Springe & Warte 1s...", 1)
-                    task.wait(1)
-                    
+                    root.Velocity = Vector3.new(0, 60, 0)
+                    task.wait(0.2)
                     ToggleHover(true)
-                    startPos = root.Position
-                    totalDist = (startPos - tPos).Magnitude
-                    t = totalDist / RyuConfig.FishmanSpeed
-                    startTime = tick()
-                else
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = intermediatePos end
-                    root.CFrame = CFrame.lookAt(intermediatePos, tPos)
                     
-                    -- FIX: Boden ist an die Route (intermediatePos) gekoppelt und bleibt zu 100% waagerecht!
-                    -- Das verhindert Jittering und zwingt dich NICHT nach oben.
-                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.55, intermediatePos.Z)
+                    local bouncePos = root.Position
+                    local d2 = (bouncePos - chunkEnd).Magnitude
+                    local t2 = d2 / RyuConfig.FishmanSpeed
+                    local st2 = tick()
+                    while tick() - st2 < t2 do
+                        local a = (tick() - st2) / t2
+                        local pos = bouncePos:Lerp(chunkEnd, a)
+                        local bp = root:FindFirstChild("RyuHover")
+                        if bp then bp.Position = pos end
+                        root.CFrame = CFrame.lookAt(pos, chunkEnd)
+                        RunService.Heartbeat:Wait()
+                    end
+                else
+                    local chunkStart = root.Position
+                    local dChunk = (chunkStart - chunkEnd).Magnitude
+                    local tChunk = dChunk / RyuConfig.FishmanSpeed
+                    local st = tick()
+                    while tick() - st < tChunk do
+                        local a = (tick() - st) / tChunk
+                        local pos = chunkStart:Lerp(chunkEnd, a)
+                        local bp = root:FindFirstChild("RyuHover")
+                        if bp then bp.Position = pos end
+                        root.CFrame = CFrame.lookAt(pos, chunkEnd)
+                        RunService.Heartbeat:Wait()
+                    end
                 end
-                RunService.Heartbeat:Wait()
+                currentPos = chunkEnd
             end
-            root.CFrame = CFrame.new(tPos)
+            root.CFrame = CFrame.new(endPoint)
         end
         
         local safeY = 1500
-        -- Fliege hoch
-        CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z))
-        -- Fliege zur Insel
-        CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z))
+        DolphinLerp(root.Position, Vector3.new(root.Position.X, safeY, root.Position.Z))
+        DolphinLerp(root.Position, Vector3.new(targetPos.X, safeY, targetPos.Z))
+        DolphinLerp(root.Position, targetPos + Vector3.new(0, 50, 0))
         
-        -- Ziel erreicht! Boden zerstören und über die Insel fallen lassen
-        platform:Destroy()
         ToggleHover(false)
-        RyuNotify:Send("Smart TP", "Über der Insel angekommen! Lass fallen...", 3)
-    end)
-end)
-
-CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
-    task.spawn(function()
-        local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
-        if not cave then return end
-        
-        local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        
-        local platform = Instance.new("Part")
-        platform.Name = "RyuTPPlatform"
-        platform.Size = Vector3.new(20, 1, 20)
-        platform.Anchored = true
-        platform.CanCollide = true
-        platform.Transparency = 0.5
-        platform.Material = Enum.Material.ForceField
-        platform.Color = Color3.fromRGB(0, 255, 255)
-        platform.Parent = Workspace
-        
-        ToggleHover(true)
-        
-        local function CustomLerp(tPos)
-            local totalDist = (root.Position - tPos).Magnitude
-            local t = totalDist / RyuConfig.FishmanSpeed
-            if t < 0.1 then return end
-            
-            local startPos = root.Position
-            local startTime = tick()
-            
-            while tick() - startTime < t do
-                local alpha = (tick() - startTime) / t
-                local intermediatePos = startPos:Lerp(tPos, alpha)
-                
-                -- ANTI-CHEAT ERKENNUNG (Mit Sprung Fix)
-                if (root.Position - intermediatePos).Magnitude > 40 then
-                    ToggleHover(false)
-                    platform.CFrame = CFrame.new(0, 99999, 0) 
-                    
-                    -- FIX: Spieler springt kurz!
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum then hum.Jump = true end
-                    root.Velocity = Vector3.new(0, 50, 0)
-                    
-                    RyuNotify:Send("Anti-Cheat", "Rote Meldung/AC erkannt! Springe & Warte 1s...", 1)
-                    task.wait(1)
-                    
-                    ToggleHover(true)
-                    startPos = root.Position
-                    totalDist = (startPos - tPos).Magnitude
-                    t = totalDist / RyuConfig.FishmanSpeed
-                    startTime = tick()
-                else
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = intermediatePos end
-                    root.CFrame = CFrame.lookAt(intermediatePos, tPos)
-                    
-                    -- FIX: Boden bleibt permanent zu 100% waagerecht an der mathematischen Route!
-                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.55, intermediatePos.Z)
-                end
-                RunService.Heartbeat:Wait()
-            end
-            root.CFrame = CFrame.new(tPos)
-        end
-        
-        -- Direkter Flug
-        CustomLerp(targetPos + Vector3.new(0, 50, 0))
-        
-        platform:Destroy()
-        ToggleHover(false)
-        RyuNotify:Send("Smart TP", "Über der Insel angekommen! Lass fallen...", 3)
+        RyuNotify:Send("Smart TP", "Willkommen in der Fishman Cave!", 3)
     end)
 end)
 
@@ -625,48 +557,23 @@ local function CheckQuestCompleted()
     return completed
 end
 
--- SUCHT NACH DER AKTIVEN QUEST
-local function HasActiveQuest()
-    local hasQuest = false
-    pcall(function()
-        local q = LocalPlayer:FindFirstChild("Quest")
-        if q and q:FindFirstChild("CurrentQuest") then
-            local val = q.CurrentQuest.Value
-            if val ~= "" and val ~= "None" then hasQuest = true return end
-        end
-        
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextLabel") and v.Visible then
-                    if v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
-                        local txt = v.Text:lower()
-                        if txt:match("%d+/%d+") or txt:match("%d+%s*/%s*%d+") then
-                            hasQuest = true
-                            return
-                        end
-                    end
-                end
-            end
-        end
-    end)
-    return hasQuest
-end
-
--- OMNI-KLICKER
+-- OMNI-KLICKER: Checkt TextButtons UND ImageButtons, feuert alles ab
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if pg then
             for _, v in pairs(pg:GetDescendants()) do
+                -- Checkt TextButtons und ImageButtons (GPO benutzt oft Images für Dialoge)
                 if (v:IsA("TextButton") or v:IsA("ImageButton")) and v.Visible then
                     local txt = ""
                     if v:IsA("TextButton") then txt = v.Text:lower() end
+                    -- Manchmal versteckt sich der Text in einem Label unter dem Button
                     local lbl = v:FindFirstChildOfClass("TextLabel")
                     if lbl then txt = txt .. " " .. lbl.Text:lower() end
                     
                     if txt:find("okay") or txt:find("okey") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") or txt:find("ok") then
                         if getconnections then
+                            -- Feuert ABSOLUT JEDES Event ab, egal was das Spiel will
                             for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                             for _, sig in pairs(getconnections(v.MouseButton1Down)) do sig:Fire() end
                             for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
@@ -686,18 +593,9 @@ task.spawn(function()
         task.wait(0.1)
         
         if isQuestActive then
-            -- NEU: Check auf Completed + 5 Sekunden Pause!
             if CheckQuestCompleted() then
                 isQuestActive = false
-                RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Warte 5s...", 2)
-                
-                -- Stopft jede Bewegung kurz, um in Ruhe durchzuatmen
-                local char = LocalPlayer.Character
-                local root = char and char:FindFirstChild("HumanoidRootPart")
-                if root then root.Velocity = Vector3.new(0, 0, 0) end
-                
-                task.wait(5) -- Die geforderte 5-Sekunden-Verzögerung für Auto Farm!
-                
+                RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Hole neue...", 2)
             elseif tick() - questStartTime > 120 then
                 isQuestActive = false
                 RyuNotify:Send("Auto Quest", "Timeout (2 Min)! Hole Quest neu...", 2)
@@ -730,27 +628,24 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
+                    -- FIX: KLICKER LOOP (Feuert 6 Sekunden lang alle 0.2 Sekunden, um Dialoge sicher durchzudrücken)
                     local clickStart = tick()
-                    while tick() - clickStart < 25 do
+                    while tick() - clickStart < 6 do -- 6 Sekunden Dauerfeuer
                         PerformQuestClicking()
                         
+                        -- Feuere auch Remotes als Sicherheit
                         pcall(function()
                             local args = {{"npcChat", true}}
                             ReplicatedStorage.Events.Quest:InvokeServer(unpack(args))
                             ReplicatedStorage.Events.Quest:InvokeServer("takequest")
                             ReplicatedStorage.Events.Quest:InvokeServer("acceptquest")
                         end)
-                        
-                        if HasActiveQuest() then break end
                         task.wait(0.2)
                     end
                     
                     isQuestActive = true
                     questStartTime = tick()
-                    
-                    -- FIX: 3 Sekunden Verzögerung nach der Quest-Annahme (Auto Farm greift später ein!)
-                    RyuNotify:Send("Auto Quest", "Quest angenommen! Warte 3s auf Auto Farm...", 3)
-                    task.wait(3) 
+                    task.wait(1.5) 
                 end
             end
             
@@ -911,4 +806,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Flat Platform & Farm Delay Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Dialog Fix & Travel Speed Active!", 4)
