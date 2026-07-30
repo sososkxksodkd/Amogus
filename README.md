@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE FARM & 1S PORTAL TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE FARM, PORTAL TP & ROUTE)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -23,6 +23,10 @@ end)
 for _, v in pairs(guiParent:GetChildren()) do 
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
+
+--// BEREINIGTE NPC & ENEMY LISTEN
+local DynamicEnemies = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"}
+local DynamicQuests = {"Becky", "Daph", "Tyson", "Helen"}
 
 --// RYU CONFIGURATION (HARDCODED FÜR FISHMAN CAVE)
 local RyuConfig = {
@@ -381,18 +385,38 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 60, 0)
+        task.wait(0.2)
         
-        platform:Destroy()
         ToggleHover(false)
         RyuNotify:Send("Smart TP", "Warte 1 Sekunde für Portal-TP...", 3)
         
-        -- FIX: 1 Sekunde Verzögerung, dann Teleport ins Portal!
         task.wait(1)
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
             root.CFrame = areaTp.FirstSea.Fishman.Part.CFrame
             RyuNotify:Send("Smart TP", "Teleportiert durchs Portal!", 2)
+            
+            -- NEU: Warte 2 Sekunden, dann Navigiere die Wegpunkte in der Höhle
+            task.wait(2)
+            ToggleHover(true)
+            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
+            
+            local caveRoute = {
+                Vector3.new(8004, -2154, -17130),
+                Vector3.new(7960, -2154, -17156),
+                Vector3.new(7862, -2154, -17159),
+                Vector3.new(7775, -2177, -17174)
+            }
+            
+            for _, wp in ipairs(caveRoute) do
+                CustomLerp(wp, RyuConfig.FishmanSpeed)
+            end
+            
+            RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
         end
+        
+        platform:Destroy()
+        ToggleHover(false)
     end)
 end)
 
@@ -412,7 +436,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         local platform = Instance.new("Part")
         platform.Name = "Part"
-        platform.Size = Vector3.new(40, 3, 40)
+        platform.Size = Vector3.new(40, 3, 40) 
         platform.Anchored = true
         platform.CanCollide = true
         platform.Transparency = 0.5
@@ -485,18 +509,38 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 60, 0)
+        task.wait(0.2)
         
-        platform:Destroy()
         ToggleHover(false)
         RyuNotify:Send("Smart TP", "Warte 1 Sekunde für Portal-TP...", 3)
         
-        -- FIX: 1 Sekunde Verzögerung, dann Teleport ins Portal!
         task.wait(1)
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
             root.CFrame = areaTp.FirstSea.Fishman.Part.CFrame
             RyuNotify:Send("Smart TP", "Teleportiert durchs Portal!", 2)
+            
+            -- NEU: Warte 2 Sekunden, dann Navigiere die Wegpunkte in der Höhle
+            task.wait(2)
+            ToggleHover(true)
+            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
+            
+            local caveRoute = {
+                Vector3.new(8004, -2154, -17130),
+                Vector3.new(7960, -2154, -17156),
+                Vector3.new(7862, -2154, -17159),
+                Vector3.new(7775, -2177, -17174)
+            }
+            
+            for _, wp in ipairs(caveRoute) do
+                CustomLerp(wp, RyuConfig.FishmanSpeed)
+            end
+            
+            RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
         end
+        
+        platform:Destroy()
+        ToggleHover(false)
     end)
 end)
 
@@ -591,6 +635,19 @@ local function SafeTween(targetCFrame, customSpeed)
     if bpFinal then bpFinal.Position = targetPos end
     root.CFrame = targetCFrame
 end
+
+RunService.Stepped:Connect(function()
+    if RyuConfig.Noclip or RyuConfig.AutoFarm then
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
+                    v.CanCollide = false 
+                end
+            end
+        end
+    end
+end)
 
 --// ============================================================================
 --// HARMONY CORE: 1-BY-1 FARM, QUEST FUSION & FAIL-SAFE
@@ -732,7 +789,7 @@ task.spawn(function()
                         continue 
                     end
                     
-                    if RyuConfig.AutoQuest and not CheckQuestActive() then
+                    if not CheckQuestActive() then
                         break 
                     end
                     
@@ -765,4 +822,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Fishman Cave Farm Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Clean UI & Fishman Cave Route Active!", 4)
