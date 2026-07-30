@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NATURAL AC BYPASS & FAST DIALOG)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - DOLPHIN LEAP & UI FIX)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -338,7 +338,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// NEU: FISHMAN CAVE SMART TP SECTION (Natürlicher AC-Bypass)
+--// FISHMAN CAVE SMART TP SECTION (MIT DELFIN-SPRUNG AC BYPASS)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -357,102 +357,81 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         ToggleHover(true)
         
-        local function CustomLerp(tPos)
-            local totalDist = (root.Position - tPos).Magnitude
+        -- NEU: Dolphin-Leap Logik (Eleganter Weitsprung ins Wasser)
+        local function DolphinLerp(startPoint, endPoint)
+            local totalDist = (startPoint - endPoint).Magnitude
             local t = totalDist / RyuConfig.FishmanSpeed
-            if t < 0.1 then root.CFrame = CFrame.new(tPos) return end
+            if t < 0.1 then root.CFrame = CFrame.new(endPoint) return end
             
-            -- Natürlicher Anti-Cheat Bypass: Stoppt alle 150 Studs kurz
-            local steps = math.ceil(totalDist / 150)
-            local startPos = root.Position
+            -- Macht alle 250 Studs einen Delphin-Sprung ins Wasser
+            local leaps = math.ceil(totalDist / 250)
+            local currentPos = startPoint
             
-            for i = 1, steps do
-                local nextTarget = startPos:Lerp(tPos, i / steps)
-                local stepDist = (root.Position - nextTarget).Magnitude
-                local stepTime = stepDist / RyuConfig.FishmanSpeed
+            for i = 1, leaps do
+                local chunkEnd = startPoint:Lerp(endPoint, i / leaps)
                 
-                local stepStart = tick()
-                while tick() - stepStart < stepTime do
-                    local alpha = (tick() - stepStart) / stepTime
-                    local intermediatePos = root.Position:Lerp(nextTarget, alpha)
+                -- Nur wenn wir hoch in der Luft sind, machen wir den Tauchgang ins Wasser
+                if startPoint.Y > 1000 and i < leaps then
+                    local divePoint = currentPos:Lerp(chunkEnd, 0.5)
+                    divePoint = Vector3.new(divePoint.X, 25, divePoint.Z) -- Taucht auf Meeresspiegel-Höhe ab
                     
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = intermediatePos end
-                    root.CFrame = CFrame.lookAt(intermediatePos, nextTarget)
-                    RunService.Heartbeat:Wait()
-                end
-                
-                -- DER PERFEKTE NATÜRLICHE STOPP (0.1 Sekunden ausschalten)
-                if i < steps then
+                    -- 1. Sturzflug ins Wasser
+                    local d1 = (root.Position - divePoint).Magnitude
+                    local t1 = d1 / RyuConfig.FishmanSpeed
+                    local st1 = tick()
+                    while tick() - st1 < t1 do
+                        local a = (tick() - st1) / t1
+                        local pos = currentPos:Lerp(divePoint, a)
+                        local bp = root:FindFirstChild("RyuHover")
+                        if bp then bp.Position = pos end
+                        root.CFrame = CFrame.lookAt(pos, divePoint)
+                        RunService.Heartbeat:Wait()
+                    end
+                    
+                    -- 2. Kurzes "ins Wasser tasten" (Physik Reset für AC Bypass)
                     ToggleHover(false)
-                    root.Velocity = Vector3.new(0, 0, 0)
-                    task.wait(0.1)
+                    root.Velocity = Vector3.new(0, 60, 0) -- Leichter Bounce-Effekt aus dem Wasser
+                    task.wait(0.2)
                     ToggleHover(true)
+                    
+                    -- 3. Wieder elegant in die Luft schleudern
+                    local bouncePos = root.Position
+                    local d2 = (bouncePos - chunkEnd).Magnitude
+                    local t2 = d2 / RyuConfig.FishmanSpeed
+                    local st2 = tick()
+                    while tick() - st2 < t2 do
+                        local a = (tick() - st2) / t2
+                        local pos = bouncePos:Lerp(chunkEnd, a)
+                        local bp = root:FindFirstChild("RyuHover")
+                        if bp then bp.Position = pos end
+                        root.CFrame = CFrame.lookAt(pos, chunkEnd)
+                        RunService.Heartbeat:Wait()
+                    end
+                else
+                    -- Normaler Flug für den Start/Ende des Weges
+                    local chunkStart = root.Position
+                    local dChunk = (chunkStart - chunkEnd).Magnitude
+                    local tChunk = dChunk / RyuConfig.FishmanSpeed
+                    local st = tick()
+                    while tick() - st < tChunk do
+                        local a = (tick() - st) / tChunk
+                        local pos = chunkStart:Lerp(chunkEnd, a)
+                        local bp = root:FindFirstChild("RyuHover")
+                        if bp then bp.Position = pos end
+                        root.CFrame = CFrame.lookAt(pos, chunkEnd)
+                        RunService.Heartbeat:Wait()
+                    end
                 end
+                currentPos = chunkEnd
             end
-            root.CFrame = CFrame.new(tPos)
+            root.CFrame = CFrame.new(endPoint)
         end
         
         local safeY = 1500
-        CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z))
-        CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z))
-        CustomLerp(targetPos + Vector3.new(0, 50, 0))
+        DolphinLerp(root.Position, Vector3.new(root.Position.X, safeY, root.Position.Z))
+        DolphinLerp(root.Position, Vector3.new(targetPos.X, safeY, targetPos.Z))
+        DolphinLerp(root.Position, targetPos + Vector3.new(0, 50, 0))
         
-        ToggleHover(false)
-        RyuNotify:Send("Smart TP", "Willkommen in der Fishman Cave!", 3)
-    end)
-end)
-
-CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
-    task.spawn(function()
-        local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
-        if not cave then return end
-        
-        local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
-        
-        ToggleHover(true)
-        
-        local function CustomLerp(tPos)
-            local totalDist = (root.Position - tPos).Magnitude
-            local t = totalDist / RyuConfig.FishmanSpeed
-            if t < 0.1 then root.CFrame = CFrame.new(tPos) return end
-            
-            -- Natürlicher Anti-Cheat Bypass: Stoppt alle 150 Studs kurz
-            local steps = math.ceil(totalDist / 150)
-            local startPos = root.Position
-            
-            for i = 1, steps do
-                local nextTarget = startPos:Lerp(tPos, i / steps)
-                local stepDist = (root.Position - nextTarget).Magnitude
-                local stepTime = stepDist / RyuConfig.FishmanSpeed
-                
-                local stepStart = tick()
-                while tick() - stepStart < stepTime do
-                    local alpha = (tick() - stepStart) / stepTime
-                    local intermediatePos = root.Position:Lerp(nextTarget, alpha)
-                    
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = intermediatePos end
-                    root.CFrame = CFrame.lookAt(intermediatePos, nextTarget)
-                    RunService.Heartbeat:Wait()
-                end
-                
-                -- DER PERFEKTE NATÜRLICHE STOPP (0.1 Sekunden ausschalten)
-                if i < steps then
-                    ToggleHover(false)
-                    root.Velocity = Vector3.new(0, 0, 0)
-                    task.wait(0.1)
-                    ToggleHover(true)
-                end
-            end
-            root.CFrame = CFrame.new(tPos)
-        end
-        
-        -- Direkter Flug ohne Sky-Phase
-        CustomLerp(targetPos + Vector3.new(0, 50, 0))
         ToggleHover(false)
         RyuNotify:Send("Smart TP", "Willkommen in der Fishman Cave!", 3)
     end)
@@ -559,7 +538,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: SMART QUEST SCANNER & FAST CLICKER
+--// HARMONY CORE: SMART QUEST SCANNER & CLICKER 
 --// ============================================================================
 
 local isQuestActive = false
@@ -584,17 +563,30 @@ local function CheckQuestCompleted()
     return completed
 end
 
--- NEU: AGGRESSIVER DAUER-KLICKER FÜR LANGE DIALOGE
+-- NEU: AGGRESSIVER "ALL-BUTTON" KLICKER (Fixt ImageButtons mit unsichtbarem Text)
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if pg then
             for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextButton") and v.Visible then
-                    local txt = v.Text:lower()
-                    if txt:find("ok") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") then
-                        for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
-                        for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
+                if (v:IsA("TextButton") or v:IsA("ImageButton")) and v.Visible then
+                    local txt = ""
+                    if v:IsA("TextButton") then 
+                        txt = v.Text:lower() 
+                    end
+                    -- Checkt, ob sich ein Text in einem ImageButton versteckt
+                    local lbl = v:FindFirstChildOfClass("TextLabel")
+                    if lbl then 
+                        txt = txt .. " " .. lbl.Text:lower() 
+                    end
+                    
+                    if txt:find("okay") or txt:find("okey") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") or txt:find("ok") then
+                        if getconnections then
+                            -- Feuert ABSOLUT JEDES Event ab, egal was das Spiel will
+                            for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
+                            for _, sig in pairs(getconnections(v.MouseButton1Down)) do sig:Fire() end
+                            for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
+                        end
                     end
                 end
             end
@@ -645,11 +637,11 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
-                    -- KLICKER LOOP (6 Sekunden Dauer-Feuer für lange Dialoge!)
+                    -- KLICKER LOOP (6 Sekunden lang, hämmert auf jeden gefundenen Dialog-Knopf)
                     local clickStart = tick()
                     while tick() - clickStart < 6 do
                         PerformQuestClicking()
-                        task.wait(0.1) -- Extrem schnelles Klicken!
+                        task.wait(0.1)
                     end
                     
                     pcall(function()
@@ -822,4 +814,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Perfect AC Bypass & Dialog Clicker Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Dolphin Leap & UI Fix Active!", 4)
