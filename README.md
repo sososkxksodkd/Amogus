@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - HARMONY FIX & JUMP DROP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - 4S QUEST & SAFE ELEVATOR)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -62,8 +62,8 @@ local RyuConfig = {
     
     TweenSpeed = 55, 
     KillHeight = 7, 
-    FishmanSpeed = 150,
-    ElevatorSpeed = 30
+    FishmanSpeed = 140,
+    ElevatorSpeed = 22 -- Sanfterer Y-Aufzug gegen +Y Axis Strikes
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -252,7 +252,7 @@ end
 
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
-    local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
+    local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
     local scroll = Instance.new("ScrollingFrame", frame); scroll.Size = UDim2.new(1, 0, 0, 130); scroll.Position = UDim2.new(0, 0, 0, 25); scroll.BackgroundColor3 = Theme.Background; scroll.ScrollBarThickness = 4; Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
     local listLayout = Instance.new("UIListLayout", scroll); listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     for _, itemName in ipairs(itemsList) do
@@ -339,7 +339,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// NEU: FISHMAN CAVE SMART TP SECTION (Mit Grounded Fix & Jump)
+--// FISHMAN CAVE SMART TP SECTION
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -415,11 +415,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local safeY = 1500
         CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed)
         CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.FishmanSpeed)
-        
-        -- Runter fliegen
         CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.ElevatorSpeed)
         
-        -- FIX: Der simulierte Sprung am Ende (Trickst AC aus!)
         local hum = char:FindFirstChildOfClass("Humanoid")
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 60, 0)
@@ -496,7 +493,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed)
         
-        -- FIX: Der simulierte Sprung am Ende (Trickst AC aus!)
         local hum = char:FindFirstChildOfClass("Humanoid")
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 60, 0)
@@ -661,6 +657,7 @@ local function HasActiveQuest()
     return hasQuest
 end
 
+-- FIX: EXPLIZITER "OKEY!" & "OKAY!" DIALOG KLICKER
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -672,7 +669,8 @@ local function PerformQuestClicking()
                     local lbl = v:FindFirstChildOfClass("TextLabel")
                     if lbl then txt = txt .. " " .. lbl.Text:lower() end
                     
-                    if txt:match("okay") or txt:match("okey") or txt:match("ok") or txt:match("yes") or txt:match("%.%.%.") or txt:match("…") or txt:match("accept") or txt:match("sure") or txt:match("next") or txt:match("confirm") then
+                    -- Deckt "Okey!", "Okay!", "okey", "okay", "yes", "next" ab
+                    if txt:find("okey") or txt:find("okay") or txt:find("ok") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") or txt:find("confirm") then
                         if getconnections then
                             for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                             for _, sig in pairs(getconnections(v.MouseButton1Down)) do sig:Fire() end
@@ -735,10 +733,9 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
-                    -- FIX: Zwingt das Skript, mindestens 2.5 Sekunden zu klicken, 
-                    -- bevor der Scanner es abbrechen darf!
+                    -- FIX: Klickt für bis zu 25s, aber mindestens 2.5s auf "Okay!" / "Okey!"
                     local clickStart = tick()
-                    while tick() - clickStart < 6 do
+                    while tick() - clickStart < 25 do
                         PerformQuestClicking()
                         
                         pcall(function()
@@ -755,8 +752,9 @@ task.spawn(function()
                     isQuestActive = true
                     questStartTime = tick()
                     
-                    RyuNotify:Send("Auto Quest", "Quest angenommen! Warte 3s auf Auto Farm...", 3)
-                    task.wait(3) 
+                    -- FIX: EXAKT 4 SEKUNDEN WARTEN vor dem Auto Farm!
+                    RyuNotify:Send("Auto Quest", "Quest angenommen! Warte 4s auf Auto Farm...", 4)
+                    task.wait(4) 
                 end
             end
             
@@ -917,4 +915,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Elevator Slider & UI Fix Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: 4s Quest Wait & Elevator Fixed!", 4)
