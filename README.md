@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (1-BY-1 HUNT, GUN AIM & QUEST FUSION)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (GUN SNIPER MODE & QUEST COMPLETED FIX)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -106,6 +106,38 @@ function RyuNotify:Send(title, text, duration)
     end)
 end
 
+--// RAINBOW OVERHEAD TITLE
+local function AddRainbowTag(character)
+    local head = character:WaitForChild("Head", 5)
+    if head then
+        if head:FindFirstChild("RyuHubTag") then head.RyuHubTag:Destroy() end
+        local bg = Instance.new("BillboardGui")
+        bg.Name = "RyuHubTag"
+        bg.Size = UDim2.new(0, 200, 0, 50)
+        bg.StudsOffset = Vector3.new(0, 3, 0)
+        bg.AlwaysOnTop = true
+        bg.Parent = head
+        
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, 0, 1, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = "RYUHUB"
+        txt.Font = Enum.Font.GothamBlack
+        txt.TextSize = 22
+        txt.TextStrokeTransparency = 0
+        txt.Parent = bg
+        
+        task.spawn(function()
+            while bg.Parent do
+                txt.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                task.wait(0.1) 
+            end
+        end)
+    end
+end
+if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
+
 --// UI SETUP
 local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50) }
 local currentMainSize = UDim2.new(0, 550, 0, 380) 
@@ -117,7 +149,14 @@ local MainFrame = Instance.new("Frame"); MainFrame.Size = currentMainSize; MainF
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
 
-local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
+local ResizeGrip = Instance.new("TextButton", MainFrame)
+ResizeGrip.Size = UDim2.new(0, 20, 0, 20)
+ResizeGrip.Position = UDim2.new(1, -20, 1, -20)
+ResizeGrip.BackgroundTransparency = 1
+ResizeGrip.Text = "◢"
+ResizeGrip.TextColor3 = Theme.SubText
+ResizeGrip.TextSize = 16
+ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
@@ -128,9 +167,33 @@ ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.User
 UserInputService.InputChanged:Connect(function(input) if tDragStart and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - tDragStart; if delta.Magnitude > 5 then isDraggingBtn = true; ToggleBtn.Position = UDim2.new(tStartPos.X.Scale, tStartPos.X.Offset + delta.X, tStartPos.Y.Scale, tStartPos.Y.Offset + delta.Y) end end end)
 
 local rDragging, rDragStart, rStartSize = false, nil, nil
-ResizeGrip.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize end end)
-UserInputService.InputChanged:Connect(function(input) if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - rDragStart; currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y)); MainFrame.Size = currentMainSize end end)
-UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then if tDragStart then if not isDraggingBtn then if MainFrame.Visible then TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false else MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = currentMainSize, Position = UDim2.new(0.5, -currentMainSize.X.Offset/2, 0.5, -currentMainSize.Y.Offset/2)}):Play() end end tDragStart = nil end rDragging = false end end)
+ResizeGrip.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize
+    end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - rDragStart
+        currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y))
+        MainFrame.Size = currentMainSize
+    end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        if tDragStart then
+            if not isDraggingBtn then
+                if MainFrame.Visible then 
+                    TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
+                else 
+                    MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = currentMainSize, Position = UDim2.new(0.5, -currentMainSize.X.Offset/2, 0.5, -currentMainSize.Y.Offset/2)}):Play() 
+                end
+            end
+            tDragStart = nil
+        end
+        rDragging = false
+    end
+end)
 
 CloseBtn.Activated:Connect(function() TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
 
@@ -523,6 +586,7 @@ local function EquipTargetWeapon()
     return false
 end
 
+-- FIX: Echte Mausklicks und Tool-Aktivierung für absolute Sicherheit!
 local function PerformMeleeAttack()
     pcall(function()
         local char = LocalPlayer.Character
@@ -536,6 +600,7 @@ local function PerformMeleeAttack()
     end)
 end
 
+-- NEU: Gun Auto-Aim, Fire Remote & Auto Reload Spam!
 local gunShotsFired = 0
 local function PerformGunAttack(mobRoot)
     pcall(function()
@@ -547,12 +612,14 @@ local function PerformGunAttack(mobRoot)
             local startPos = root.CFrame
             local targetPos = mobRoot.Position
             
+            -- FIX: Prüft Raycast (Sichtfeld), um nicht durch Wände zu schießen (Bann-Gefahr!)
             local params = RaycastParams.new()
             params.FilterDescendantsInstances = {char, mobRoot.Parent, Workspace.Effects, Workspace.Projectiles}
             params.FilterType = Enum.RaycastFilterType.Exclude
             local rayHit = Workspace:Raycast(startPos.Position, (targetPos - startPos.Position).Unit * 500, params)
             
             if not rayHit then
+                -- Feuert direkt den Server Remote aus dem Dump ab!
                 gunManager:FireServer("fire", {
                     Start = startPos,
                     Gun = RyuConfig.TargetWeapon,
@@ -561,6 +628,17 @@ local function PerformGunAttack(mobRoot)
                 })
                 gunShotsFired = gunShotsFired + 1
                 
+                -- Simuliert Mausklick fürs Feeling
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+                task.wait(0.01)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+                
+                -- "R" spammen für Reload
+                VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.R, false, game)
+                task.wait(0.01)
+                VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.R, false, game)
+                
+                -- Hard-Reload über Remote
                 if gunShotsFired >= 8 then
                     local gunFuncs = gunManager:FindFirstChild("gunFunctions")
                     if gunFuncs then
@@ -629,6 +707,8 @@ end)
 --// ============================================================================
 --// HARMONY CORE: 1-BY-1 FARM & QUEST FUSION
 --// ============================================================================
+
+-- FIX: 100% Sicherer Quest-Scanner, der direkt reagiert, wenn die Quest fertig ist!
 local function CheckQuestActive()
     local active = false
     pcall(function()
@@ -641,11 +721,16 @@ local function CheckQuestActive()
         end
         
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if not active and pg then
+        if pg then
             for _, v in pairs(pg:GetDescendants()) do
                 if v:IsA("TextLabel") and v.Visible then
-                    if v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
-                        local txt = v.Text:lower()
+                    local txt = v.Text:lower()
+                    -- FIX: Wenn "Quest Completed" auftaucht -> SKRIPT SOFORT ABBRECHEN UND NEUE HOLEN!
+                    if txt:find("completed") then
+                        active = false
+                        return
+                    end
+                    if not active and v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
                         if txt:match("%d+/%d+") or txt:match("%d+%s*/%s*%d+") then
                             active = true
                         end
@@ -683,6 +768,15 @@ local function FetchQuest()
     end
 end
 
+-- Line of Sight Scanner für Gun Farm
+local function CheckLineOfSight(startPos, targetPos, ignoreList)
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = ignoreList
+    params.FilterType = Enum.RaycastFilterType.Exclude
+    local rayHit = Workspace:Raycast(startPos, (targetPos - startPos).Unit * 500, params)
+    return not rayHit
+end
+
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -703,7 +797,7 @@ task.spawn(function()
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             if not CheckQuestActive() then
                 FetchQuest()
-                continue -- Geht direkt zum nächsten Durchlauf, wenn die Quest geholt wurde
+                continue 
             end
         end
 
@@ -724,6 +818,14 @@ task.spawn(function()
                     
                     if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
                         local d = (root.Position - mRoot.Position).Magnitude
+                        
+                        -- Gun-Logik: Wählt keinen Gegner hinter einer Wand aus!
+                        if RyuConfig.FarmMethod == "Gun" then
+                            if not CheckLineOfSight(root.Position, mRoot.Position, {char, npc.Parent, Workspace.Effects, Workspace.Projectiles}) then
+                                continue 
+                            end
+                        end
+                        
                         if d < closestDist then
                             closestDist = d
                             targetMob = npc
@@ -739,6 +841,7 @@ task.spawn(function()
                 EquipTargetWeapon()
                 
                 while RyuConfig.AutoFarm and mHum and mHum.Health > 0 do
+                    -- FIX: Anti-Fling ragdoll check
                     local isRagdolled = targetMob:FindFirstChild("Rag") or (targetMob.Parent and targetMob.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
                     
                     if isRagdolled then
@@ -747,6 +850,7 @@ task.spawn(function()
                         continue 
                     end
                     
+                    -- FIX: Bricht den Kampf sofort ab, wenn "Quest Completed" oben im Bild aufploppt!
                     if RyuConfig.AutoQuest and not CheckQuestActive() then
                         break 
                     end
@@ -758,15 +862,17 @@ task.spawn(function()
                     
                     local attackPos
                     if RyuConfig.FarmMethod == "Gun" then
-                        attackPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight + 15, 0)
+                        -- FIX: Gun Mode bewegt sich keinen Zentimeter!
+                        attackPos = root.Position
                     else
+                        -- Melee Mode tweent wie gewohnt heran
                         local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                         if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
                         attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
                     end
                     
                     local distToPos = (root.Position - attackPos).Magnitude
-                    if distToPos > 5 then
+                    if RyuConfig.FarmMethod == "Melee" and distToPos > 5 then
                         SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
                     end
                     
@@ -790,4 +896,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: 1-By-1 Hunt & Gun Farm Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: 1-By-1 Hunt, Gun Aim & Quest Fusion Active!", 4)
