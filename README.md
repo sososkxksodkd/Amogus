@@ -614,11 +614,10 @@ CreateSlider(SecIslandTP, "Travel Speed", 50, 85, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
-CreateButton(SecIslandTP, "Start Teleport", function()
+CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
     task.spawn(function()
         local targetIslandName = RyuConfig.TargetIsland
         
-        -- FIX 1: ROBUSTER INSEL SCANNER
         local island = nil
         for _, v in pairs(Workspace:GetChildren()) do
             if string.lower(v.Name) == string.lower(targetIslandName) then
@@ -640,7 +639,6 @@ CreateButton(SecIslandTP, "Start Teleport", function()
             return 
         end
         
-        -- FIX 2: ROBUSTE POSITIONS-ERKENNUNG (Sturzfreier pcall)
         local targetPos
         pcall(function()
             if island:IsA("Model") then
@@ -660,7 +658,7 @@ CreateButton(SecIslandTP, "Start Teleport", function()
             return
         end
         
-        targetPos = targetPos + Vector3.new(0, 100, 0) -- Sicherer Abstand über der Insel
+        targetPos = targetPos + Vector3.new(0, 100, 0) 
         
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -683,7 +681,6 @@ CreateButton(SecIslandTP, "Start Teleport", function()
         
         ToggleHover(true)
         
-        -- FIX 3: EXAKT DAS FISHMAN SYSTEM (Alle 3s für 0.3s Drop -> Fruit Safe by Design)
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return end
@@ -718,7 +715,7 @@ CreateButton(SecIslandTP, "Start Teleport", function()
                     root.Velocity = Vector3.new(0, 50, 0)
                     
                     if isDrop then
-                        task.wait(0.3) -- 0.3 SEKUNDEN FALL (Anti-Cheat Bypass ohne Ertrinken)
+                        task.wait(0.3) 
                     else
                         task.wait(1)
                     end
@@ -755,6 +752,152 @@ CreateButton(SecIslandTP, "Start Teleport", function()
         
         IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed)
         IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed)
+        IslandLerp(targetPos, RyuConfig.IslandSpeed)
+        
+        if hum then hum.Jump = true end
+        root.Velocity = Vector3.new(0, 0, 0)
+        
+        platform:Destroy()
+        ToggleHover(false)
+        RyuNotify:Send("Island TP", "Ziel erreicht!", 3)
+    end)
+end)
+
+-- NEU: BODEN-TP FÜR INSELN!
+CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
+    task.spawn(function()
+        local targetIslandName = RyuConfig.TargetIsland
+        
+        local island = nil
+        for _, v in pairs(Workspace:GetChildren()) do
+            if string.lower(v.Name) == string.lower(targetIslandName) then
+                island = v
+                break
+            end
+        end
+        if not island then
+            for _, v in pairs(Workspace:GetDescendants()) do
+                if string.lower(v.Name) == string.lower(targetIslandName) then
+                    island = v
+                    break
+                end
+            end
+        end
+        
+        if not island then 
+            RyuNotify:Send("Error", "Insel '" .. targetIslandName .. "' nicht in der Map gefunden!", 3)
+            return 
+        end
+        
+        local targetPos
+        pcall(function()
+            if island:IsA("Model") then
+                targetPos = island:GetPivot().Position
+            elseif island:IsA("BasePart") then
+                targetPos = island.Position
+            else
+                local tpPart = island:FindFirstChildWhichIsA("BasePart", true)
+                if tpPart then
+                    targetPos = tpPart.Position
+                end
+            end
+        end)
+        
+        if not targetPos then
+            RyuNotify:Send("Error", "Konnte keine Zielkoordinaten in der Insel finden!", 3)
+            return
+        end
+        
+        targetPos = targetPos + Vector3.new(0, 100, 0) 
+        
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local hipHeight = hum and hum.HipHeight or 2.15
+        local floorOffset = hipHeight + (root.Size.Y / 2)
+        
+        local platform = Instance.new("Part")
+        platform.Name = "Part" 
+        platform.Size = Vector3.new(40, 3, 40) 
+        platform.Anchored = true
+        platform.CanCollide = true
+        platform.Transparency = 0.5
+        platform.Material = Enum.Material.ForceField
+        platform.Color = Color3.fromRGB(0, 255, 0) 
+        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, floorOffset, 0))
+        platform.Parent = Workspace
+        
+        ToggleHover(true)
+        
+        local function IslandLerp(tPos, currentSpeed)
+            local totalDist = (root.Position - tPos).Magnitude
+            if totalDist < 5 then return end
+            
+            currentSpeed = currentSpeed > 0 and currentSpeed or 85
+            local t = totalDist / currentSpeed
+            if t < 0.1 then return end
+            
+            local startPos = root.Position
+            local startTime = tick()
+            local lastDrop = tick()
+            
+            char:SetAttribute("evading", true)
+            _G.soruDashing = true
+            
+            while tick() - startTime < t do
+                local alpha = (tick() - startTime) / t
+                local intermediatePos = startPos:Lerp(tPos, alpha)
+                
+                local lookPos = Vector3.new(tPos.X, intermediatePos.Y, tPos.Z)
+                if (lookPos - intermediatePos).Magnitude < 0.1 then 
+                    lookPos = intermediatePos + root.CFrame.LookVector 
+                end
+                
+                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 3) then
+                    local isDrop = (tick() - lastDrop >= 3)
+                    
+                    ToggleHover(false)
+                    platform.CFrame = CFrame.new(0, 99999, 0) 
+                    
+                    if hum then hum.Jump = true end
+                    root.Velocity = Vector3.new(0, 50, 0)
+                    
+                    if isDrop then
+                        task.wait(0.3) 
+                    else
+                        task.wait(1)
+                    end
+                    
+                    ToggleHover(true)
+                    startPos = root.Position
+                    totalDist = (startPos - tPos).Magnitude
+                    currentSpeed = currentSpeed > 0 and currentSpeed or 85
+                    t = totalDist / currentSpeed
+                    startTime = tick()
+                    lastDrop = tick()
+                else
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = intermediatePos end
+                    
+                    root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
+                    root.Velocity = Vector3.new(0, 0, 0) 
+                    
+                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
+                    
+                    char:SetAttribute("Grounded", true)
+                    _G.grounded = true
+                end
+                RunService.Heartbeat:Wait()
+            end
+            root.CFrame = CFrame.new(tPos)
+            
+            char:SetAttribute("evading", nil)
+            _G.soruDashing = nil
+        end
+        
+        RyuNotify:Send("Island TP", "Reise direkt nach " .. targetIslandName .. "...", 3)
         IslandLerp(targetPos, RyuConfig.IslandSpeed)
         
         if hum then hum.Jump = true end
@@ -1066,4 +1209,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Fixes Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Direct Island TP Added!", 4)
