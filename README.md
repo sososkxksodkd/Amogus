@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MAX HUNT & 2.5s AC DROP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MAX TWEEN & CLEAN UI)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -60,20 +60,10 @@ local RyuConfig = {
     TargetNPC = DynamicQuests[1],
     TargetWeapon = "Combat",
     
-    TweenSpeed = 55, 
+    TweenSpeed = 150, -- FIX: Standardmäßig direkt auf Max (150) gesetzt!
     KillHeight = 7, 
     FishmanSpeed = 140,
-    ElevatorSpeed = 15,
-    
-    -- GOD MODE CONFIG
-    AntiStun = false,
-    InfGeppo = false,
-    NoDrown = false,
-    FastAttack = false,
-    Invincibility = false,
-    CoinMagnet = false,
-    NoWeather = false,
-    AutoFish = false
+    ElevatorSpeed = 15
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -293,7 +283,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// ANTI-FLING & AC BYPASS HOVER SYSTEM
+--// ANTI-FLING HOVER SYSTEM (Cleaned up - No Stun from Evading)
 --// ============================================================================
 local function ToggleHover(state)
     local char = LocalPlayer.Character
@@ -301,10 +291,6 @@ local function ToggleHover(state)
     if not root then return end
     
     if state then
-        if RyuConfig.Invincibility then
-            char:SetAttribute("evading", true)
-        end
-        
         local bp = root:FindFirstChild("RyuHover")
         if not bp then
             bp = Instance.new("BodyPosition")
@@ -316,10 +302,6 @@ local function ToggleHover(state)
         end
         bp.Position = root.Position
     else
-        if not RyuConfig.Invincibility then
-            char:SetAttribute("evading", nil)
-        end
-        
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp:Destroy() end
     end
@@ -514,7 +496,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                -- FIX: Boden-TP 2.5s Drop Timer & 0.7s Fall!
                 if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
                     local isDrop = (tick() - lastDrop >= 2.5)
                     
@@ -530,7 +511,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
                     end
                     
-                    -- FIX: Fällt für genau 0.7 Sekunden (oder 1s bei echtem AC-Kick)
                     task.wait(isDrop and 0.7 or 1)
                     
                     ToggleHover(true)
@@ -576,39 +556,8 @@ CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(
     RyuConfig.Noclip = state 
 end)
 
---// UI AUFBAU: GOD MODE & MISC
-local TabGodMode = CreateMainTab("God Mode")
-local SubExploits = CreateSubTab(TabGodMode, "Exploits")
-
-local SecCombatGod = CreateSection(SubExploits, "Combat Overrides")
-CreateToggle(SecCombatGod, "Invincibility (I-Frames/No Hit)", RyuConfig.Invincibility, function(state)
-    RyuConfig.Invincibility = state
-end)
-CreateToggle(SecCombatGod, "Anti-Stun (Bypass CC)", RyuConfig.AntiStun, function(state)
-    RyuConfig.AntiStun = state
-end)
-
-local SecWorldGod = CreateSection(SubExploits, "World & Physics")
-CreateToggle(SecWorldGod, "No Drown (Devil Fruit Bypass)", RyuConfig.NoDrown, function(state)
-    RyuConfig.NoDrown = state
-end)
-CreateToggle(SecWorldGod, "Infinite Geppo (Fly)", RyuConfig.InfGeppo, function(state)
-    RyuConfig.InfGeppo = state
-end)
-CreateToggle(SecWorldGod, "Clear Weather (No Fog/Rain)", RyuConfig.NoWeather, function(state)
-    RyuConfig.NoWeather = state
-end)
-
-local SecFarmingMisc = CreateSection(SubExploits, "Misc Automations")
-CreateToggle(SecFarmingMisc, "Auto Coin/Drop Magnet", RyuConfig.CoinMagnet, function(state)
-    RyuConfig.CoinMagnet = state
-end)
-CreateToggle(SecFarmingMisc, "Auto Fishing (AFK Catch)", RyuConfig.AutoFish, function(state)
-    RyuConfig.AutoFish = state
-end)
-
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT 
+--// MODULE HOOKING: PURE RAW COMBAT (SIMPLIFIED & BUGFREE)
 --// ============================================================================
 local function GetInputCallbacks()
     local backpack = LocalPlayer:FindFirstChild("Backpack")
@@ -692,80 +641,6 @@ local function SafeTween(targetCFrame, customSpeed)
     if bpFinal then bpFinal.Position = targetPos end
     root.CFrame = targetCFrame
 end
-
---// ============================================================================
---// GOD MODE BACKEND LOOP (I-Frames, Drops, Weather, Stun)
---// ============================================================================
-RunService.Heartbeat:Connect(function()
-    local char = LocalPlayer.Character
-    
-    if RyuConfig.Invincibility and char then
-        char:SetAttribute("evading", true)
-    end
-    
-    if RyuConfig.AntiStun then
-        _G.canuse = true
-        _G.blocking = false
-        if char then
-            local stuns = {"Stun", "Dizzed", "frozen", "Rag", "Cuffed", "PB"}
-            for _, v in pairs(stuns) do
-                local s = char:FindFirstChild(v)
-                if s then s:Destroy() end
-            end
-            local hum = char:FindFirstChildOfClass("Humanoid")
-            if hum and hum.WalkSpeed == 0 then
-                hum.WalkSpeed = 16
-            end
-        end
-    end
-    
-    if RyuConfig.NoDrown then
-        if char then
-            char:SetAttribute("underWater", nil)
-            char:SetAttribute("isDrowning", nil)
-            char:SetAttribute("timeUntilDrown", nil)
-        end
-        _G.swimming = false
-    end
-    
-    if RyuConfig.InfGeppo then
-        _G.geppo = 1
-    end
-    
-    if RyuConfig.NoWeather then
-        game.Lighting.FogEnd = 100000
-        game.Lighting.GlobalShadows = false
-        if game.Lighting:FindFirstChild("Atmosphere") then
-            game.Lighting.Atmosphere.Density = 0
-        end
-        local rain = Workspace.Effects:FindFirstChild("__RainEmitter")
-        if rain then rain:Destroy() end
-    end
-    
-    if RyuConfig.CoinMagnet and char and char:FindFirstChild("HumanoidRootPart") then
-        local myRoot = char.HumanoidRootPart
-        for _, v in pairs(Workspace.Effects:GetChildren()) do
-            if v.Name == "Coin" or v.Name == "Peli" then
-                if v:IsA("Model") and v.PrimaryPart then
-                    v:SetPrimaryPartCFrame(myRoot.CFrame)
-                elseif v:IsA("BasePart") then
-                    v.CFrame = myRoot.CFrame
-                end
-            end
-        end
-    end
-    
-    if RyuConfig.AutoFish and char then
-        local rod = char:FindFirstChild("FishingRod") or char:FindFirstChild("Fishing Rod") or char:FindFirstChild("Wooden Fishing Rod")
-        if rod then
-            local hook = Workspace:FindFirstChild("Hook", true)
-            if hook and hook:GetAttribute("Caught") then
-                VirtualUser:CaptureController()
-                VirtualUser:ClickButton1(Vector2.new())
-            end
-        end
-    end
-end)
 
 RunService.Stepped:Connect(function()
     if RyuConfig.Noclip or RyuConfig.AutoFarm then
@@ -863,7 +738,6 @@ task.spawn(function()
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         
                         if mRoot and mHum and mHum.Health > 0 then
-                            -- FIX: Hitbox beim Jagen vergrößern!
                             mRoot.Size = Vector3.new(30, 30, 30)
                             mRoot.CanCollide = false
                             
@@ -872,7 +746,6 @@ task.spawn(function()
                             
                             local attackPos = mRoot.Position + (flatDir.Unit * 2)
                             
-                            -- FIX: 1.5x Schneller Jagen!
                             SafeTween(CFrame.lookAt(attackPos, mRoot.Position), RyuConfig.TweenSpeed * 1.5)
                             
                             local startHp = mHum.Health
@@ -885,7 +758,6 @@ task.spawn(function()
                                 if bp then bp.Position = mRoot.Position + (flatDir.Unit * 2) end
                                 root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
                                 
-                                -- FIX: Doppeltes/Schnelleres Schlagen!
                                 PerformAttack()
                                 PerformAttack()
                                 RunService.Heartbeat:Wait()
@@ -963,7 +835,6 @@ task.spawn(function()
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
                                             
-                                            -- FIX: Hitbox auch in der Sky-Phase erhalten
                                             if mRoot.Size.Y < 30 then
                                                 mRoot.Size = Vector3.new(30, 30, 30)
                                                 mRoot.CanCollide = false
@@ -981,7 +852,6 @@ task.spawn(function()
                                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetLook.X, root.Position.Y, targetLook.Z))
                                 end
                                 
-                                -- FIX: Doppeltes/Schnelleres Schlagen!
                                 PerformAttack()
                                 PerformAttack()
                                 RunService.Heartbeat:Wait()
@@ -1000,4 +870,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Max Hunt Speed & AC Drops Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: God Mode Removed & System Cleaned!", 4)
