@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - DOLPHIN HOP & QUEST TIMER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - UP-HOP & QUEST FIX)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -160,7 +160,8 @@ ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
-local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0); Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
+local ToggleBtn = Instance.new("TextButton"); ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar; ToggleBtn.Text = "R"; ToggleBtn.Font = Enum.Font.GothamBlack; ToggleBtn.TextColor3 = Theme.Accent; ToggleBtn.TextSize = 20; ToggleBtn.Parent = RyuHub; Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
+Instance.new("UIStroke", ToggleBtn).Color = Theme.Accent; Instance.new("UIStroke", ToggleBtn).Thickness = 2
 
 local tDragStart, tStartPos, isDraggingBtn = nil, nil, false
 ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then isDraggingBtn = false; tDragStart = input.Position; tStartPos = ToggleBtn.Position end end)
@@ -338,7 +339,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// FISHMAN CAVE SMART TP SECTION (MIT DOLPHIN-HOP)
+--// FISHMAN CAVE SMART TP SECTION (MIT UP-HOP BYPASS)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -357,7 +358,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         ToggleHover(true)
         
-        -- NEU: Dolphin Hop Logik (Setzt Anti-Cheat zurück)
+        -- NEU: Up-Hop Logik (Anti-Cheat Bypass nach Oben)
         local function CustomLerp(tPos)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / RyuConfig.FishmanSpeed
@@ -383,11 +384,12 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     RunService.Heartbeat:Wait()
                 end
                 
-                -- ANTI CHEAT BYPASS: Der Drop!
+                -- ANTI CHEAT BYPASS: Der Up-Hop!
                 if i < steps then
                     ToggleHover(false)
-                    root.Velocity = Vector3.new(0, -50, 0) -- Drückt den Charakter kurz runter ins Wasser/Boden
-                    task.wait(0.3) -- Klatscht kurz auf, AC wird resettet
+                    root.Velocity = Vector3.new(0, 0, 0)
+                    root.CFrame = root.CFrame + Vector3.new(0, 15, 0) -- Drückt dich sicher 15 Studs nach oben
+                    task.wait(0.2) -- Kurz warten
                     ToggleHover(true)
                 end
             end
@@ -416,7 +418,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         ToggleHover(true)
         
-        -- NEU: Dolphin Hop Logik auch für Boden-TP
+        -- NEU: Up-Hop Logik auch für Boden-TP
         local function CustomLerp(tPos)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / RyuConfig.FishmanSpeed
@@ -441,11 +443,12 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     RunService.Heartbeat:Wait()
                 end
                 
-                -- ANTI CHEAT BYPASS: Der Drop!
+                -- ANTI CHEAT BYPASS: Der Up-Hop!
                 if i < steps then
                     ToggleHover(false)
-                    root.Velocity = Vector3.new(0, -50, 0)
-                    task.wait(0.3)
+                    root.Velocity = Vector3.new(0, 0, 0)
+                    root.CFrame = root.CFrame + Vector3.new(0, 15, 0) -- Drückt dich sicher 15 Studs nach oben
+                    task.wait(0.2) -- Kurz warten
                     ToggleHover(true)
                 end
             end
@@ -559,13 +562,12 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: SMART QUEST SCANNER & CLICKER (NEU: MESSAGE SCANNER)
+--// HARMONY CORE: SMART QUEST SCANNER & CLICKER
 --// ============================================================================
 
 local isQuestActive = false
 local questStartTime = 0
 
--- NEU: Erkennt ausschließlich die "Quest Completed" Nachricht
 local function CheckQuestCompleted()
     local completed = false
     pcall(function()
@@ -585,7 +587,7 @@ local function CheckQuestCompleted()
     return completed
 end
 
--- DIALOG KLICKER (Spammt alle Quest-Bestätigungen)
+-- DIALOG KLICKER (Erweiterte, kugelsichere Strings!)
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -593,7 +595,8 @@ local function PerformQuestClicking()
             for _, v in pairs(pg:GetDescendants()) do
                 if v:IsA("TextButton") and v.Visible then
                     local txt = v.Text:lower()
-                    if txt:match("okay") or txt:match("okay!") or txt:match("okey") or txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("next") then
+                    -- txt:find() deckt automatisch Wörter wie "Okay!", "Okey!", "Yes" ab.
+                    if txt:find("okay") or txt:find("okey") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") then
                         for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                         for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
                     end
@@ -610,7 +613,6 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         
-        -- Überprüfe, ob die Quest fertig ist oder das 2-Minuten-Timeout erreicht wurde
         if isQuestActive then
             if CheckQuestCompleted() then
                 isQuestActive = false
@@ -621,7 +623,7 @@ task.spawn(function()
             end
         end
         
-        --// PHASE 1: AUTO QUEST (Priorität: Nur wenn wir KEINE Quest haben!)
+        --// PHASE 1: AUTO QUEST
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not isQuestActive then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
@@ -631,12 +633,10 @@ task.spawn(function()
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 
                 if root then
-                    -- Distanz zum Reden
                     SafeTween(npcPos * CFrame.new(0, 0, 3.5))
                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                     task.wait(0.3)
                     
-                    -- NPC Ansprechen (Proximity Prompt)
                     if fireproximityprompt then
                         for _, p in pairs(npc:GetDescendants()) do
                             if p:IsA("ProximityPrompt") then
@@ -649,14 +649,12 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
-                    -- KLICKER LOOP (Spammt "Okay", "..." für 3.5 Sekunden)
                     local clickStart = tick()
                     while tick() - clickStart < 3.5 do
                         PerformQuestClicking()
                         task.wait(0.2)
                     end
                     
-                    -- Fallback Remotes
                     pcall(function()
                         local args = {{"npcChat", true}}
                         ReplicatedStorage.Events.Quest:InvokeServer(unpack(args))
@@ -664,15 +662,13 @@ task.spawn(function()
                         ReplicatedStorage.Events.Quest:InvokeServer("acceptquest")
                     end)
                     
-                    -- Erfolgreich angenommen: Tracker starten!
                     isQuestActive = true
                     questStartTime = tick()
                     task.wait(1.5) 
                 end
             end
             
-        --// PHASE 2: AUTO FARM (Startet nur: Wenn Quest vorhanden ODER AutoQuest aus ist!)
-        -- DIESER CODE IST ZU 100% UNBERÜHRT, EXAKT WIE IM CHECKPOINT!
+        --// PHASE 2: AUTO FARM (Darf nicht angefasst werden!)
         elseif RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" and (isQuestActive or not RyuConfig.AutoQuest) then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -698,7 +694,6 @@ task.spawn(function()
                     
                     EquipCombat()
                     
-                    -- PHASE 1: AGGRO SAMMELN
                     for _, mob in pairs(validMobs) do
                         if not RyuConfig.AutoFarm or hum.Health <= 0 then break end
                         if #aggroedMobs >= 5 then break end
@@ -733,7 +728,6 @@ task.spawn(function()
                         end
                     end
                     
-                    -- PHASE 2: SMART GROUPING & KILLEN
                     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
                         EquipCombat()
                         
@@ -831,4 +825,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Dolphin Hop & Quest Timer Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Up-Hop & Enhanced Quest Clicker Active!", 4)
