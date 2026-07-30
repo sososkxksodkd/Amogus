@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - GOD MODE & BACKEND HOOKS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - PURE REMOTE & DUMP FIXES)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -362,15 +362,20 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
+        -- FIX: Dynamische HipHeight-Berechnung aus dem Dump
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local hipHeight = hum and hum.HipHeight or 2.15
+        local floorOffset = hipHeight + (root.Size.Y / 2) -- Genau am Fußende des Modells
+        
         local platform = Instance.new("Part")
         platform.Name = "Part" 
-        platform.Size = Vector3.new(100, 2, 100) 
+        platform.Size = Vector3.new(300, 5, 300) -- Massiver unsichtbarer Boden
         platform.Anchored = true
         platform.CanCollide = true
         platform.Transparency = 0.5
         platform.Material = Enum.Material.ForceField
         platform.Color = Color3.fromRGB(0, 255, 255)
-        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.1, 0))
+        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, floorOffset, 0))
         platform.Parent = Workspace
         
         ToggleHover(true)
@@ -396,7 +401,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     ToggleHover(false)
                     platform.CFrame = CFrame.new(0, 99999, 0) 
                     
-                    local hum = char:FindFirstChildOfClass("Humanoid")
                     if hum then hum.Jump = true end
                     root.Velocity = Vector3.new(0, 50, 0)
                     
@@ -415,7 +419,12 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
                     root.Velocity = Vector3.new(0, 0, 0) 
                     
-                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.1, intermediatePos.Z)
+                    -- FIX: Exakte Anpassung auf den Millimeter
+                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
+                    
+                    -- PURE BACKEND AC-BYPASS (Trickt die lokalen Client-Skripte aus)
+                    char:SetAttribute("Grounded", true)
+                    _G.grounded = true
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -427,7 +436,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.FishmanSpeed)
         CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.ElevatorSpeed)
         
-        local hum = char:FindFirstChildOfClass("Humanoid")
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 60, 0)
         task.wait(0.2)
@@ -448,15 +456,19 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local hipHeight = hum and hum.HipHeight or 2.15
+        local floorOffset = hipHeight + (root.Size.Y / 2)
+        
         local platform = Instance.new("Part")
         platform.Name = "Part"
-        platform.Size = Vector3.new(100, 2, 100)
+        platform.Size = Vector3.new(300, 5, 300)
         platform.Anchored = true
         platform.CanCollide = true
         platform.Transparency = 0.5
         platform.Material = Enum.Material.ForceField
         platform.Color = Color3.fromRGB(0, 255, 255)
-        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.1, 0))
+        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, floorOffset, 0))
         platform.Parent = Workspace
         
         ToggleHover(true)
@@ -482,7 +494,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     ToggleHover(false)
                     platform.CFrame = CFrame.new(0, 99999, 0) 
                     
-                    local hum = char:FindFirstChildOfClass("Humanoid")
                     if hum then hum.Jump = true end
                     root.Velocity = Vector3.new(0, 50, 0)
                     
@@ -501,7 +512,10 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
                     root.Velocity = Vector3.new(0, 0, 0)
                     
-                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.1, intermediatePos.Z)
+                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
+                    
+                    char:SetAttribute("Grounded", true)
+                    _G.grounded = true
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -510,7 +524,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed)
         
-        local hum = char:FindFirstChildOfClass("Humanoid")
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 60, 0)
         task.wait(0.2)
@@ -526,7 +539,7 @@ CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(
     RyuConfig.Noclip = state 
 end)
 
---// NEU: UI AUFBAU: GOD MODE (Backend Exploits)
+--// UI AUFBAU: GOD MODE (Backend Exploits)
 local TabGodMode = CreateMainTab("God Mode")
 local SubExploits = CreateSubTab(TabGodMode, "Exploits")
 
@@ -580,7 +593,6 @@ end
 local function PerformAttack()
     local inputModule = GetInputCallbacks()
     pcall(function()
-        -- FIX: FastAttack Bypass nutzt direkt den internen PC_Activate Befehl
         if RyuConfig.FastAttack or (inputModule and inputModule.Utils.canAutoM1()) then
             inputModule.Callbacks.Attack:PC_Activate()
             inputModule.Callbacks.Attack:PC_Activate()
@@ -636,7 +648,6 @@ end
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
     
-    -- 1. Anti-Stun Backend Hook
     if RyuConfig.AntiStun then
         _G.canuse = true
         _G.blocking = false
@@ -653,7 +664,11 @@ RunService.Heartbeat:Connect(function()
         end
     end
     
-    -- 2. No Drown / Devil Fruit Water Bypass
+    if RyuConfig.FastAttack then
+        _G.midM1 = false
+        _G.canM1 = true
+    end
+    
     if RyuConfig.NoDrown then
         if char then
             char:SetAttribute("underWater", nil)
@@ -663,9 +678,8 @@ RunService.Heartbeat:Connect(function()
         _G.swimming = false
     end
     
-    -- 3. Infinite Geppo
     if RyuConfig.InfGeppo then
-        _G.geppo = 1 -- Resetted intern den GPO Sprung-Counter permanent
+        _G.geppo = 1
     end
 end)
 
@@ -729,7 +743,7 @@ task.spawn(function()
             end
         end
         
-        --// PHASE 1: AUTO QUEST (PURE REMOTES)
+        --// PHASE 1: AUTO QUEST (NO DIALOG, PURE REMOTES)
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not actuallyHasQuest then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
@@ -739,22 +753,12 @@ task.spawn(function()
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 
                 if root then
+                    -- Fliege zum NPC (Nah genug für den Remote)
                     SafeTween(npcPos * CFrame.new(0, 0, 3.5))
                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                     task.wait(0.3)
                     
-                    if fireproximityprompt then
-                        for _, p in pairs(npc:GetDescendants()) do
-                            if p:IsA("ProximityPrompt") then
-                                p.RequiresLineOfSight = false
-                                fireproximityprompt(p, 1, true)
-                                task.wait(0.1)
-                                fireproximityprompt(p, 0, true)
-                            end
-                        end
-                    end
-                    task.wait(0.5)
-                    
+                    -- PURE REMOTE QUESTING (Ohne nerviges Klicken oder UI-Scannen!)
                     pcall(function()
                         local QuestEvent = ReplicatedStorage.Events.Quest
                         QuestEvent:InvokeServer({"npcChat", true})
@@ -942,4 +946,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: God Mode Engine Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Backend God Mode Active!", 4)
