@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - ANTI-FLING & MAX EFFICIENCY)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (1-BY-1 HUNT, GUN AIM & QUEST FUSION)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -9,12 +9,12 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
---// GUI SECURITY & CLEANUP (Volt Safe)
+--// GUI SECURITY & CLEANUP
 local guiParent = LocalPlayer:WaitForChild("PlayerGui", 10) or LocalPlayer:FindFirstChild("PlayerGui")
 pcall(function() 
     if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end 
@@ -48,15 +48,13 @@ if #DynamicQuests == 0 then DynamicQuests = {"Daph", "Ash the Tailor", "Tyson", 
 
 --// RYU CONFIGURATION
 local RyuConfig = {
-    SpeedHack = false, SpeedValue = 35, 
     Noclip = false, 
-    
     AutoFarm = false,
-    QuestInterval = 45, 
+    AutoQuest = false,
     DynamicHeight = false, 
     
+    FarmMethod = "Melee", -- Melee oder Gun
     TargetMob = DynamicEnemies[1],
-    TargetIsland = "Town of Beginnings",
     TargetNPC = DynamicQuests[1],
     TargetWeapon = "Combat",
     
@@ -66,7 +64,8 @@ local RyuConfig = {
     ElevatorSpeed = 150 
 }
 
-local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
+local GPOWeapons = { "Combat", "Melee", "Sword", "Katana", "Pistol", "Rifle" }
+local FarmMethods = { "Melee", "Gun" }
 
 --// NOTIFICATION SYSTEM
 local NotificationContainer = Instance.new("Frame")
@@ -107,38 +106,6 @@ function RyuNotify:Send(title, text, duration)
     end)
 end
 
---// RAINBOW OVERHEAD TITLE
-local function AddRainbowTag(character)
-    local head = character:WaitForChild("Head", 5)
-    if head then
-        if head:FindFirstChild("RyuHubTag") then head.RyuHubTag:Destroy() end
-        local bg = Instance.new("BillboardGui")
-        bg.Name = "RyuHubTag"
-        bg.Size = UDim2.new(0, 200, 0, 50)
-        bg.StudsOffset = Vector3.new(0, 3, 0)
-        bg.AlwaysOnTop = true
-        bg.Parent = head
-        
-        local txt = Instance.new("TextLabel")
-        txt.Size = UDim2.new(1, 0, 1, 0)
-        txt.BackgroundTransparency = 1
-        txt.Text = "RYUHUB"
-        txt.Font = Enum.Font.GothamBlack
-        txt.TextSize = 22
-        txt.TextStrokeTransparency = 0
-        txt.Parent = bg
-        
-        task.spawn(function()
-            while bg.Parent do
-                txt.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
-                task.wait(0.1) 
-            end
-        end)
-    end
-end
-if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
-
 --// UI SETUP
 local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50) }
 local currentMainSize = UDim2.new(0, 550, 0, 380) 
@@ -150,14 +117,7 @@ local MainFrame = Instance.new("Frame"); MainFrame.Size = currentMainSize; MainF
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
 
-local ResizeGrip = Instance.new("TextButton", MainFrame)
-ResizeGrip.Size = UDim2.new(0, 20, 0, 20)
-ResizeGrip.Position = UDim2.new(1, -20, 1, -20)
-ResizeGrip.BackgroundTransparency = 1
-ResizeGrip.Text = "◢"
-ResizeGrip.TextColor3 = Theme.SubText
-ResizeGrip.TextSize = 16
-ResizeGrip.Font = Enum.Font.GothamBold
+local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
@@ -168,33 +128,9 @@ ToggleBtn.InputBegan:Connect(function(input) if input.UserInputType == Enum.User
 UserInputService.InputChanged:Connect(function(input) if tDragStart and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - tDragStart; if delta.Magnitude > 5 then isDraggingBtn = true; ToggleBtn.Position = UDim2.new(tStartPos.X.Scale, tStartPos.X.Offset + delta.X, tStartPos.Y.Scale, tStartPos.Y.Offset + delta.Y) end end end)
 
 local rDragging, rDragStart, rStartSize = false, nil, nil
-ResizeGrip.InputBegan:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize
-    end
-end)
-UserInputService.InputChanged:Connect(function(input)
-    if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-        local delta = input.Position - rDragStart
-        currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y))
-        MainFrame.Size = currentMainSize
-    end
-end)
-UserInputService.InputEnded:Connect(function(input)
-    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-        if tDragStart then
-            if not isDraggingBtn then
-                if MainFrame.Visible then 
-                    TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
-                else 
-                    MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = currentMainSize, Position = UDim2.new(0.5, -currentMainSize.X.Offset/2, 0.5, -currentMainSize.Y.Offset/2)}):Play() 
-                end
-            end
-            tDragStart = nil
-        end
-        rDragging = false
-    end
-end)
+ResizeGrip.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then rDragging = true; rDragStart = input.Position; rStartSize = MainFrame.AbsoluteSize end end)
+UserInputService.InputChanged:Connect(function(input) if rDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - rDragStart; currentMainSize = UDim2.new(0, math.max(450, rStartSize.X + delta.X), 0, math.max(300, rStartSize.Y + delta.Y)); MainFrame.Size = currentMainSize end end)
+UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then if tDragStart then if not isDraggingBtn then if MainFrame.Visible then TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false else MainFrame.Visible = true; TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = currentMainSize, Position = UDim2.new(0.5, -currentMainSize.X.Offset/2, 0.5, -currentMainSize.Y.Offset/2)}):Play() end end tDragStart = nil end rDragging = false end end)
 
 CloseBtn.Activated:Connect(function() TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false end)
 
@@ -311,26 +247,22 @@ end
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
-local SecAutoFarmMain = CreateSection(SubLeveling, "Master Auto Farm (FUSION)")
-CreateToggle(SecAutoFarmMain, "Enable Auto Farm & Quest", RyuConfig.AutoFarm, function(state) 
+local SecAutoFarmMain = CreateSection(SubLeveling, "Master Auto Farm (1-BY-1 FUSION)")
+CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
-CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
-    RyuConfig.DynamicHeight = state 
+CreateToggle(SecAutoFarmMain, "Auto Quest Link", RyuConfig.AutoQuest, function(state) 
+    RyuConfig.AutoQuest = state 
 end)
 
 local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
-CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
+CreateDropdown(SecAutoFarmConfig, "Farm Method", FarmMethods, "FarmMethod")
+CreateDropdown(SecAutoFarmConfig, "Select Weapon", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
 
-CreateSlider(SecAutoFarmConfig, "Quest Interval (Secs)", 10, 100, RyuConfig.QuestInterval, function(val) 
-    RyuConfig.QuestInterval = val 
-end)
-
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
--- FIX: Slider maximal auf 50 (Sweet Spot)
 CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 10, 50, RyuConfig.TweenSpeed, function(val) 
     RyuConfig.TweenSpeed = val 
 end)
@@ -398,15 +330,16 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 then
+                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
+                    local isDrop = (tick() - lastDrop >= 2.5)
+                    
                     ToggleHover(false)
                     platform.CFrame = CFrame.new(0, 99999, 0) 
                     
                     if hum then hum.Jump = true end
                     root.Velocity = Vector3.new(0, 50, 0)
                     
-                    RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
-                    task.wait(1)
+                    task.wait(isDrop and 0.7 or 1)
                     
                     ToggleHover(true)
                     startPos = root.Position
@@ -445,7 +378,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         platform:Destroy()
         ToggleHover(false)
-        RyuNotify:Send("Smart TP", "Ziel erreicht! Simulierter Sprung nach unten...", 3)
     end)
 end)
 
@@ -497,7 +429,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                -- FIX: Boden-TP alle 2.5s droppen für exakt 0.7s
                 if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
                     local isDrop = (tick() - lastDrop >= 2.5)
                     
@@ -507,13 +438,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     if hum then hum.Jump = true end
                     root.Velocity = Vector3.new(0, 50, 0)
                     
-                    if isDrop then
-                        RyuNotify:Send("Smart TP", "Sicherheits-Drop (AC Reset)...", 1)
-                    else
-                        RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
-                    end
-                    
-                    -- FIX: Fällt für genau 0.7 Sekunden!
                     task.wait(isDrop and 0.7 or 1)
                     
                     ToggleHover(true)
@@ -550,7 +474,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         platform:Destroy()
         ToggleHover(false)
-        RyuNotify:Send("Smart TP", "Ziel erreicht! Simulierter Sprung nach unten...", 3)
     end)
 end)
 
@@ -560,29 +483,24 @@ CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(
 end)
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT (SIMPLIFIED & M1-ONLY)
+--// COMBAT ENGINE (100% BULLETPROOF M1 & GUN FIRE)
 --// ============================================================================
--- FIX: Zieht die Waffe (Simuliert Taste "1")
-local function EquipCombat()
+local function EquipTargetWeapon()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not hum then return end
+    if not hum then return false end
     
     local targetWep = RyuConfig.TargetWeapon
     if not targetWep or targetWep == "" then targetWep = "Combat" end
     
-    -- 1. Ist die Waffe schon in der Hand? -> Abbrechen, alles gut!
-    if char:FindFirstChild(targetWep) then return end
+    if char:FindFirstChild(targetWep) then return true end
     for _, item in pairs(char:GetChildren()) do
         if item:IsA("Tool") and (item.Name:lower():find(targetWep:lower()) or item:GetAttribute("MeleeTool")) then
-            return 
+            return true 
         end
     end
     
-    -- 2. Wenn nicht, aus dem Rucksack holen
     local tool = LocalPlayer.Backpack:FindFirstChild(targetWep)
-    
-    -- 3. Fallback: Suche nach ähnlichen Begriffen ("Melee", "Sword" etc.)
     if not tool then
         for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
             if item:IsA("Tool") and (item.Name:lower():find(targetWep:lower()) or item:GetAttribute("MeleeTool") or item.Name:lower():find("melee") or item.Name:lower():find("sword") or item.Name:lower():find("combat")) then
@@ -591,25 +509,68 @@ local function EquipCombat()
         end
     end
     
-    -- 4. Letzter Fallback: Nimm einfach IRGENDEIN Tool, das du hast
     if not tool then
         for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
             if item:IsA("Tool") then tool = item; break end
         end
     end
     
-    -- 5. Physisch in die Hand nehmen
     if tool and tool.Parent == LocalPlayer.Backpack then
         hum:EquipTool(tool)
         task.wait(0.1)
+        return true
     end
+    return false
 end
 
--- FIX: Simuliert NUR NOCH physisches Mausklicken (M1). Keine Backend Remotes, die verbuggen können!
-local function PerformAttack()
+local function PerformMeleeAttack()
     pcall(function()
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton1(Vector2.new())
+        local char = LocalPlayer.Character
+        local tool = char and char:FindFirstChildOfClass("Tool")
+        if tool then tool:Activate() end
+        
+        if mouse1click then mouse1click() end
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+        task.wait()
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+    end)
+end
+
+local gunShotsFired = 0
+local function PerformGunAttack(mobRoot)
+    pcall(function()
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local gunManager = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("GunManager")
+        
+        if root and gunManager then
+            local startPos = root.CFrame
+            local targetPos = mobRoot.Position
+            
+            local params = RaycastParams.new()
+            params.FilterDescendantsInstances = {char, mobRoot.Parent, Workspace.Effects, Workspace.Projectiles}
+            params.FilterType = Enum.RaycastFilterType.Exclude
+            local rayHit = Workspace:Raycast(startPos.Position, (targetPos - startPos.Position).Unit * 500, params)
+            
+            if not rayHit then
+                gunManager:FireServer("fire", {
+                    Start = startPos,
+                    Gun = RyuConfig.TargetWeapon,
+                    joe = "true",
+                    Position = targetPos
+                })
+                gunShotsFired = gunShotsFired + 1
+                
+                if gunShotsFired >= 8 then
+                    local gunFuncs = gunManager:FindFirstChild("gunFunctions")
+                    if gunFuncs then
+                        gunFuncs:InvokeServer("reload", {Gun = RyuConfig.TargetWeapon})
+                    end
+                    gunShotsFired = 0
+                    task.wait(1.5)
+                end
+            end
+        end
     end)
 end
 
@@ -666,258 +627,167 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: TIMER FUSION (QUEST + FARM IN EINER FUNKTION)
+--// HARMONY CORE: 1-BY-1 FARM & QUEST FUSION
 --// ============================================================================
-
-task.spawn(function()
-    local lastQuestTime = 0
-
-    while true do
-        task.wait(0.1)
-        
-        -- FIX: Die EINE Funktion, die beides steuert.
-        if not RyuConfig.AutoFarm then
-            continue
+local function CheckQuestActive()
+    local active = false
+    pcall(function()
+        local qFolder = LocalPlayer:FindFirstChild("Quest")
+        if qFolder and qFolder:FindFirstChild("CurrentQuest") then
+            local val = qFolder.CurrentQuest.Value
+            if val and val ~= "" and val ~= "None" then 
+                active = true 
+            end
         end
         
-        --// FUSION: QUEST ANNAHME
-        if RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" then
-            if tick() - lastQuestTime >= RyuConfig.QuestInterval then
-                local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
-                if npc then
-                    ToggleHover(true)
-                    local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
-                    local char = LocalPlayer.Character
-                    local root = char and char:FindFirstChild("HumanoidRootPart")
-                    
-                    if root then
-                        SafeTween(npcPos * CFrame.new(0, 0, 3.5))
-                        root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
-                        
-                        -- Quest sofort durch Remotes holen! (Kein Warten, kein Reden)
-                        pcall(function()
-                            local QuestEvent = ReplicatedStorage.Events.Quest
-                            QuestEvent:InvokeServer({"npcChat", true})
-                            local questString = "Help " .. RyuConfig.TargetNPC
-                            QuestEvent:InvokeServer({"takequest", questString})
-                            QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
-                            QuestEvent:InvokeServer({"takequest"})
-                            QuestEvent:InvokeServer("takequest")
-                            QuestEvent:InvokeServer({"acceptquest"})
-                            QuestEvent:InvokeServer("acceptquest")
-                        end)
-                        
-                        -- Setzt Timer zurück und farmt in derselben Millisekunde weiter!
-                        lastQuestTime = tick()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if not active and pg then
+            for _, v in pairs(pg:GetDescendants()) do
+                if v:IsA("TextLabel") and v.Visible then
+                    if v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
+                        local txt = v.Text:lower()
+                        if txt:match("%d+/%d+") or txt:match("%d+%s*/%s*%d+") then
+                            active = true
+                        end
                     end
                 end
             end
         end
-            
-        --// FUSION: MONSTER FARMEN
-        if RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" and RyuConfig.TargetMob ~= "None" then
-            local char = LocalPlayer.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            local hum = char and char:FindFirstChildOfClass("Humanoid")
-            
-            if root and hum and hum.Health > 0 then
-                ToggleHover(true) 
-                
-                local npcs = Workspace:FindFirstChild("NPCs")
-                if npcs then
-                    local validMobs = {}
-                    for _, npc in pairs(npcs:GetChildren()) do
-                        if npc.Name == RyuConfig.TargetMob then
-                            local mHum = npc:FindFirstChildOfClass("Humanoid")
-                            local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                            if mHum and mRoot and mHum.Health == mHum.MaxHealth then
-                                table.insert(validMobs, npc)
-                            end
-                        end
-                    end
-                    
-                    local aggroedMobs = {}
-                    EquipCombat()
-                    
-                    for _, mob in pairs(validMobs) do
-                        if not RyuConfig.AutoFarm or hum.Health <= 0 then break end
-                        if #aggroedMobs >= 5 then break end
-                        
-                        -- FUSION TIMER-ABBRUCH: Bricht Farmen für neue Quest ab!
-                        if RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" and tick() - lastQuestTime >= RyuConfig.QuestInterval then 
-                            break 
-                        end
-                        
-                        local mRoot = mob:FindFirstChild("HumanoidRootPart")
-                        local mHum = mob:FindFirstChildOfClass("Humanoid")
-                        
-                        -- FIX: RAGDOLL CHECK & ANTI-FLING (Überspringt Gegner am Boden)
-                        local isRagdolled = mob:FindFirstChild("Rag") or (mob.Parent and mob.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
-                        
-                        if mRoot and mHum and mHum.Health > 0 and not isRagdolled then
-                            -- Hitbox beim Jagen vergrößern & Physik beruhigen
-                            mRoot.Size = Vector3.new(40, 40, 40)
-                            mRoot.CanCollide = false
-                            mRoot.Velocity = Vector3.new(0, 0, 0)
-                            mRoot.RotVelocity = Vector3.new(0, 0, 0)
-                            
-                            local flatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
-                            if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
-                            
-                            local attackPos = mRoot.Position + (flatDir.Unit * 2)
-                            
-                            -- FIX: 1.5x Schneller Jagen!
-                            SafeTween(CFrame.lookAt(attackPos, mRoot.Position), RyuConfig.TweenSpeed * 1.5)
-                            
-                            local startHp = mHum.Health
-                            local timeout = tick()
-                            
-                            while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
-                                if tick() - timeout > 1.5 then break end 
-                                
-                                local curRagdoll = mob:FindFirstChild("Rag") or (mob.Parent and mob.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
-                                if curRagdoll then break end -- Bricht ab, wenn er während des Jagens umfällt
-                                
-                                -- DYNAMISCHER SCANNER: Verfolgt den Mob in Echtzeit
-                                local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
-                                if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
-                                attackPos = mRoot.Position + (curFlatDir.Unit * 2)
-                                
-                                local bp = root:FindFirstChild("RyuHover")
-                                if bp then bp.Position = attackPos end
-                                root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
-                                
-                                -- Doppeltes/Schnelleres Schlagen!
-                                PerformAttack()
-                                PerformAttack()
-                                RunService.Heartbeat:Wait()
-                            end
-                            
-                            if mHum.Health > 0 and mHum.Health < startHp then
-                                table.insert(aggroedMobs, mob)
-                            end
-                        end
-                    end
-                    
-                    if #aggroedMobs > 0 and RyuConfig.AutoFarm then
-                        EquipCombat()
-                        
-                        local firstMobRoot = aggroedMobs[1]:FindFirstChild("HumanoidRootPart")
-                        if firstMobRoot then
-                            local currentHeightOffset = RyuConfig.KillHeight 
-                            local skyPos = firstMobRoot.Position + Vector3.new(0, currentHeightOffset, 0)
-                            
-                            SafeTween(CFrame.new(skyPos))
-                            
-                            local gatherTimeout = tick()
-                            while RyuConfig.AutoFarm and hum.Health > 0 do
-                                if tick() - gatherTimeout > 4 then break end 
-                                
-                                local allHere = true
-                                for _, mob in pairs(aggroedMobs) do
-                                    local mRoot = mob and mob:FindFirstChild("HumanoidRootPart")
-                                    local mHum = mob and mob:FindFirstChildOfClass("Humanoid")
-                                    
-                                    local isRagdolled = mob:FindFirstChild("Rag") or (mob.Parent and mob.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
-                                    
-                                    if mRoot and mHum and mHum.Health > 0 and not isRagdolled then
-                                        local dist = (Vector2.new(mRoot.Position.X, mRoot.Position.Z) - Vector2.new(root.Position.X, root.Position.Z)).Magnitude
-                                        if dist > 15 then allHere = false end
-                                    end
-                                end
-                                
-                                local bp = root:FindFirstChild("RyuHover")
-                                if bp then bp.Position = skyPos end
-                                
-                                if allHere then break end
-                                RunService.Heartbeat:Wait()
-                            end
-                            
-                            local killTimeout = tick()
-                            local myLastHealth = hum.Health
-                            
-                            while RyuConfig.AutoFarm and hum.Health > 0 do
-                                if tick() - killTimeout > 25 then break end 
-                                
-                                -- FUSION TIMER-ABBRUCH: Bricht Farmen für neue Quest ab!
-                                if RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" and tick() - lastQuestTime >= RyuConfig.QuestInterval + 15 then 
-                                    break 
-                                end
-                                
-                                if hum.Health < myLastHealth then
-                                    if RyuConfig.DynamicHeight then
-                                        currentHeightOffset = currentHeightOffset + 1.5
-                                        RyuConfig.KillHeight = currentHeightOffset 
-                                        RyuNotify:Send("Anti-Hit", "Schaden erkannt! Gehe höher: " .. currentHeightOffset .. " Studs", 2)
-                                    end
-                                    myLastHealth = hum.Health
-                                elseif hum.Health > myLastHealth then
-                                    myLastHealth = hum.Health 
-                                end
-                                
-                                skyPos = firstMobRoot.Position + Vector3.new(0, currentHeightOffset, 0)
+    end)
+    return active
+end
 
-                                local aliveCount = 0
-                                local targetLook = nil
-                                local validTargetFound = false
-                                
-                                for _, mob in pairs(aggroedMobs) do
-                                    if mob and mob.Parent then
-                                        local mHum = mob:FindFirstChildOfClass("Humanoid")
-                                        local mRoot = mob:FindFirstChild("HumanoidRootPart")
-                                        
-                                        if mHum and mHum.Health > 0 and mRoot then
-                                            aliveCount = aliveCount + 1
-                                            
-                                            -- FIX: RAGDOLL CHECK IM KILL-LOOP!
-                                            local isRagdolled = mob:FindFirstChild("Rag") or (mob.Parent and mob.Parent.Name == "Ragdolls") or mHum:GetAttribute("isRagdolled")
-                                            
-                                            if not isRagdolled then
-                                                if not targetLook then targetLook = mRoot.Position end
-                                                validTargetFound = true
-                                                
-                                                if mRoot.Size.Y < 40 then
-                                                    mRoot.Size = Vector3.new(40, 40, 40)
-                                                    mRoot.CanCollide = false
-                                                    mRoot.Velocity = Vector3.new(0, 0, 0)
-                                                    mRoot.RotVelocity = Vector3.new(0, 0, 0)
-                                                end
-                                            else
-                                                -- Wenn ragdolled, setze Hitbox zurück, um Fling zu verhindern!
-                                                if mRoot.Size.Y > 5 then
-                                                    mRoot.Size = Vector3.new(2, 2, 1)
-                                                end
-                                            end
-                                        end
-                                    end
-                                end
-                                
-                                if aliveCount == 0 then break end 
-                                
-                                local bp = root:FindFirstChild("RyuHover")
-                                if bp then bp.Position = skyPos end
-                                
-                                -- Schlägt nur in die Richtung, wenn ein GÜLTIGER (nicht ragdolled) Mob da ist!
-                                if targetLook and validTargetFound then
-                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetLook.X, root.Position.Y, targetLook.Z))
-                                    PerformAttack()
-                                    PerformAttack()
-                                end
-                                
-                                RunService.Heartbeat:Wait()
-                            end
-                            
-                            for _, mob in pairs(aggroedMobs) do
-                                local mRoot = mob and mob:FindFirstChild("HumanoidRootPart")
-                                if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
-                            end
+local function FetchQuest()
+    local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
+    if npc then
+        local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            SafeTween(npcPos * CFrame.new(0, 0, 3.5))
+            root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
+            
+            pcall(function()
+                local QuestEvent = ReplicatedStorage.Events.Quest
+                QuestEvent:InvokeServer({"npcChat", true})
+                local questString = "Help " .. RyuConfig.TargetNPC
+                QuestEvent:InvokeServer({"takequest", questString})
+                QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
+                QuestEvent:InvokeServer({"takequest"})
+                QuestEvent:InvokeServer("takequest")
+                QuestEvent:InvokeServer({"acceptquest"})
+                QuestEvent:InvokeServer("acceptquest")
+            end)
+            task.wait(0.5)
+        end
+    end
+end
+
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        
+        if not RyuConfig.AutoFarm then
+            continue
+        end
+
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        
+        if not root or not hum or hum.Health <= 0 then continue end
+
+        ToggleHover(true)
+        
+        --// 1. QUEST CHECK
+        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
+            if not CheckQuestActive() then
+                FetchQuest()
+                continue -- Geht direkt zum nächsten Durchlauf, wenn die Quest geholt wurde
+            end
+        end
+
+        --// 2. 1-BY-1 MOB HUNT
+        if RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
+            local npcs = Workspace:FindFirstChild("NPCs")
+            if not npcs then continue end
+            
+            local targetMob = nil
+            local closestDist = math.huge
+            
+            for _, npc in pairs(npcs:GetChildren()) do
+                if npc.Name == RyuConfig.TargetMob then
+                    local mHum = npc:FindFirstChildOfClass("Humanoid")
+                    local mRoot = npc:FindFirstChild("HumanoidRootPart")
+                    
+                    local isRagdolled = npc:FindFirstChild("Rag") or (npc.Parent and npc.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
+                    
+                    if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
+                        local d = (root.Position - mRoot.Position).Magnitude
+                        if d < closestDist then
+                            closestDist = d
+                            targetMob = npc
                         end
                     end
                 end
+            end
+            
+            if targetMob then
+                local mRoot = targetMob:FindFirstChild("HumanoidRootPart")
+                local mHum = targetMob:FindFirstChildOfClass("Humanoid")
+                
+                EquipTargetWeapon()
+                
+                while RyuConfig.AutoFarm and mHum and mHum.Health > 0 do
+                    local isRagdolled = targetMob:FindFirstChild("Rag") or (targetMob.Parent and targetMob.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
+                    
+                    if isRagdolled then
+                        mRoot.Size = Vector3.new(2, 2, 1)
+                        task.wait(0.2)
+                        continue 
+                    end
+                    
+                    if RyuConfig.AutoQuest and not CheckQuestActive() then
+                        break 
+                    end
+                    
+                    mRoot.Size = Vector3.new(20, 20, 20)
+                    mRoot.CanCollide = false
+                    mRoot.Velocity = Vector3.new(0, 0, 0)
+                    mRoot.RotVelocity = Vector3.new(0, 0, 0)
+                    
+                    local attackPos
+                    if RyuConfig.FarmMethod == "Gun" then
+                        attackPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight + 15, 0)
+                    else
+                        local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
+                        if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
+                        attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
+                    end
+                    
+                    local distToPos = (root.Position - attackPos).Magnitude
+                    if distToPos > 5 then
+                        SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
+                    end
+                    
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = attackPos end
+                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                    
+                    if RyuConfig.FarmMethod == "Gun" then
+                        PerformGunAttack(mRoot)
+                        task.wait(0.1)
+                    else
+                        PerformMeleeAttack()
+                        task.wait(0.05)
+                    end
+                end
+                
+                if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
             end
         end
     end
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Ragdoll Anti-Fling Fix Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: 1-By-1 Hunt & Gun Farm Active!", 4)
