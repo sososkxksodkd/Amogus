@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - INSTANT QUEST & AC BYPASS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - HARMONY FIX & NO DROWNING)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -352,7 +352,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// NEU: FISHMAN CAVE SMART TP SECTION (Mit Anti-Cheat Rubberband Schutz)
+--// NEU: FISHMAN CAVE SMART TP SECTION (Mit Anti-Drowning Fix)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -383,13 +383,16 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     local alpha = (tick() - startTime) / t
                     local intermediatePos = startPos:Lerp(target, alpha)
                     
-                    -- ANTI-CHEAT / RUBBERBAND ERKENNUNG
+                    -- ANTI-CHEAT / RUBBERBAND ERKENNUNG (Anti-Drowning Fix!)
                     if (root.Position - intermediatePos).Magnitude > 30 then
-                        ToggleHover(false)
                         RyuNotify:Send("Anti-Cheat", "Bypass aktiv... Warte 1,5s", 1)
                         root.Velocity = Vector3.new(0,0,0)
+                        
+                        -- FIX: Drückt den Spieler minimal hoch, ohne ToggleHover auszuschalten!
+                        -- Du bleibst in der Luft und fällst nicht ins Wasser.
+                        root.CFrame = root.CFrame + Vector3.new(0, 15, 0)
+                        
                         task.wait(1.5)
-                        ToggleHover(true)
                         
                         -- Neuberechnung nach dem Warten
                         startPos = root.Position
@@ -442,13 +445,15 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     local alpha = (tick() - startTime) / t
                     local intermediatePos = startPos:Lerp(target, alpha)
                     
-                    -- ANTI-CHEAT / RUBBERBAND ERKENNUNG
+                    -- ANTI-CHEAT / RUBBERBAND ERKENNUNG (Anti-Drowning Fix!)
                     if (root.Position - intermediatePos).Magnitude > 30 then
-                        ToggleHover(false)
                         RyuNotify:Send("Anti-Cheat", "Bypass aktiv... Warte 1,5s", 1)
                         root.Velocity = Vector3.new(0,0,0)
+                        
+                        -- FIX: Drückt den Spieler hoch, ohne ToggleHover auszuschalten!
+                        root.CFrame = root.CFrame + Vector3.new(0, 15, 0)
+                        
                         task.wait(1.5)
-                        ToggleHover(true)
                         
                         startPos = root.Position
                         dist = (startPos - target).Magnitude
@@ -577,7 +582,7 @@ end)
 --// ============================================================================
 --// HARMONY CORE: SMART QUEST SCANNER
 --// ============================================================================
--- NEU: SMART THINKER (Erkennt "Quest" & "Defeat" anstatt nur Zahlen)
+-- NEU: OBEN-LINKS QUEST SCANNER (Zielt fokussiert auf Oben Links!)
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
@@ -588,15 +593,15 @@ local function HasActiveQuest()
             if val ~= "" and val ~= "None" then hasQuest = true return end
         end
         
-        -- Methode 2: Schlauer GUI Check (Ohne 0/5 Limitierung)
+        -- Methode 2: GUI Scanner - Fokussiert auf Position (Oben Links)
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if pg then
-            local tracker = pg:FindFirstChild("QuestTracker") or pg:FindFirstChild("Quest")
-            if tracker then
-                for _, v in pairs(tracker:GetDescendants()) do
-                    if v:IsA("TextLabel") and v.Visible then
+            for _, v in pairs(pg:GetDescendants()) do
+                if v:IsA("TextLabel") and v.Visible then
+                    -- Sucht nur UIs im oberen linken Quadranten (z.B. X < 500, Y < 500)
+                    if v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
                         local txt = v.Text:lower()
-                        if txt:find("quest") or txt:find("defeat") or txt:find("besiege") or txt:find("progress") then
+                        if txt:match("%d+/%d+") or txt:match("%d+%s*/%s*%d+") then
                             hasQuest = true
                             return
                         end
@@ -608,6 +613,24 @@ local function HasActiveQuest()
     return hasQuest
 end
 
+-- DIALOG KLICKER (Zurückgebracht für das echte Quest-Gefühl)
+local function PerformQuestClicking()
+    pcall(function()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, v in pairs(pg:GetDescendants()) do
+                if v:IsA("TextButton") and v.Visible then
+                    local txt = v.Text:lower()
+                    if txt:match("okay") or txt:match("okay!") or txt:match("okey") or txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("next") then
+                        for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
+                        for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
+                    end
+                end
+            end
+        end
+    end)
+end
+
 --// ============================================================================
 --// THE ULTIMATE HARMONY LOOP (QUEST -> FARM -> QUEST)
 --// ============================================================================
@@ -617,7 +640,7 @@ task.spawn(function()
         
         local hasQuest = HasActiveQuest()
         
-        --// PHASE 1: AUTO QUEST (Priorität: Nur wenn wir KEINE Quest haben!)
+        --// PHASE 1: AUTO QUEST
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not hasQuest then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
@@ -627,24 +650,40 @@ task.spawn(function()
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 
                 if root then
-                    SafeTween(npcPos * CFrame.new(0, 0, 3))
+                    -- Distanz zum Reden
+                    SafeTween(npcPos * CFrame.new(0, 0, 3.5))
                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
+                    task.wait(0.3)
                     
-                    -- NEU: DEIN PERFEKTER REMOTE FIX (INSTANT ACCEPT)
+                    -- NPC Ansprechen (Proximity Prompt)
+                    if fireproximityprompt then
+                        for _, p in pairs(npc:GetDescendants()) do
+                            if p:IsA("ProximityPrompt") then
+                                p.RequiresLineOfSight = false
+                                fireproximityprompt(p, 1, true)
+                                task.wait(0.1)
+                                fireproximityprompt(p, 0, true)
+                            end
+                        end
+                    end
+                    task.wait(0.5)
+                    
+                    -- KLICKER LOOP (Klickt durch den Dialog, genau wie gewollt!)
+                    local clickStart = tick()
+                    while tick() - clickStart < 3.5 do
+                        PerformQuestClicking()
+                        task.wait(0.2)
+                    end
+                    
+                    -- Fallback Remotes (Sicherheitshalber im Hintergrund)
                     pcall(function()
-                        local args = {
-                            {
-                                "npcChat",
-                                true
-                            }
-                        }
-                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer(unpack(args))
-                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer("takequest")
-                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer("acceptquest")
+                        local args = {{"npcChat", true}}
+                        ReplicatedStorage.Events.Quest:InvokeServer(unpack(args))
+                        ReplicatedStorage.Events.Quest:InvokeServer("takequest")
+                        ReplicatedStorage.Events.Quest:InvokeServer("acceptquest")
                     end)
                     
-                    -- WARTEN: Das Spiel lädt jetzt in Ruhe den QuestTracker
-                    task.wait(1.5)
+                    task.wait(1.5) -- Warten, damit der UI Scanner das "0/5" laden kann
                 end
             end
             
@@ -808,4 +847,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Instant Quest & Anti-Cheat TP Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Quest-Dialog & Anti-Drown TP Active!", 4)
