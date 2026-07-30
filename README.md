@@ -386,8 +386,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     -- ANTI-CHEAT / RUBBERBAND ERKENNUNG
                     if (root.Position - intermediatePos).Magnitude > 30 then
                         ToggleHover(false)
-                        RyuNotify:Send("Anti-Cheat", "Bypass aktiv... Warte 1s", 1)
-                        task.wait(1)
+                        RyuNotify:Send("Anti-Cheat", "Bypass aktiv... Warte 1,5s", 1)
+                        root.Velocity = Vector3.new(0,0,0)
+                        task.wait(1.5)
                         ToggleHover(true)
                         
                         -- Neuberechnung nach dem Warten
@@ -395,12 +396,11 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                         dist = (startPos - target).Magnitude
                         t = dist / RyuConfig.FishmanSpeed
                         startTime = tick()
+                    else
+                        local bp = root:FindFirstChild("RyuHover")
+                        if bp then bp.Position = intermediatePos end
+                        root.CFrame = CFrame.lookAt(intermediatePos, target)
                     end
-                    
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = intermediatePos end
-                    
-                    root.CFrame = CFrame.lookAt(intermediatePos, target)
                     RunService.Heartbeat:Wait()
                 end
             end
@@ -445,20 +445,20 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     -- ANTI-CHEAT / RUBBERBAND ERKENNUNG
                     if (root.Position - intermediatePos).Magnitude > 30 then
                         ToggleHover(false)
-                        RyuNotify:Send("Anti-Cheat", "Bypass aktiv... Warte 1s", 1)
-                        task.wait(1)
+                        RyuNotify:Send("Anti-Cheat", "Bypass aktiv... Warte 1,5s", 1)
+                        root.Velocity = Vector3.new(0,0,0)
+                        task.wait(1.5)
                         ToggleHover(true)
                         
                         startPos = root.Position
                         dist = (startPos - target).Magnitude
                         t = dist / RyuConfig.FishmanSpeed
                         startTime = tick()
+                    else
+                        local bp = root:FindFirstChild("RyuHover")
+                        if bp then bp.Position = intermediatePos end
+                        root.CFrame = CFrame.lookAt(intermediatePos, target)
                     end
-                    
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = intermediatePos end
-                    
-                    root.CFrame = CFrame.lookAt(intermediatePos, target)
                     RunService.Heartbeat:Wait()
                 end
             end
@@ -575,54 +575,37 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: SMART QUEST SCANNER & CLICKER
+--// HARMONY CORE: SMART QUEST SCANNER
 --// ============================================================================
--- NEU: ERWEITERTER, FEHLERFREIER UI-SCANNER
+-- NEU: SMART THINKER (Erkennt "Quest" & "Defeat" anstatt nur Zahlen)
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
+        -- Methode 1: Zuverlässiger Data-Check
         local q = LocalPlayer:FindFirstChild("Quest")
         if q and q:FindFirstChild("CurrentQuest") then
             local val = q.CurrentQuest.Value
             if val ~= "" and val ~= "None" then hasQuest = true return end
         end
         
+        -- Methode 2: Schlauer GUI Check (Ohne 0/5 Limitierung)
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
         if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextLabel") and v.Visible then
-                    local text = v.Text:lower()
-                    local parentName = v.Parent and v.Parent.Name:lower() or ""
-                    local name = v.Name:lower()
-                    
-                    -- Schließt HP/Level aus und sucht präzise nach dem Quest-Tracker!
-                    if (name:find("quest") or parentName:find("quest")) and (text:match("%d+/%d+") or text:match("%d+%s*/%s*%d+")) then 
-                        hasQuest = true
-                        return
+            local tracker = pg:FindFirstChild("QuestTracker") or pg:FindFirstChild("Quest")
+            if tracker then
+                for _, v in pairs(tracker:GetDescendants()) do
+                    if v:IsA("TextLabel") and v.Visible then
+                        local txt = v.Text:lower()
+                        if txt:find("quest") or txt:find("defeat") or txt:find("besiege") or txt:find("progress") then
+                            hasQuest = true
+                            return
+                        end
                     end
                 end
             end
         end
     end)
     return hasQuest
-end
-
--- NEU: OKAY! HINZUGEFÜGT
-local function PerformQuestClicking()
-    pcall(function()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextButton") and v.Visible then
-                    local txt = v.Text:lower()
-                    if txt:match("okay") or txt:match("okay!") or txt:match("okey") or txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("next") then
-                        for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
-                        for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
-                    end
-                end
-            end
-        end
-    end)
 end
 
 --// ============================================================================
@@ -647,33 +630,21 @@ task.spawn(function()
                     SafeTween(npcPos * CFrame.new(0, 0, 3))
                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                     
-                    -- NEU: INSTANT PROXIMITY OHNE ZU WARTEN
-                    if fireproximityprompt then
-                        for _, p in pairs(npc:GetDescendants()) do
-                            if p:IsA("ProximityPrompt") then
-                                fireproximityprompt(p, 1, true)
-                                fireproximityprompt(p, 0, true)
-                            end
-                        end
-                    end
-                    
-                    -- NEU: INSTANT REMOTES! Holt die Quest in Millisekunden!
+                    -- NEU: DEIN PERFEKTER REMOTE FIX (INSTANT ACCEPT)
                     pcall(function()
-                        local args = {{"npcChat", true}}
-                        ReplicatedStorage.Events.Quest:InvokeServer(unpack(args))
+                        local args = {
+                            {
+                                "npcChat",
+                                true
+                            }
+                        }
+                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer(unpack(args))
+                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer("takequest")
+                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer("acceptquest")
                     end)
-                    pcall(function() ReplicatedStorage.Events.Quest:InvokeServer("getNPCQuestLocations") end)
-                    pcall(function() ReplicatedStorage.Events.Quest:InvokeServer("takequest") end)
-                    pcall(function() ReplicatedStorage.Events.Quest:InvokeServer("acceptquest") end)
                     
-                    -- Fallback "Okay!" Klicker (Extrem kurz, da Remotes die Hauptarbeit machen)
-                    local clickStart = tick()
-                    while tick() - clickStart < 0.5 do
-                        PerformQuestClicking()
-                        task.wait(0.1)
-                    end
-                    
-                    task.wait(1) -- Kurzes Warten, damit der UI Scanner aktualisiert wird
+                    -- WARTEN: Das Spiel lädt jetzt in Ruhe den QuestTracker
+                    task.wait(1.5)
                 end
             end
             
