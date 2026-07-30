@@ -49,7 +49,7 @@ local RyuConfig = {
     
     TweenSpeed = 50, 
     KillHeight = 7, 
-    FishmanSpeed = 85, -- FIX: Standard & Max Speed auf 85
+    FishmanSpeed = 85, 
     ElevatorSpeed = 85,
     
     TargetIsland = IslandList[1],
@@ -146,14 +146,7 @@ local MainFrame = Instance.new("Frame"); MainFrame.Size = currentMainSize; MainF
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
 
-local ResizeGrip = Instance.new("TextButton", MainFrame)
-ResizeGrip.Size = UDim2.new(0, 20, 0, 20)
-ResizeGrip.Position = UDim2.new(1, -20, 1, -20)
-ResizeGrip.BackgroundTransparency = 1
-ResizeGrip.Text = "◢"
-ResizeGrip.TextColor3 = Theme.SubText
-ResizeGrip.TextSize = 16
-ResizeGrip.Font = Enum.Font.GothamBold
+local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
@@ -611,7 +604,7 @@ CreateToggle(SecAutoStats, "Auto Gun Mastery", RyuConfig.AutoGun, function(state
     RyuConfig.AutoGun = state 
 end)
 
---// NEU: BUY TAB -> TRANSPORTATION
+--// BUY TAB -> TRANSPORTATION
 local TabBuy = CreateMainTab("Buy")
 local SubTransport = CreateSubTab(TabBuy, "Transportation")
 
@@ -625,40 +618,49 @@ CreateButton(SecIslandTP, "Start Teleport", function()
     task.spawn(function()
         local targetIslandName = RyuConfig.TargetIsland
         
-        local island = Workspace:FindFirstChild(targetIslandName) 
+        -- FIX 1: ROBUSTER INSEL SCANNER
+        local island = nil
+        for _, v in pairs(Workspace:GetChildren()) do
+            if string.lower(v.Name) == string.lower(targetIslandName) then
+                island = v
+                break
+            end
+        end
         if not island then
-            for _, v in pairs(Workspace:GetChildren()) do
+            for _, v in pairs(Workspace:GetDescendants()) do
                 if string.lower(v.Name) == string.lower(targetIslandName) then
                     island = v
                     break
                 end
             end
         end
-        if not island then island = Workspace:FindFirstChild(targetIslandName, true) end
         
         if not island then 
             RyuNotify:Send("Error", "Insel '" .. targetIslandName .. "' nicht in der Map gefunden!", 3)
             return 
         end
         
+        -- FIX 2: ROBUSTE POSITIONS-ERKENNUNG (Sturzfreier pcall)
         local targetPos
-        if island:IsA("Model") and island.PrimaryPart then
-            targetPos = island.PrimaryPart.Position
-        else
-            local tpPart = island:FindFirstChildWhichIsA("BasePart", true)
-            if tpPart then
-                targetPos = tpPart.Position
+        pcall(function()
+            if island:IsA("Model") then
+                targetPos = island:GetPivot().Position
+            elseif island:IsA("BasePart") then
+                targetPos = island.Position
             else
-                if island:IsA("BasePart") then
-                    targetPos = island.Position
-                else
-                    RyuNotify:Send("Error", "Konnte keine Zielkoordinaten in der Insel finden!", 3)
-                    return
+                local tpPart = island:FindFirstChildWhichIsA("BasePart", true)
+                if tpPart then
+                    targetPos = tpPart.Position
                 end
             end
+        end)
+        
+        if not targetPos then
+            RyuNotify:Send("Error", "Konnte keine Zielkoordinaten in der Insel finden!", 3)
+            return
         end
         
-        targetPos = targetPos + Vector3.new(0, 50, 0)
+        targetPos = targetPos + Vector3.new(0, 100, 0) -- Sicherer Abstand über der Insel
         
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -681,7 +683,7 @@ CreateButton(SecIslandTP, "Start Teleport", function()
         
         ToggleHover(true)
         
-        -- FIX: Exakt das Fishman Cave Lerp System, aber alle 3s für 0.3s Drop
+        -- FIX 3: EXAKT DAS FISHMAN SYSTEM (Alle 3s für 0.3s Drop -> Fruit Safe by Design)
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return end
@@ -706,7 +708,6 @@ CreateButton(SecIslandTP, "Start Teleport", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                -- NEU: Island Drop System (Alle 3 Sekunden)
                 if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 3) then
                     local isDrop = (tick() - lastDrop >= 3)
                     
@@ -716,9 +717,8 @@ CreateButton(SecIslandTP, "Start Teleport", function()
                     if hum then hum.Jump = true end
                     root.Velocity = Vector3.new(0, 50, 0)
                     
-                    -- NEU: Exakt 0.3 Sekunden warten (Fruit Safe by Design)
                     if isDrop then
-                        task.wait(0.3)
+                        task.wait(0.3) -- 0.3 SEKUNDEN FALL (Anti-Cheat Bypass ohne Ertrinken)
                     else
                         task.wait(1)
                     end
@@ -1066,4 +1066,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Max Speed 85 & Island TP Safe Drop Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Fixes Active!", 4)
