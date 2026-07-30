@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - AC BYPASS & UI TRACKER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - BULLETPROOF CLICKER)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -63,7 +63,7 @@ local RyuConfig = {
     TweenSpeed = 55, 
     KillHeight = 7, 
     FishmanSpeed = 140,
-    ElevatorSpeed = 15 -- FIX: Gesenkt auf 15, um "+Y Axis too fast" zu verhindern
+    ElevatorSpeed = 15
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -339,7 +339,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// NEU: FISHMAN CAVE SMART TP SECTION (Mit Grounded Fix & AC Tuning)
+--// FISHMAN CAVE SMART TP SECTION (Mit Grounded Fix & AC Tuning)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -674,12 +674,12 @@ local function HasActiveQuest()
     return hasQuest
 end
 
--- FIX: SUCHT SICH DIE POSITION JEDES KNOPFES UND KLICKT PHYSISCH DORTHIN
+-- FIX: KUGELSICHERER OMNI-KLICKER (Jeder Klick ist isoliert!)
 local function PerformQuestClicking()
-    pcall(function()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
+    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+    if pg then
+        for _, v in pairs(pg:GetDescendants()) do
+            pcall(function()
                 if (v:IsA("TextButton") or v:IsA("ImageButton")) and v.Visible then
                     local txt = v.Name:lower()
                     if v:IsA("TextButton") then txt = txt .. " " .. v.Text:lower() end
@@ -688,18 +688,21 @@ local function PerformQuestClicking()
                     
                     if txt:find("okay") or txt:find("okey") or txt:find("ok") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") or txt:find("confirm") then
                         if getconnections then
-                            for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
-                            for _, sig in pairs(getconnections(v.MouseButton1Down)) do sig:Fire() end
-                            for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
+                            pcall(function()
+                                for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
+                                for _, sig in pairs(getconnections(v.MouseButton1Down)) do sig:Fire() end
+                                for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
+                            end)
                         end
-                        -- PHYSISCHER KLICK: Wenn er "Okay!" oder "..." sieht, klickt er genau dort!
-                        VirtualUser:CaptureController()
-                        VirtualUser:ClickButton1(Vector2.new(v.AbsolutePosition.X + (v.AbsoluteSize.X / 2), v.AbsolutePosition.Y + (v.AbsoluteSize.Y / 2) + 36))
+                        pcall(function()
+                            VirtualUser:CaptureController()
+                            VirtualUser:ClickButton1(Vector2.new(v.AbsolutePosition.X + (v.AbsoluteSize.X / 2), v.AbsolutePosition.Y + (v.AbsoluteSize.Y / 2) + 36))
+                        end)
                     end
                 end
-            end
+            end)
         end
-    end)
+    end
 end
 
 --// ============================================================================
@@ -770,8 +773,8 @@ task.spawn(function()
                     isQuestActive = true
                     questStartTime = tick()
                     
-                    RyuNotify:Send("Auto Quest", "Quest angenommen! Warte 3s auf Auto Farm...", 3)
-                    task.wait(3) 
+                    RyuNotify:Send("Auto Quest", "Quest angenommen! Warte 4s auf Auto Farm...", 4)
+                    task.wait(4) 
                 end
             end
             
@@ -932,4 +935,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: AC Bypass & UI Clicker Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Strict AC Check & Bulletproof AutoQuest Clicker!", 4)
