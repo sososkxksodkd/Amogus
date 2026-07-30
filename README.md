@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - BRUTE FORCE DIALOG CLICKER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - PURE REMOTE QUESTING)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -9,7 +9,6 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -339,7 +338,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// FISHMAN CAVE SMART TP SECTION (Mit Grounded Fix & AC Tuning)
+--// FISHMAN CAVE SMART TP SECTION (Unangetastet!)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -619,96 +618,25 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: SMART QUEST SCANNER & CLICKER 
+--// HARMONY CORE: PURE DATA QUEST SCANNER
 --// ============================================================================
 
 local isQuestActive = false
 local questStartTime = 0
 
-local function CheckQuestCompleted()
-    local completed = false
-    pcall(function()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextLabel") and v.Visible then
-                    local txt = v.Text:lower()
-                    if txt:find("completed") or txt:find("complited") then
-                        completed = true
-                        return
-                    end
-                end
-            end
-        end
-    end)
-    return completed
-end
-
+-- NEU: Purer Backend Check! Kein GUI Scanning mehr.
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
         local q = LocalPlayer:FindFirstChild("Quest")
         if q and q:FindFirstChild("CurrentQuest") then
             local val = q.CurrentQuest.Value
-            if val ~= "" and val ~= "None" then hasQuest = true return end
-        end
-        
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextLabel") and v.Visible then
-                    if v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
-                        local txt = v.Text:lower()
-                        if txt:match("%d+/%d+") or txt:match("%d+%s*/%s*%d+") then
-                            hasQuest = true
-                            return
-                        end
-                    end
-                end
+            if val ~= "" and val ~= "None" then 
+                hasQuest = true 
             end
         end
     end)
     return hasQuest
-end
-
--- FIX: BRUTE FORCE OMNI-KLICKER (Klickt auch blind in die Mitte für "...")
-local function PerformQuestClicking()
-    local clickedSomething = false
-    pcall(function()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                if (v:IsA("TextButton") or v:IsA("ImageButton")) and v.Visible then
-                    local txt = v.Name:lower()
-                    if v:IsA("TextButton") then txt = txt .. " " .. v.Text:lower() end
-                    local lbl = v:FindFirstChildOfClass("TextLabel")
-                    if lbl then txt = txt .. " " .. lbl.Text:lower() end
-                    
-                    if txt:find("okay") or txt:find("okey") or txt:find("ok") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") or txt:find("confirm") then
-                        clickedSomething = true
-                        if getconnections then
-                            pcall(function()
-                                for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
-                                for _, sig in pairs(getconnections(v.MouseButton1Down)) do sig:Fire() end
-                                for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
-                            end)
-                        end
-                        pcall(function()
-                            VirtualUser:CaptureController()
-                            VirtualUser:ClickButton1(Vector2.new(v.AbsolutePosition.X + (v.AbsoluteSize.X / 2), v.AbsolutePosition.Y + (v.AbsoluteSize.Y / 2) + 36))
-                        end)
-                    end
-                end
-            end
-        end
-        
-        -- FALLBACK: Wenn er "Okay!" nicht findet, klickt er gnadenlos in die Mitte des Bildschirms!
-        -- Das überspringt GPO's unsichtbare "..." Dialog-Boxen garantiert!
-        if not clickedSomething then
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2))
-        end
-    end)
 end
 
 --// ============================================================================
@@ -718,8 +646,12 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         
+        local actuallyHasQuest = HasActiveQuest()
+        
+        -- Überprüfen, ob die Quest abgeschlossen wurde
         if isQuestActive then
-            if CheckQuestCompleted() then
+            if not actuallyHasQuest then
+                -- Quest war aktiv, ist jetzt weg -> Completed!
                 isQuestActive = false
                 RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Warte 5s...", 2)
                 
@@ -727,7 +659,7 @@ task.spawn(function()
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 if root then root.Velocity = Vector3.new(0, 0, 0) end
                 
-                task.wait(5) 
+                task.wait(5) -- 5 Sekunden Pause für Auto Farm
                 
             elseif tick() - questStartTime > 120 then
                 isQuestActive = false
@@ -735,8 +667,8 @@ task.spawn(function()
             end
         end
         
-        --// PHASE 1: AUTO QUEST
-        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not isQuestActive then
+        --// PHASE 1: AUTO QUEST (PURE REMOTES)
+        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not actuallyHasQuest then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
                 ToggleHover(true)
@@ -761,26 +693,40 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
-                    local clickStart = tick()
-                    while tick() - clickStart < 25 do
-                        PerformQuestClicking()
+                    -- DIE ULTIMATIVE REMOTE-LÖSUNG: Kein Klicken, pure Daten!
+                    pcall(function()
+                        local QuestEvent = ReplicatedStorage.Events.Quest
                         
-                        pcall(function()
-                            local args = {{"npcChat", true}}
-                            ReplicatedStorage.Events.Quest:InvokeServer(unpack(args))
-                            ReplicatedStorage.Events.Quest:InvokeServer("takequest")
-                            ReplicatedStorage.Events.Quest:InvokeServer("acceptquest")
-                        end)
+                        -- Initialisiert das Gespräch
+                        QuestEvent:InvokeServer({"npcChat", true})
+                        task.wait(0.1)
                         
-                        if (tick() - clickStart > 2.5) and HasActiveQuest() then break end
-                        task.wait(0.2)
+                        -- Nimmt die Quest an (GPO Format: "Help [NPC Name]" oder "[NPC Name]")
+                        local questString = "Help " .. RyuConfig.TargetNPC
+                        QuestEvent:InvokeServer({"takequest", questString})
+                        QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
+                        
+                        -- Fallback ohne Argumente
+                        QuestEvent:InvokeServer({"takequest"})
+                        QuestEvent:InvokeServer("takequest")
+                        
+                        -- Bestätigt die Quest
+                        QuestEvent:InvokeServer({"acceptquest"})
+                        QuestEvent:InvokeServer("acceptquest")
+                    end)
+                    
+                    task.wait(1)
+                    
+                    if HasActiveQuest() then
+                        isQuestActive = true
+                        questStartTime = tick()
+                        RyuNotify:Send("Auto Quest", "Quest per Remote angenommen! Warte 3s...", 3)
+                        task.wait(3) 
+                    else
+                        -- Fallback für extrem hartnäckige NPCs
+                        RyuNotify:Send("Auto Quest", "Remote-Versuch 2 läuft...", 1)
+                        task.wait(1)
                     end
-                    
-                    isQuestActive = true
-                    questStartTime = tick()
-                    
-                    RyuNotify:Send("Auto Quest", "Quest angenommen! Warte 4s auf Auto Farm...", 4)
-                    task.wait(4) 
                 end
             end
             
@@ -941,4 +887,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Brute Force Clicker Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Pure Remote Backend Questing Active!", 4)
