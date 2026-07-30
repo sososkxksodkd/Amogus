@@ -399,15 +399,17 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         platform:Destroy()
         ToggleHover(false)
-        RyuNotify:Send("Smart TP", "Warte 1 Sekunde für Portal-TP...", 3)
+        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
         
-        task.wait(1)
+        -- FIX: 5 Sekunden Wartezeit vor dem Portal Teleport
+        task.wait(5)
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
             root.CFrame = areaTp.FirstSea.Fishman.Part.CFrame
-            RyuNotify:Send("Smart TP", "Teleportiert durchs Portal!", 2)
+            RyuNotify:Send("Smart TP", "Teleportiert durchs Portal! Warte 5 Sekunden...", 5)
             
-            task.wait(2)
+            -- FIX: 5 Sekunden Wartezeit nach dem Teleport, dann Route abfliegen
+            task.wait(5)
             ToggleHover(true)
             RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
             
@@ -520,15 +522,17 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         platform:Destroy()
         ToggleHover(false)
-        RyuNotify:Send("Smart TP", "Warte 1 Sekunde für Portal-TP...", 3)
+        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
         
-        task.wait(1)
+        -- FIX: 5 Sekunden Wartezeit vor dem Portal Teleport
+        task.wait(5)
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
             root.CFrame = areaTp.FirstSea.Fishman.Part.CFrame
-            RyuNotify:Send("Smart TP", "Teleportiert durchs Portal!", 2)
+            RyuNotify:Send("Smart TP", "Teleportiert durchs Portal! Warte 5 Sekunden...", 5)
             
-            task.wait(2)
+            -- FIX: 5 Sekunden Wartezeit nach dem Teleport, dann Route abfliegen
+            task.wait(5)
             ToggleHover(true)
             RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
             
@@ -548,7 +552,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
     end)
 end)
 
---// AUTO STATS UI (GETRENNTE TOGGLES FÜR ALLE PUNKTE)
+--// AUTO STATS UI
 local SecAutoStats = CreateSection(SubStats, "Auto Stats System")
 CreateToggle(SecAutoStats, "Auto Strength", RyuConfig.AutoStrength, function(state) 
     RyuConfig.AutoStrength = state 
@@ -745,7 +749,7 @@ task.spawn(function()
     end
 end)
 
---// FIX: AUTO STATS LOOP (EXAKTE REMOTE STRUKTUR AUS DUMP)
+--// FIX: AUTO STATS LOOP (OHNE UNPACK BUG)
 task.spawn(function()
     while true do
         task.wait(3) 
@@ -753,11 +757,8 @@ task.spawn(function()
         local function upgradeStat(statName)
             for i = 1, 5 do 
                 pcall(function()
-                    local args = {
-                        statName,
-                        [3] = 1
-                    }
-                    ReplicatedStorage:WaitForChild("Events"):WaitForChild("stats"):FireServer(unpack(args))
+                    -- FIX: Wir senden die Argumente explizit, um das Lua-Unpack Problem mit leeren Feldern zu umgehen.
+                    ReplicatedStorage:WaitForChild("Events"):WaitForChild("stats"):FireServer(statName, nil, 1)
                 end)
             end
         end
