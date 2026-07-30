@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE FARM, PORTAL TP & AUTO STATS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE FARM & FAST AUTO STATS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -27,7 +27,6 @@ end
 --// BEREINIGTE NPC & ENEMY LISTEN
 local DynamicEnemies = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"}
 local DynamicQuests = {"Becky", "Daph", "Tyson", "Helen"}
-local StatList = {"Strength", "Stamina", "Defense", "SwordMastery", "GunMastery"} -- NEU: Auto Stats Liste
 
 --// RYU CONFIGURATION (HARDCODED FÜR FISHMAN CAVE)
 local RyuConfig = {
@@ -35,19 +34,24 @@ local RyuConfig = {
     AutoQuest = false,
     QuestInterval = 45, 
     
-    TargetMob = "Fishman Karate User", 
-    TargetNPC = "Becky",               
-    TargetWeapon = "Combat",           
+    TargetMob = "Fishman Karate User", -- Automatisch festgelegt
+    TargetNPC = "Becky",               -- Automatisch festgelegt
+    TargetWeapon = "Combat",           -- Standard Waffe
     
     TweenSpeed = 50, 
     KillHeight = 7, 
     FishmanSpeed = 150, 
     ElevatorSpeed = 150,
     
-    -- NEU: Auto Stats Configuration
-    AutoStat = false,
-    TargetStat = "Strength"
+    -- NEU: Getrennte Auto Stats Toggles
+    AutoStrength = false,
+    AutoStamina = false,
+    AutoDefense = false,
+    AutoSword = false,
+    AutoGun = false
 }
+
+local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
 
 --// NOTIFICATION SYSTEM
 local NotificationContainer = Instance.new("Frame")
@@ -131,14 +135,7 @@ local MainFrame = Instance.new("Frame"); MainFrame.Size = currentMainSize; MainF
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
 
-local ResizeGrip = Instance.new("TextButton", MainFrame)
-ResizeGrip.Size = UDim2.new(0, 20, 0, 20)
-ResizeGrip.Position = UDim2.new(1, -20, 1, -20)
-ResizeGrip.BackgroundTransparency = 1
-ResizeGrip.Text = "◢"
-ResizeGrip.TextColor3 = Theme.SubText
-ResizeGrip.TextSize = 16
-ResizeGrip.Font = Enum.Font.GothamBold
+local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
@@ -219,18 +216,6 @@ local function CreateToggle(section, text, defaultState, callback)
     local tBtn = Instance.new("TextButton", frame); tBtn.Size = UDim2.new(0, 42, 0, 22); tBtn.Position = UDim2.new(1, -42, 0, 6); tBtn.BackgroundColor3 = defaultState and Theme.ToggleOn or Theme.ToggleOff; tBtn.Text = ""; Instance.new("UICorner", tBtn).CornerRadius = UDim.new(1, 0)
     local isOn = defaultState
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
-end
-
-local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
-    local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
-    local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
-    local scroll = Instance.new("ScrollingFrame", frame); scroll.Size = UDim2.new(1, 0, 0, 130); scroll.Position = UDim2.new(0, 0, 0, 25); scroll.BackgroundColor3 = Theme.Background; scroll.ScrollBarThickness = 4; Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
-    local listLayout = Instance.new("UIListLayout", scroll); listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    for _, itemName in ipairs(itemsList) do
-        local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. itemName; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-        btn.Activated:Connect(function() RyuConfig[targetConfigKey] = itemName; header.Text = headerText .. ": " .. itemName end)
-    end
-    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
 end
 
 local function CreateSlider(section, text, min, max, default, callback)
@@ -556,13 +541,23 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
     end)
 end)
 
---// NEU: AUTO STATS UI AUFBAU
+--// NEU: AUTO STATS UI (GETRENNTE TOGGLES FÜR ALLE PUNKTE)
 local SecAutoStats = CreateSection(SubStats, "Auto Stats System")
-CreateToggle(SecAutoStats, "Enable Auto Stats", RyuConfig.AutoStat, function(state) 
-    RyuConfig.AutoStat = state 
+CreateToggle(SecAutoStats, "Auto Strength", RyuConfig.AutoStrength, function(state) 
+    RyuConfig.AutoStrength = state 
 end)
-CreateDropdown(SecAutoStats, "Select Stat", StatList, "TargetStat")
-
+CreateToggle(SecAutoStats, "Auto Stamina", RyuConfig.AutoStamina, function(state) 
+    RyuConfig.AutoStamina = state 
+end)
+CreateToggle(SecAutoStats, "Auto Defense", RyuConfig.AutoDefense, function(state) 
+    RyuConfig.AutoDefense = state 
+end)
+CreateToggle(SecAutoStats, "Auto Sword Mastery", RyuConfig.AutoSword, function(state) 
+    RyuConfig.AutoSword = state 
+end)
+CreateToggle(SecAutoStats, "Auto Gun Mastery", RyuConfig.AutoGun, function(state) 
+    RyuConfig.AutoGun = state 
+end)
 
 --// ============================================================================
 --// MODULE HOOKING: PURE RAW COMBAT 
@@ -734,7 +729,7 @@ end
 --// FAIL-SAFE: QUEST SICHERUNG
 task.spawn(function()
     while true do
-        task.wait(180) -- Alle 3 Minuten
+        task.wait(180) 
         if RyuConfig.AutoFarm and RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" then
             if not CheckQuestActive() then
                 RyuNotify:Send("Fail-Safe", "Quest-Sicherung greift ein!", 2)
@@ -744,19 +739,28 @@ task.spawn(function()
     end
 end)
 
---// NEU: AUTO STATS LOOP
+--// NEU: AUTO STATS LOOP (5 REMOTES / 3 SEKUNDEN)
 task.spawn(function()
     while true do
-        task.wait(2.5) -- Alle 2.5 Sekunden prüfen und Remote abfeuern
-        if RyuConfig.AutoStat and RyuConfig.TargetStat and RyuConfig.TargetStat ~= "" then
-            pcall(function()
-                local args = {
-                    RyuConfig.TargetStat,
-                    [3] = 1
-                }
-                ReplicatedStorage.Events.stats:FireServer(unpack(args))
-            end)
+        task.wait(3) -- Alle 3 Sekunden prüfen
+        
+        local function upgradeStat(statName)
+            for i = 1, 5 do -- Feuert 5x schnell hintereinander
+                pcall(function()
+                    local args = {
+                        [1] = statName,
+                        [3] = 1
+                    }
+                    ReplicatedStorage.Events.stats:FireServer(unpack(args))
+                end)
+            end
         end
+
+        if RyuConfig.AutoStrength then upgradeStat("Strength") end
+        if RyuConfig.AutoStamina then upgradeStat("Stamina") end
+        if RyuConfig.AutoDefense then upgradeStat("Defense") end
+        if RyuConfig.AutoSword then upgradeStat("SwordMastery") end
+        if RyuConfig.AutoGun then upgradeStat("GunMastery") end
     end
 end)
 
@@ -859,4 +863,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Auto Stats System Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Fast Auto Stats Active!", 4)
