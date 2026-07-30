@@ -392,12 +392,11 @@ local function EquipCombat()
     end
 end
 
--- NEU: EXTRA SCHNELLE SCHLÄGE
+-- EXTRA SCHNELLE SCHLÄGE
 local function PerformAttack()
     local inputModule = GetInputCallbacks()
     pcall(function()
         if inputModule and inputModule.Utils.canAutoM1() then
-            -- Wir feuern M1 doppelt ab für absolute Höchstgeschwindigkeit
             inputModule.Callbacks.Attack:PC_Activate()
             inputModule.Callbacks.Attack:PC_Activate()
         else
@@ -451,7 +450,6 @@ RunService.Stepped:Connect(function()
     if RyuConfig.Noclip or RyuConfig.AutoFarm or RyuConfig.AutoQuest then
         local char = LocalPlayer.Character
         if char then
-            -- Mache alles durchlässig AUSSER dem Kern, um Kicks zu vermeiden!
             for _, v in pairs(char:GetChildren()) do
                 if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
                     v.CanCollide = false 
@@ -464,18 +462,63 @@ end)
 --// ============================================================================
 --// GPO MASTER KITE FARM (SMART GROUPING & QUEST FIX)
 --// ============================================================================
-local function GetCurrentQuest()
-    local q = LocalPlayer:FindFirstChild("Quest")
-    return q and q:FindFirstChild("CurrentQuest") and q.CurrentQuest.Value or "None"
+
+-- NEU: BOMBENSICHERER QUEST SCANNER (Zielt auf QuestTracker)
+local function HasActiveQuest()
+    local hasQuest = false
+    pcall(function()
+        -- Fallback 1: Data Ordner
+        local q = LocalPlayer:FindFirstChild("Quest")
+        if q and q:FindFirstChild("CurrentQuest") then
+            local val = q.CurrentQuest.Value
+            if val ~= "" and val ~= "None" then hasQuest = true return end
+        end
+        
+        -- Tracker Scanner 2: Sucht gezielt den QuestTracker
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            local tracker = pg:FindFirstChild("QuestTracker") or pg:FindFirstChild("Quest")
+            if tracker then
+                for _, v in pairs(tracker:GetDescendants()) do
+                    if v:IsA("TextLabel") and v.Visible then
+                        -- Checkt das Format "0/5" oder "0 / 5"
+                        if v.Text:match("%d+/%d+") or v.Text:match("%d+%s*/%s*%d+") then
+                            hasQuest = true
+                            return
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    return hasQuest
+end
+
+-- NEU: AGGRESSIVER "OKAY" DIALOG KLICKER
+local function PerformQuestClicking()
+    pcall(function()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, v in pairs(pg:GetDescendants()) do
+                if v:IsA("TextButton") and v.Visible then
+                    local txt = v.Text:lower()
+                    if txt:match("okay") or txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("next") then
+                        for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
+                        for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
+                    end
+                end
+            end
+        end
+    end)
 end
 
 task.spawn(function()
     while true do
         task.wait(0.1)
         
-        -- FIX: KOMPLETT ÜBERARBEITETES AUTO-QUEST
+        --// FIX: KOMPLETT ÜBERARBEITETES AUTO-QUEST (ANTI SPAM)
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
-            if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
+            if not HasActiveQuest() then
                 local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npc then
                     ToggleHover(true)
@@ -484,22 +527,31 @@ task.spawn(function()
                     local root = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if root then
-                        SafeTween(npcPos * CFrame.new(0, 0, 3))
+                        SafeTween(npcPos * CFrame.new(0, 0, 3.5))
                         root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                         task.wait(0.5)
                         
-                        -- Prompts virtuell GEDRÜCKT HALTEN (wie ein echter Spieler)
+                        -- Halte das ProximityPrompt virtuell gedrückt
                         if fireproximityprompt then
                             for _, p in pairs(npc:GetDescendants()) do
                                 if p:IsA("ProximityPrompt") then
+                                    p.RequiresLineOfSight = false
                                     fireproximityprompt(p, 1, true)
-                                    task.wait(0.1)
+                                    task.wait(p.HoldDuration + 0.1)
                                     fireproximityprompt(p, 0, true)
                                 end
                             end
                         end
                         task.wait(0.5)
                         
+                        -- SPAMMT DEN KLICKER FÜR 2 SEKUNDEN, UM "OKAY" ZU DRÜCKEN
+                        local clickStart = tick()
+                        while tick() - clickStart < 2 do
+                            PerformQuestClicking()
+                            task.wait(0.2)
+                        end
+                        
+                        -- Remote Fallbacks
                         local events = ReplicatedStorage:FindFirstChild("Events")
                         if events and events:FindFirstChild("Quest") then 
                             pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
@@ -508,12 +560,17 @@ task.spawn(function()
                             pcall(function() events.Quest:InvokeServer("takequest") end)
                             pcall(function() events.Quest:InvokeServer("acceptquest") end)
                         end
-                        task.wait(0.5)
+                        
+                        -- WICHTIG: 2.5 Sekunden warten, damit der Tracker laden kann, ohne dass gespammt wird!
+                        task.wait(2.5)
                     end
                 end
             end
         end
 
+        --// ============================================================================
+        --// AUTO FARM CODE (100% UNBERÜHRT, PERFEKT WIE IM CHECKPOINT)
+        --// ============================================================================
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -585,7 +642,7 @@ task.spawn(function()
                             
                             SafeTween(CFrame.new(skyPos))
                             
-                            -- NEU: WARTEN BIS ALLE 5 GEGNER DA SIND! (Smart Grouping)
+                            -- WARTEN BIS ALLE 5 GEGNER DA SIND! (Smart Grouping)
                             local gatherTimeout = tick()
                             while RyuConfig.AutoFarm and hum.Health > 0 do
                                 if tick() - gatherTimeout > 6 then break end 
@@ -674,4 +731,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Smart Grouping & M1 Overdrive Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Auto Quest Loop Active!", 4)
