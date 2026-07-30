@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NO DELAY & NEW EXPLOITS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - BULLETPROOF COMBAT)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -615,18 +615,29 @@ local function EquipCombat()
     end
 end
 
+-- FIX: KUGELSICHERE ATTACKEN-FUNKTION MIT FALLBACK
 local function PerformAttack()
     local inputModule = GetInputCallbacks()
+    local attackFired = false
+    
+    -- Versuch 1: Unsichtbarer Fast-Attack über das GPO-Input-Modul
     pcall(function()
-        if RyuConfig.FastAttack or (inputModule and inputModule.Utils.canAutoM1()) then
-            -- M1 via lokales Modul (Das ist die 100% Ban-sichere Methode statt Remotes!)
-            inputModule.Callbacks.Attack:PC_Activate()
-            inputModule.Callbacks.Attack:PC_Activate()
-        else
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton1(Vector2.new())
+        if inputModule and inputModule.Callbacks and inputModule.Callbacks.Attack then
+            if RyuConfig.FastAttack or (inputModule.Utils and inputModule.Utils.canAutoM1()) then
+                inputModule.Callbacks.Attack:PC_Activate()
+                inputModule.Callbacks.Attack:PC_Activate()
+                attackFired = true
+            end
         end
     end)
+    
+    -- Versuch 2 (Sicherheits-Fallback): Falls das Modul nicht da ist, nutze die echte Maus-Simulation
+    if not attackFired then
+        pcall(function()
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton1(Vector2.new())
+        end)
+    end
 end
 
 --// ============================================================================
@@ -790,14 +801,12 @@ task.spawn(function()
         
         local currentlyHasQuest = HasActiveQuest()
         
-        -- STATUS-WECHSEL: Quest wurde soeben abgeschlossen!
         if wasQuestActive and not currentlyHasQuest then
             RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Hole sofort neue...", 2)
-            -- Keine Pause mehr! Wir gehen direkt über zum Holen der neuen Quest.
         end
         wasQuestActive = currentlyHasQuest
         
-        --// PHASE 1: QUEST ANNEHMEN (Ohne Dialog, Pure Backend, Keine Pausen)
+        --// PHASE 1: QUEST ANNEHMEN
         if RyuConfig.AutoQuest and not currentlyHasQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
@@ -807,11 +816,9 @@ task.spawn(function()
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 
                 if root then
-                    -- Fliege zum NPC (Nah genug für den Remote)
                     SafeTween(npcPos * CFrame.new(0, 0, 3.5))
                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                     
-                    -- PURE REMOTE QUESTING (Instant)
                     pcall(function()
                         local QuestEvent = ReplicatedStorage.Events.Quest
                         QuestEvent:InvokeServer({"npcChat", true})
@@ -825,7 +832,7 @@ task.spawn(function()
                         QuestEvent:InvokeServer("acceptquest")
                     end)
                     
-                    task.wait(0.5) -- Kurze Zeit geben für das Backend-Update
+                    task.wait(0.5) 
                     
                     if HasActiveQuest() then
                         RyuNotify:Send("Auto Quest", "Quest angenommen! Greife an...", 2)
@@ -833,7 +840,7 @@ task.spawn(function()
                 end
             end
             
-        --// PHASE 2: MONSTER TÖTEN (Darf nicht angefasst werden!)
+        --// PHASE 2: MONSTER TÖTEN
         elseif RyuConfig.AutoFarm and (currentlyHasQuest or not RyuConfig.AutoQuest) and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -988,4 +995,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Instant Quest Fusion & Max Exploits Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Combat Engine Fixed & Bulletproof!", 4)
