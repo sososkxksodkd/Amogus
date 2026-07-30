@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - GUI TRACKER & RAW COMBAT)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - TIMER FUSION & RAW COMBAT)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -53,6 +53,7 @@ local RyuConfig = {
     
     AutoFarm = false,
     AutoQuest = false,
+    QuestInterval = 45, -- Timer für das Holen der neuen Quest
     DynamicHeight = false, 
     
     TargetMob = DynamicEnemies[1],
@@ -338,7 +339,7 @@ end)
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
     RyuConfig.DynamicHeight = state 
 end)
-CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) 
+CreateToggle(SecAutoFarmMain, "Auto Quest (Timer Mode)", RyuConfig.AutoQuest, function(state) 
     RyuConfig.AutoQuest = state 
 end)
 
@@ -346,6 +347,11 @@ local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
+
+-- NEU: QUEST TIMER SLIDER (Ersetzt die alte Quest-Such-Logik)
+CreateSlider(SecAutoFarmConfig, "Quest Interval (Secs)", 10, 100, RyuConfig.QuestInterval, function(val) 
+    RyuConfig.QuestInterval = val 
+end)
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
 CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) 
@@ -562,9 +568,6 @@ end)
 CreateToggle(SecCombatGod, "Anti-Stun (Bypass CC)", RyuConfig.AntiStun, function(state)
     RyuConfig.AntiStun = state
 end)
-CreateToggle(SecCombatGod, "Fast Attack (Bypass M1 Cooldown)", RyuConfig.FastAttack, function(state)
-    RyuConfig.FastAttack = state
-end)
 
 local SecWorldGod = CreateSection(SubExploits, "World & Physics")
 CreateToggle(SecWorldGod, "No Drown (Devil Fruit Bypass)", RyuConfig.NoDrown, function(state)
@@ -586,17 +589,10 @@ CreateToggle(SecFarmingMisc, "Auto Fishing (AFK Catch)", RyuConfig.AutoFish, fun
 end)
 
 --// ============================================================================
---// MODULE HOOKING: COMBAT ENGINE (SIMPLIFIED & FOOLPROOF)
+--// MODULE HOOKING: PURE RAW COMBAT (SIMPLIFIED)
 --// ============================================================================
-local function GetInputCallbacks()
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack and backpack:FindFirstChild("InputCallbacks") then return require(backpack.InputCallbacks) end
-    local char = LocalPlayer.Character
-    if char and char:FindFirstChild("InputCallbacks") then return require(char.InputCallbacks) end
-    return nil
-end
 
--- FIX: Nimmt explizit Combat oder die gewählte Waffe in die Hand
+-- FIX: Wählt exakt Combat aus (Wie das Drücken der Taste "1")
 local function EquipCombat()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -607,7 +603,6 @@ local function EquipCombat()
     
     local tool = char:FindFirstChild(targetWep) or LocalPlayer.Backpack:FindFirstChild(targetWep)
     
-    -- Fallback: Sucht nach etwas Ähnlichem, falls der exakte Name nicht da ist
     if not tool then
         for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
             if item:IsA("Tool") and (item.Name:lower():find(targetWep:lower()) or item:GetAttribute("MeleeTool")) then
@@ -622,19 +617,9 @@ local function EquipCombat()
     end
 end
 
--- FIX: Simple, kugelsichere Klick-Methode für Auto Farm!
+-- FIX: Reine Mausklick-Simulation (Kein fehlerhaftes Backend-Hooking für Schläge mehr!)
 local function PerformAttack()
     pcall(function()
-        -- Wenn FastAttack aktiv ist, nutze das interne Modul-Bypass
-        if RyuConfig.FastAttack then
-            local inputModule = GetInputCallbacks()
-            if inputModule and inputModule.Callbacks and inputModule.Callbacks.Attack then
-                inputModule.Callbacks.Attack:PC_Activate()
-                inputModule.Callbacks.Attack:PC_Activate()
-            end
-        end
-        
-        -- Echter, physikalischer Mausklick (Kugelsicherer Fallback für jeden normalen Schlag!)
         VirtualUser:CaptureController()
         VirtualUser:ClickButton1(Vector2.new())
     end)
@@ -705,11 +690,6 @@ RunService.Heartbeat:Connect(function()
         end
     end
     
-    if RyuConfig.FastAttack then
-        _G.midM1 = false
-        _G.canM1 = true
-    end
-    
     if RyuConfig.NoDrown then
         if char then
             char:SetAttribute("underWater", nil)
@@ -772,44 +752,11 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: FUSION (AUTO QUEST + AUTO FARM ZERO DELAY)
+--// HARMONY CORE: TIMER FUSION (QUEST + FARM)
 --// ============================================================================
 
--- FIX: GUI Check + Backend Check (Verhindert das Steckenbleiben beim NPC)
-local function HasActiveQuest()
-    local hasQuest = false
-    pcall(function()
-        -- 1. Backend Check
-        local q = LocalPlayer:FindFirstChild("Quest")
-        if q and q:FindFirstChild("CurrentQuest") then
-            local val = q.CurrentQuest.Value
-            if val ~= "" and val ~= "None" then 
-                hasQuest = true 
-                return
-            end
-        end
-        
-        -- 2. GUI Check (Prüft den Bildschirm oben links auf "0/5" etc.)
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextLabel") and v.Visible then
-                    if v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
-                        local txt = v.Text:lower()
-                        if txt:match("%d+/%d+") or txt:match("%d+%s*/%s*%d+") then
-                            hasQuest = true
-                            return
-                        end
-                    end
-                end
-            end
-        end
-    end)
-    return hasQuest
-end
-
 task.spawn(function()
-    local wasQuestActive = false
+    local lastQuestTime = 0
 
     while true do
         task.wait(0.1)
@@ -818,45 +765,49 @@ task.spawn(function()
             continue
         end
         
-        local currentlyHasQuest = HasActiveQuest()
-        
-        if wasQuestActive and not currentlyHasQuest then
-            RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Hole sofort neue...", 2)
-        end
-        wasQuestActive = currentlyHasQuest
-        
-        --// PHASE 1: QUEST ANNEHMEN (Ohne Hänger, sofortiger Farm)
-        if RyuConfig.AutoQuest and not currentlyHasQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
-            local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
-            if npc then
-                ToggleHover(true)
-                local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
-                local char = LocalPlayer.Character
-                local root = char and char:FindFirstChild("HumanoidRootPart")
-                
-                if root then
-                    SafeTween(npcPos * CFrame.new(0, 0, 3.5))
-                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
+        --// PHASE 1: TIMER-BASIERTE QUEST ANNAHME
+        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
+            -- Prüft, ob der Timer abgelaufen ist
+            if tick() - lastQuestTime >= RyuConfig.QuestInterval then
+                local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
+                if npc then
+                    ToggleHover(true)
+                    local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
+                    local char = LocalPlayer.Character
+                    local root = char and char:FindFirstChild("HumanoidRootPart")
                     
-                    pcall(function()
-                        local QuestEvent = ReplicatedStorage.Events.Quest
-                        QuestEvent:InvokeServer({"npcChat", true})
+                    if root then
+                        -- Fliegt zum NPC
+                        SafeTween(npcPos * CFrame.new(0, 0, 3.5))
+                        root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                         
-                        local questString = "Help " .. RyuConfig.TargetNPC
-                        QuestEvent:InvokeServer({"takequest", questString})
-                        QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
-                        QuestEvent:InvokeServer({"takequest"})
-                        QuestEvent:InvokeServer("takequest")
-                        QuestEvent:InvokeServer({"acceptquest"})
-                        QuestEvent:InvokeServer("acceptquest")
-                    end)
-                    
-                    task.wait(0.5) 
+                        -- Nimmt die Quest über Remotes an
+                        pcall(function()
+                            local QuestEvent = ReplicatedStorage.Events.Quest
+                            QuestEvent:InvokeServer({"npcChat", true})
+                            
+                            local questString = "Help " .. RyuConfig.TargetNPC
+                            QuestEvent:InvokeServer({"takequest", questString})
+                            QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
+                            QuestEvent:InvokeServer({"takequest"})
+                            QuestEvent:InvokeServer("takequest")
+                            QuestEvent:InvokeServer({"acceptquest"})
+                            QuestEvent:InvokeServer("acceptquest")
+                        end)
+                        
+                        task.wait(0.5) 
+                        RyuNotify:Send("Auto Quest", "Quest aktualisiert! Farme jetzt für " .. RyuConfig.QuestInterval .. "s", 3)
+                        
+                        -- Setzt den Timer zurück!
+                        lastQuestTime = tick()
+                        continue -- Bricht die Schleife hier ab und geht sofort zum Farmen über!
+                    end
                 end
             end
+        end
             
-        --// PHASE 2: MONSTER TÖTEN (Raw Combat)
-        elseif RyuConfig.AutoFarm and (currentlyHasQuest or not RyuConfig.AutoQuest) and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
+        --// PHASE 2: MONSTER FARMEN (Während der Timer läuft!)
+        if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -878,11 +829,18 @@ task.spawn(function()
                     end
                     
                     local aggroedMobs = {}
+                    
+                    -- Zieht "1" (Combat) aus dem Inventar
                     EquipCombat()
                     
                     for _, mob in pairs(validMobs) do
                         if not RyuConfig.AutoFarm or hum.Health <= 0 then break end
                         if #aggroedMobs >= 5 then break end
+                        
+                        -- Timer Check: Wenn es Zeit für die Quest ist, brich das Aggro-Sammeln sofort ab!
+                        if RyuConfig.AutoQuest and tick() - lastQuestTime >= RyuConfig.QuestInterval then 
+                            break 
+                        end
                         
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
@@ -904,6 +862,7 @@ task.spawn(function()
                                 if bp then bp.Position = mRoot.Position + (flatDir.Unit * 2) end
                                 root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
                                 
+                                -- HÄMMERT PHYSIKALISCHE MAUS-KLICKS REIN!
                                 PerformAttack()
                                 RunService.Heartbeat:Wait()
                             end
@@ -951,6 +910,11 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and hum.Health > 0 do
                                 if tick() - killTimeout > 25 then break end 
                                 
+                                -- Timer Check: Tötet die Monster fertig, aber wenn es zu lange dauert, abbrechen für neue Quest!
+                                if RyuConfig.AutoQuest and tick() - lastQuestTime >= RyuConfig.QuestInterval + 15 then 
+                                    break 
+                                end
+                                
                                 if hum.Health < myLastHealth then
                                     if RyuConfig.DynamicHeight then
                                         currentHeightOffset = currentHeightOffset + 1.5
@@ -993,6 +957,7 @@ task.spawn(function()
                                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetLook.X, root.Position.Y, targetLook.Z))
                                 end
                                 
+                                -- HÄMMERT PHYSIKALISCHE MAUS-KLICKS REIN!
                                 PerformAttack()
                                 RunService.Heartbeat:Wait()
                             end
@@ -1010,4 +975,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Strict Combat Clicks & GUI Quest Scanner!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Timer Quest Fusion & Raw Clicks Active!", 4)
