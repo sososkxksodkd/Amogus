@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MAX TWEEN & CLEAN UI)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MAX SPEED 50 & PURE M1)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -60,7 +60,7 @@ local RyuConfig = {
     TargetNPC = DynamicQuests[1],
     TargetWeapon = "Combat",
     
-    TweenSpeed = 150, 
+    TweenSpeed = 50, -- FIX: Standardmäßig und maximal auf 50 gesetzt
     KillHeight = 7, 
     FishmanSpeed = 150, 
     ElevatorSpeed = 150 
@@ -330,7 +330,8 @@ CreateSlider(SecAutoFarmConfig, "Quest Interval (Secs)", 10, 100, RyuConfig.Ques
 end)
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
-CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 30, 150, RyuConfig.TweenSpeed, function(val) 
+-- FIX: Slider maximal auf 50 (Sweet Spot)
+CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 10, 50, RyuConfig.TweenSpeed, function(val) 
     RyuConfig.TweenSpeed = val 
 end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) 
@@ -397,22 +398,15 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
-                    local isDrop = (tick() - lastDrop >= 2.5)
-                    
+                if (root.Position - intermediatePos).Magnitude > 20 then
                     ToggleHover(false)
                     platform.CFrame = CFrame.new(0, 99999, 0) 
                     
                     if hum then hum.Jump = true end
                     root.Velocity = Vector3.new(0, 50, 0)
                     
-                    if isDrop then
-                        RyuNotify:Send("Smart TP", "Sicherheits-Drop (AC Reset)...", 1)
-                    else
-                        RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
-                    end
-                    
-                    task.wait(isDrop and 0.7 or 1)
+                    RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
+                    task.wait(1)
                     
                     ToggleHover(true)
                     startPos = root.Position
@@ -564,8 +558,9 @@ CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(
 end)
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT 
+--// MODULE HOOKING: PURE RAW COMBAT (SIMPLIFIED & M1-ONLY)
 --// ============================================================================
+-- FIX: Zieht die Waffe (Simuliert Taste "1")
 local function EquipCombat()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -590,6 +585,7 @@ local function EquipCombat()
     end
 end
 
+-- FIX: Simuliert physisches Mausklicken (M1)
 local function PerformAttack()
     pcall(function()
         VirtualUser:CaptureController()
@@ -732,15 +728,12 @@ task.spawn(function()
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         
                         if mRoot and mHum and mHum.Health > 0 then
-                            mRoot.Size = Vector3.new(30, 30, 30)
-                            mRoot.CanCollide = false
-                            
                             local flatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             
                             local attackPos = mRoot.Position + (flatDir.Unit * 2)
                             
-                            SafeTween(CFrame.lookAt(attackPos, mRoot.Position), RyuConfig.TweenSpeed * 1.5)
+                            SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
                             
                             local startHp = mHum.Health
                             local timeout = tick()
@@ -748,7 +741,7 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
                                 if tick() - timeout > 3 then break end 
                                 
-                                -- DYNAMISCHER SCANNER: Verfolgt den Mob in Echtzeit, schlägt nie in die Luft
+                                -- DYNAMISCHER SCANNER: Verfolgt den Mob in Echtzeit
                                 local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                                 if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
                                 attackPos = mRoot.Position + (curFlatDir.Unit * 2)
@@ -758,7 +751,6 @@ task.spawn(function()
                                 
                                 root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
                                 
-                                PerformAttack()
                                 PerformAttack()
                                 RunService.Heartbeat:Wait()
                             end
@@ -834,11 +826,6 @@ task.spawn(function()
                                         if mHum and mHum.Health > 0 and mRoot then
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
-                                            
-                                            if mRoot.Size.Y < 30 then
-                                                mRoot.Size = Vector3.new(30, 30, 30)
-                                                mRoot.CanCollide = false
-                                            end
                                         end
                                     end
                                 end
@@ -852,7 +839,6 @@ task.spawn(function()
                                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetLook.X, root.Position.Y, targetLook.Z))
                                 end
                                 
-                                PerformAttack()
                                 PerformAttack()
                                 RunService.Heartbeat:Wait()
                             end
@@ -870,4 +856,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: System Cleaned & Scanner Kept!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Tween Speed Safe & Pure M1 Active!", 4)
