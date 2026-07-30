@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NO STUN & 3S AC DROP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FARM & QUEST FUSION)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -51,8 +51,7 @@ local RyuConfig = {
     SpeedHack = false, SpeedValue = 35, 
     Noclip = false, 
     
-    AutoFarm = false,
-    AutoQuest = false,
+    AutoFarm = false, -- Dies steuert nun Farm UND Quest!
     QuestInterval = 45, 
     DynamicHeight = false, 
     
@@ -294,7 +293,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// ANTI-FLING & AC BYPASS HOVER SYSTEM (Fix: Keine Evading-Stuns beim Farmen!)
+--// ANTI-FLING & AC BYPASS HOVER SYSTEM
 --// ============================================================================
 local function ToggleHover(state)
     local char = LocalPlayer.Character
@@ -302,8 +301,6 @@ local function ToggleHover(state)
     if not root then return end
     
     if state then
-        -- FIX: Evading wird HIER NICHT MEHR automatisch gesetzt!
-        -- Sonst denkt GPO im Kampf, dass du ausweichst und verbietet dir das Schlagen.
         if RyuConfig.Invincibility then
             char:SetAttribute("evading", true)
         end
@@ -332,16 +329,14 @@ end
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
-local SecAutoFarmMain = CreateSection(SubLeveling, "Master Auto Farm (Kite & Kill)")
-CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) 
+local SecAutoFarmMain = CreateSection(SubLeveling, "Master Auto Farm (FUSION)")
+-- FIX: EINE EINZIGE FUNKTION FÜR FARM UND QUEST!
+CreateToggle(SecAutoFarmMain, "Enable Auto Farm & Quest", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
     RyuConfig.DynamicHeight = state 
-end)
-CreateToggle(SecAutoFarmMain, "Auto Quest (Timer Mode)", RyuConfig.AutoQuest, function(state) 
-    RyuConfig.AutoQuest = state 
 end)
 
 local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
@@ -407,9 +402,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             
             local startPos = root.Position
             local startTime = tick()
-            local lastDrop = tick() -- FIX: Der 3-Sekunden Drop-Timer
+            local lastDrop = tick()
             
-            -- FIX: Macht dich nur DÄHREND des Tweens zum "Ausweicher", damit AC dich in Ruhe lässt
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
@@ -422,7 +416,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                -- FIX: AC Check ODER 3-Sekunden Timer abgelaufen (Sicherheits-Drop!)
                 if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 3) then
                     local isDrop = (tick() - lastDrop >= 3)
                     
@@ -430,7 +423,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     platform.CFrame = CFrame.new(0, 99999, 0) 
                     
                     if hum then hum.Jump = true end
-                    root.Velocity = Vector3.new(0, 50, 0) -- Leichter Sprung nach oben
+                    root.Velocity = Vector3.new(0, 50, 0)
                     
                     if isDrop then
                         RyuNotify:Send("Smart TP", "Sicherheits-Drop (AC Reset)...", 1)
@@ -438,8 +431,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                         RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
                     end
                     
-                    -- Fällt für 0.5s runter und resettet das System komplett
-                    task.wait(isDrop and 0.5 or 1) 
+                    task.wait(isDrop and 0.5 or 1)
                     
                     ToggleHover(true)
                     startPos = root.Position
@@ -463,7 +455,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             end
             root.CFrame = CFrame.new(tPos)
             
-            -- Entfernt den Status wieder
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
         end
@@ -517,7 +508,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             
             local startPos = root.Position
             local startTime = tick()
-            local lastDrop = tick() -- FIX: Der 3-Sekunden Drop-Timer
+            local lastDrop = tick()
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -602,6 +593,9 @@ end)
 CreateToggle(SecCombatGod, "Anti-Stun (Bypass CC)", RyuConfig.AntiStun, function(state)
     RyuConfig.AntiStun = state
 end)
+CreateToggle(SecCombatGod, "Fast Attack (Bypass M1 Cooldown)", RyuConfig.FastAttack, function(state)
+    RyuConfig.FastAttack = state
+end)
 
 local SecWorldGod = CreateSection(SubExploits, "World & Physics")
 CreateToggle(SecWorldGod, "No Drown (Devil Fruit Bypass)", RyuConfig.NoDrown, function(state)
@@ -623,10 +617,16 @@ CreateToggle(SecFarmingMisc, "Auto Fishing (AFK Catch)", RyuConfig.AutoFish, fun
 end)
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT (SIMPLIFIED & BUGFREE)
+--// MODULE HOOKING: PURE RAW COMBAT (SIMPLIFIED)
 --// ============================================================================
+local function GetInputCallbacks()
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack and backpack:FindFirstChild("InputCallbacks") then return require(backpack.InputCallbacks) end
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("InputCallbacks") then return require(char.InputCallbacks) end
+    return nil
+end
 
--- FIX: Wählt exakt Combat aus (Wie das Drücken der Taste "1")
 local function EquipCombat()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -651,11 +651,19 @@ local function EquipCombat()
     end
 end
 
--- FIX: Reine Mausklick-Simulation (Kein fehlerhaftes Modul-Bypass mehr! Du schlägst ganz normal)
+-- FIX: Führt Schläge sicher per GPO-Skript (PC_Activate) ODER per Mausklick-Simulation aus.
 local function PerformAttack()
     pcall(function()
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton1(Vector2.new())
+        local inputModule = GetInputCallbacks()
+        if inputModule and inputModule.Callbacks and inputModule.Callbacks.Attack then
+            -- Interner GPO-Remote Call (Extrem schnell, 100% sicher)
+            inputModule.Callbacks.Attack:PC_Activate()
+            inputModule.Callbacks.Attack:PC_Activate()
+        else
+            -- Physischer Fallback-Mausklick
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton1(Vector2.new())
+        end
     end)
 end
 
@@ -681,7 +689,7 @@ local function SafeTween(targetCFrame)
 
     local startTime = tick()
     while tick() - startTime < timeToTake do
-        if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then break end
+        if not RyuConfig.AutoFarm then break end
         
         local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
@@ -722,6 +730,11 @@ RunService.Heartbeat:Connect(function()
                 hum.WalkSpeed = 16
             end
         end
+    end
+    
+    if RyuConfig.FastAttack then
+        _G.midM1 = false
+        _G.canM1 = true
     end
     
     if RyuConfig.NoDrown then
@@ -773,7 +786,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 RunService.Stepped:Connect(function()
-    if RyuConfig.Noclip or RyuConfig.AutoFarm or RyuConfig.AutoQuest then
+    if RyuConfig.Noclip or RyuConfig.AutoFarm then
         local char = LocalPlayer.Character
         if char then
             for _, v in pairs(char:GetChildren()) do
@@ -786,7 +799,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: TIMER FUSION (QUEST + FARM)
+--// HARMONY CORE: TIMER FUSION (QUEST + FARM IN EINER FUNKTION)
 --// ============================================================================
 
 task.spawn(function()
@@ -795,12 +808,13 @@ task.spawn(function()
     while true do
         task.wait(0.1)
         
-        if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then
+        -- FIX: Die EINE Funktion, die beides steuert.
+        if not RyuConfig.AutoFarm then
             continue
         end
         
-        --// PHASE 1: TIMER-BASIERTE QUEST ANNAHME
-        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
+        --// FUSION: QUEST ANNAHME (Pure Remotes)
+        if RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" then
             if tick() - lastQuestTime >= RyuConfig.QuestInterval then
                 local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npc then
@@ -813,10 +827,10 @@ task.spawn(function()
                         SafeTween(npcPos * CFrame.new(0, 0, 3.5))
                         root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                         
+                        -- Quest sofort durch Remotes holen! (Kein Warten, kein Reden)
                         pcall(function()
                             local QuestEvent = ReplicatedStorage.Events.Quest
                             QuestEvent:InvokeServer({"npcChat", true})
-                            
                             local questString = "Help " .. RyuConfig.TargetNPC
                             QuestEvent:InvokeServer({"takequest", questString})
                             QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
@@ -826,18 +840,15 @@ task.spawn(function()
                             QuestEvent:InvokeServer("acceptquest")
                         end)
                         
-                        task.wait(0.5) 
-                        RyuNotify:Send("Auto Quest", "Quest aktualisiert! Farme jetzt für " .. RyuConfig.QuestInterval .. "s", 3)
-                        
+                        -- Setzt Timer zurück und farmt in derselben Millisekunde weiter!
                         lastQuestTime = tick()
-                        continue 
                     end
                 end
             end
         end
             
-        --// PHASE 2: MONSTER FARMEN (Während der Timer läuft!)
-        if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
+        --// FUSION: SOFORT WEITER FARMEN
+        if RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" and RyuConfig.TargetMob ~= "None" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -859,14 +870,14 @@ task.spawn(function()
                     end
                     
                     local aggroedMobs = {}
-                    
                     EquipCombat()
                     
                     for _, mob in pairs(validMobs) do
                         if not RyuConfig.AutoFarm or hum.Health <= 0 then break end
                         if #aggroedMobs >= 5 then break end
                         
-                        if RyuConfig.AutoQuest and tick() - lastQuestTime >= RyuConfig.QuestInterval then 
+                        -- FUSION TIMER-ABBRUCH: Bricht Farmen für neue Quest ab!
+                        if RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" and tick() - lastQuestTime >= RyuConfig.QuestInterval then 
                             break 
                         end
                         
@@ -937,7 +948,8 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and hum.Health > 0 do
                                 if tick() - killTimeout > 25 then break end 
                                 
-                                if RyuConfig.AutoQuest and tick() - lastQuestTime >= RyuConfig.QuestInterval + 15 then 
+                                -- FUSION TIMER-ABBRUCH: Bricht Farmen für neue Quest ab!
+                                if RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" and tick() - lastQuestTime >= RyuConfig.QuestInterval then 
                                     break 
                                 end
                                 
@@ -1000,4 +1012,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Stun Fixed & 3S AC Drop Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Perfect Farm/Quest Fusion Active!", 4)
