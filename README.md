@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FAKE FLOOR & LONG DIALOG)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - JUMP BYPASS & FLAT FLOOR)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -338,7 +338,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// NEU: FISHMAN CAVE SMART TP SECTION (Mit Fake Boden & AC-Schutz)
+--// NEU: FISHMAN CAVE SMART TP SECTION (FLAT FLOOR & JUMP FIX)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -380,13 +380,17 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
-                -- ANTI-CHEAT ERKENNUNG (Rote Meldung / Rubberband)
+                -- ANTI-CHEAT ERKENNUNG
                 if (root.Position - intermediatePos).Magnitude > 40 then
                     ToggleHover(false)
-                    platform.CFrame = CFrame.new(0, 99999, 0) -- Boden kurz weg
-                    root.Velocity = Vector3.new(0,0,0)
+                    platform.CFrame = CFrame.new(0, 99999, 0) 
                     
-                    RyuNotify:Send("Anti-Cheat", "Rote Meldung/AC erkannt! Warte 1s...", 1)
+                    -- FIX: Spieler springt kurz, wenn AC zuschlägt!
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then hum.Jump = true end
+                    root.Velocity = Vector3.new(0, 50, 0)
+                    
+                    RyuNotify:Send("Anti-Cheat", "Rote Meldung/AC erkannt! Springe & Warte 1s...", 1)
                     task.wait(1)
                     
                     ToggleHover(true)
@@ -399,8 +403,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     if bp then bp.Position = intermediatePos end
                     root.CFrame = CFrame.lookAt(intermediatePos, tPos)
                     
-                    -- Halte den Boden permanent 3.5 Studs unter dem Spieler
-                    platform.CFrame = root.CFrame * CFrame.new(0, -3.5, 0)
+                    -- FIX: Boden bleibt permanent zu 100% waagerecht (flach)!
+                    platform.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.5, 0))
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -410,7 +414,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local safeY = 1500
         -- Fliege hoch
         CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z))
-        -- Fliege zur Insel (mit Boden!)
+        -- Fliege zur Insel
         CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z))
         
         -- Ziel erreicht! Boden zerstören und über die Insel fallen lassen
@@ -454,13 +458,17 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
-                -- ANTI-CHEAT ERKENNUNG
+                -- ANTI-CHEAT ERKENNUNG (Mit Sprung Fix)
                 if (root.Position - intermediatePos).Magnitude > 40 then
                     ToggleHover(false)
                     platform.CFrame = CFrame.new(0, 99999, 0) 
-                    root.Velocity = Vector3.new(0,0,0)
                     
-                    RyuNotify:Send("Anti-Cheat", "Rote Meldung/AC erkannt! Warte 1s...", 1)
+                    -- FIX: Spieler springt kurz!
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then hum.Jump = true end
+                    root.Velocity = Vector3.new(0, 50, 0)
+                    
+                    RyuNotify:Send("Anti-Cheat", "Rote Meldung/AC erkannt! Springe & Warte 1s...", 1)
                     task.wait(1)
                     
                     ToggleHover(true)
@@ -472,7 +480,9 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = intermediatePos end
                     root.CFrame = CFrame.lookAt(intermediatePos, tPos)
-                    platform.CFrame = root.CFrame * CFrame.new(0, -3.5, 0)
+                    
+                    -- FIX: Boden bleibt permanent zu 100% waagerecht (flach)!
+                    platform.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.5, 0))
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -614,7 +624,7 @@ local function CheckQuestCompleted()
     return completed
 end
 
--- SUCHT NACH DER AKTIVEN QUEST (Oben Links oder im Data-Ordner)
+-- SUCHT NACH DER AKTIVEN QUEST
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
@@ -642,7 +652,7 @@ local function HasActiveQuest()
     return hasQuest
 end
 
--- OMNI-KLICKER (Feuert alle Tasten ab)
+-- OMNI-KLICKER
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -684,7 +694,7 @@ task.spawn(function()
             end
         end
         
-        --// PHASE 1: AUTO QUEST (NEU: Bis zu 25 Sekunden Loop für lange Dialoge!)
+        --// PHASE 1: AUTO QUEST
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not isQuestActive then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
@@ -710,12 +720,10 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
-                    -- DER NEUE DAUER-KLICKER (Maximal 25 Sekunden)
                     local clickStart = tick()
                     while tick() - clickStart < 25 do
                         PerformQuestClicking()
                         
-                        -- Feuere Remotes als Sicherheit
                         pcall(function()
                             local args = {{"npcChat", true}}
                             ReplicatedStorage.Events.Quest:InvokeServer(unpack(args))
@@ -723,17 +731,16 @@ task.spawn(function()
                             ReplicatedStorage.Events.Quest:InvokeServer("acceptquest")
                         end)
                         
-                        -- WICHTIG: Wenn wir die Quest haben, brich die 25 Sekunden sofort ab!
-                        if HasActiveQuest() then
-                            break
-                        end
-                        
+                        if HasActiveQuest() then break end
                         task.wait(0.2)
                     end
                     
                     isQuestActive = true
                     questStartTime = tick()
-                    task.wait(0.5) 
+                    
+                    -- FIX: 3 Sekunden Verzögerung nach der Quest-Annahme!
+                    RyuNotify:Send("Auto Quest", "Quest angenommen! Warte 3s auf Auto Farm...", 3)
+                    task.wait(3) 
                 end
             end
             
@@ -894,4 +901,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Fake Floor TP & Dauer-Quest-Klicker Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Flat Platform & Farm Delay Active!", 4)
