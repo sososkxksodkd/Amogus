@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - HARMONY QUEST LOOP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - INSTANT QUEST & AC BYPASS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -352,7 +352,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// NEU: FISHMAN CAVE SMART TP SECTION (Mit Boden- & Sky-Tween)
+--// NEU: FISHMAN CAVE SMART TP SECTION (Mit Anti-Cheat Rubberband Schutz)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -362,105 +362,117 @@ end)
 CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
     task.spawn(function()
         local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
-        if not cave then
-            RyuNotify:Send("Fehler", "Fishman Cave ist nicht geladen/gefunden!", 3)
-            return
-        end
+        if not cave then return end
         
         local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        RyuNotify:Send("Smart TP", "Starte sichere Sky-Route...", 2)
         ToggleHover(true)
         
         local function CustomLerp(tPos)
-            local dist = (root.Position - tPos).Magnitude
-            local t = dist / RyuConfig.FishmanSpeed
-            if t < 0.1 then root.CFrame = CFrame.new(tPos) return end
-            
-            local startPos = root.Position
-            local startTime = tick()
-            while tick() - startTime < t do
-                local alpha = (tick() - startTime) / t
-                local intermediatePos = startPos:Lerp(tPos, alpha)
+            local function doLerp(target)
+                local dist = (root.Position - target).Magnitude
+                local t = dist / RyuConfig.FishmanSpeed
+                if t < 0.1 then return end
                 
-                local bp = root:FindFirstChild("RyuHover")
-                if bp then bp.Position = intermediatePos end
-                
-                root.CFrame = CFrame.lookAt(intermediatePos, tPos)
-                RunService.Heartbeat:Wait()
+                local startPos = root.Position
+                local startTime = tick()
+                while tick() - startTime < t do
+                    local alpha = (tick() - startTime) / t
+                    local intermediatePos = startPos:Lerp(target, alpha)
+                    
+                    -- ANTI-CHEAT / RUBBERBAND ERKENNUNG
+                    if (root.Position - intermediatePos).Magnitude > 30 then
+                        ToggleHover(false)
+                        RyuNotify:Send("Anti-Cheat", "Bypass aktiv... Warte 1s", 1)
+                        task.wait(1)
+                        ToggleHover(true)
+                        
+                        -- Neuberechnung nach dem Warten
+                        startPos = root.Position
+                        dist = (startPos - target).Magnitude
+                        t = dist / RyuConfig.FishmanSpeed
+                        startTime = tick()
+                    end
+                    
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = intermediatePos end
+                    
+                    root.CFrame = CFrame.lookAt(intermediatePos, target)
+                    RunService.Heartbeat:Wait()
+                end
             end
+            doLerp(tPos)
             root.CFrame = CFrame.new(tPos)
         end
         
-        -- Phase 1: Straight UP
         local safeY = 1500
-        local upPos = Vector3.new(root.Position.X, safeY, root.Position.Z)
-        CustomLerp(upPos)
-        
-        -- Phase 2: Across the map
-        RyuNotify:Send("Smart TP", "Überfliege die Map...", 2)
-        local acrossPos = Vector3.new(targetPos.X, safeY, targetPos.Z)
-        CustomLerp(acrossPos)
-        
-        -- Phase 3: Straight DOWN
-        RyuNotify:Send("Smart TP", "Sichere Landung...", 2)
-        local finalPos = targetPos + Vector3.new(0, 50, 0)
-        CustomLerp(finalPos)
+        CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z))
+        CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z))
+        CustomLerp(targetPos + Vector3.new(0, 50, 0))
         
         ToggleHover(false)
         RyuNotify:Send("Smart TP", "Willkommen in der Fishman Cave!", 3)
     end)
 end)
 
--- NEU: Direkter Boden-TP Button
 CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
     task.spawn(function()
         local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
-        if not cave then
-            RyuNotify:Send("Fehler", "Fishman Cave ist nicht geladen/gefunden!", 3)
-            return
-        end
+        if not cave then return end
         
         local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        RyuNotify:Send("Smart TP", "Starte Boden-Route (Direkt)...", 2)
         ToggleHover(true)
         
         local function CustomLerp(tPos)
-            local dist = (root.Position - tPos).Magnitude
-            local t = dist / RyuConfig.FishmanSpeed
-            if t < 0.1 then root.CFrame = CFrame.new(tPos) return end
-            
-            local startPos = root.Position
-            local startTime = tick()
-            while tick() - startTime < t do
-                local alpha = (tick() - startTime) / t
-                local intermediatePos = startPos:Lerp(tPos, alpha)
+            local function doLerp(target)
+                local dist = (root.Position - target).Magnitude
+                local t = dist / RyuConfig.FishmanSpeed
+                if t < 0.1 then return end
                 
-                local bp = root:FindFirstChild("RyuHover")
-                if bp then bp.Position = intermediatePos end
-                
-                root.CFrame = CFrame.lookAt(intermediatePos, tPos)
-                RunService.Heartbeat:Wait()
+                local startPos = root.Position
+                local startTime = tick()
+                while tick() - startTime < t do
+                    local alpha = (tick() - startTime) / t
+                    local intermediatePos = startPos:Lerp(target, alpha)
+                    
+                    -- ANTI-CHEAT / RUBBERBAND ERKENNUNG
+                    if (root.Position - intermediatePos).Magnitude > 30 then
+                        ToggleHover(false)
+                        RyuNotify:Send("Anti-Cheat", "Bypass aktiv... Warte 1s", 1)
+                        task.wait(1)
+                        ToggleHover(true)
+                        
+                        startPos = root.Position
+                        dist = (startPos - target).Magnitude
+                        t = dist / RyuConfig.FishmanSpeed
+                        startTime = tick()
+                    end
+                    
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = intermediatePos end
+                    
+                    root.CFrame = CFrame.lookAt(intermediatePos, target)
+                    RunService.Heartbeat:Wait()
+                end
             end
+            doLerp(tPos)
             root.CFrame = CFrame.new(tPos)
         end
         
-        -- Direkter Tween (ohne Phase 1 und Phase 2)
-        local finalPos = targetPos + Vector3.new(0, 50, 0)
-        CustomLerp(finalPos)
+        -- Direkter Flug ohne Sky-Phase
+        CustomLerp(targetPos + Vector3.new(0, 50, 0))
         
         ToggleHover(false)
         RyuNotify:Send("Smart TP", "Willkommen in der Fishman Cave!", 3)
     end)
 end)
-
 
 local SecMisc = CreateSection(SubMovement, "Movement Settings")
 CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(state) 
@@ -532,7 +544,6 @@ local function SafeTween(targetCFrame)
 
     local startTime = tick()
     while tick() - startTime < timeToTake do
-        -- Breche ab, wenn Farm/Quest ausgeschaltet wurde
         if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then break end
         
         local alpha = (tick() - startTime) / timeToTake
@@ -566,34 +577,37 @@ end)
 --// ============================================================================
 --// HARMONY CORE: SMART QUEST SCANNER & CLICKER
 --// ============================================================================
+-- NEU: ERWEITERTER, FEHLERFREIER UI-SCANNER
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
-        -- 1. Zielt gezielt auf den QuestTracker oben links
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            local tracker = pg:FindFirstChild("QuestTracker") or pg:FindFirstChild("Quest")
-            if tracker then
-                for _, v in pairs(tracker:GetDescendants()) do
-                    if v:IsA("TextLabel") and v.Visible then
-                        if v.Text:match("%d+/%d+") or v.Text:match("%d+%s*/%s*%d+") then 
-                            hasQuest = true
-                            return
-                        end
-                    end
-                end
-            end
-        end
-        -- 2. Fallback im Data Folder
         local q = LocalPlayer:FindFirstChild("Quest")
         if q and q:FindFirstChild("CurrentQuest") then
             local val = q.CurrentQuest.Value
             if val ~= "" and val ~= "None" then hasQuest = true return end
         end
+        
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, v in pairs(pg:GetDescendants()) do
+                if v:IsA("TextLabel") and v.Visible then
+                    local text = v.Text:lower()
+                    local parentName = v.Parent and v.Parent.Name:lower() or ""
+                    local name = v.Name:lower()
+                    
+                    -- Schließt HP/Level aus und sucht präzise nach dem Quest-Tracker!
+                    if (name:find("quest") or parentName:find("quest")) and (text:match("%d+/%d+") or text:match("%d+%s*/%s*%d+")) then 
+                        hasQuest = true
+                        return
+                    end
+                end
+            end
+        end
     end)
     return hasQuest
 end
 
+-- NEU: OKAY! HINZUGEFÜGT
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -601,7 +615,7 @@ local function PerformQuestClicking()
             for _, v in pairs(pg:GetDescendants()) do
                 if v:IsA("TextButton") and v.Visible then
                     local txt = v.Text:lower()
-                    if txt:match("okay") or txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("next") then
+                    if txt:match("okay") or txt:match("okay!") or txt:match("okey") or txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("next") then
                         for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                         for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
                     end
@@ -632,48 +646,39 @@ task.spawn(function()
                 if root then
                     SafeTween(npcPos * CFrame.new(0, 0, 3))
                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
-                    task.wait(0.5)
                     
+                    -- NEU: INSTANT PROXIMITY OHNE ZU WARTEN
                     if fireproximityprompt then
                         for _, p in pairs(npc:GetDescendants()) do
                             if p:IsA("ProximityPrompt") then
                                 fireproximityprompt(p, 1, true)
-                                task.wait(0.1)
                                 fireproximityprompt(p, 0, true)
                             end
                         end
                     end
-                    task.wait(0.5)
                     
-                    -- Klickt unaufhörlich auf "Okay", "..." u.s.w.
+                    -- NEU: INSTANT REMOTES! Holt die Quest in Millisekunden!
+                    pcall(function()
+                        local args = {{"npcChat", true}}
+                        ReplicatedStorage.Events.Quest:InvokeServer(unpack(args))
+                    end)
+                    pcall(function() ReplicatedStorage.Events.Quest:InvokeServer("getNPCQuestLocations") end)
+                    pcall(function() ReplicatedStorage.Events.Quest:InvokeServer("takequest") end)
+                    pcall(function() ReplicatedStorage.Events.Quest:InvokeServer("acceptquest") end)
+                    
+                    -- Fallback "Okay!" Klicker (Extrem kurz, da Remotes die Hauptarbeit machen)
                     local clickStart = tick()
-                    while tick() - clickStart < 2 do
+                    while tick() - clickStart < 0.5 do
                         PerformQuestClicking()
-                        task.wait(0.2)
+                        task.wait(0.1)
                     end
                     
-                    -- NEU: DEIN PERFEKTER REMOTE FIX
-                    pcall(function()
-                        local args = {
-                            {
-                                "npcChat",
-                                true
-                            }
-                        }
-                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer(unpack(args))
-                    end)
-                    
-                    -- Sicherheits-Fallbacks
-                    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer("takequest") end)
-                    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer("acceptquest") end)
-                    
-                    -- WARTEN: Das Spiel lädt jetzt in Ruhe den QuestTracker (Verhindert jeglichen Spam)
-                    task.wait(2.5)
+                    task.wait(1) -- Kurzes Warten, damit der UI Scanner aktualisiert wird
                 end
             end
             
         --// PHASE 2: AUTO FARM (Startet nur: Wenn Quest vorhanden ODER AutoQuest aus ist!)
-        -- Dieser Code ist ZU 100% UNBERÜHRT, exakt wie im Checkpoint!
+        -- DIESER CODE IST ZU 100% UNBERÜHRT, EXAKT WIE IM CHECKPOINT!
         elseif RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" and (hasQuest or not RyuConfig.AutoQuest) then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -832,4 +837,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Quest/Farm Harmony Loaded!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Instant Quest & Anti-Cheat TP Active!", 4)
