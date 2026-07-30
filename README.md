@@ -1,9 +1,10 @@
 --// ============================================================================
---// RYU HUB - CLEAN MASTER BUILD (V6 - NO JITTER, NO PLATFORM, FIXED SLIDERS)
+--// RYU HUB - CLEAN MASTER BUILD (V7 - ULTIMATE VOID ANCHOR)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local Workspace = game:GetService("Workspace")
@@ -170,7 +171,7 @@ end
 WepLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() WepScroll.CanvasSize = UDim2.new(0, 0, 0, WepLayout.AbsoluteContentSize.Y) end)
 
 
---// UNIVERSELLE SLIDER ENGINE (GEFIXT - Nutzt MouseButton1Down!)
+--// UNIVERSELLE SLIDER ENGINE
 local function CreateUISlider(parent, posY, titleText, minVal, maxVal, defaultVal, callback)
     local label = Instance.new("TextLabel", parent)
     label.Size = UDim2.new(0.9, 0, 0, 18)
@@ -204,9 +205,11 @@ local function CreateUISlider(parent, posY, titleText, minVal, maxVal, defaultVa
         callback(val)
     end
 
-    -- FIX: MouseButton1Down anstatt InputBegan, extrem verlässlich!
-    bg.MouseButton1Down:Connect(function()
-        isDragging = true
+    bg.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = true
+            updateSlider(input)
+        end
     end)
 
     UserInputService.InputEnded:Connect(function(input)
@@ -223,7 +226,7 @@ local function CreateUISlider(parent, posY, titleText, minVal, maxVal, defaultVa
 end
 
 -- Beide Slider instanziieren
-CreateUISlider(MainFrame, 275, "Abstand zum Gegner (Höhe)", 3, 15, RyuConfig.KillHeight, function(val)
+CreateUISlider(MainFrame, 275, "Abstand zum Gegner", 3, 15, RyuConfig.KillHeight, function(val)
     RyuConfig.KillHeight = val
 end)
 
@@ -240,15 +243,13 @@ local function ToggleHover(state)
     if not root then return end
     
     if state then
-        -- PlatformStand deaktiviert die Roblox-Gehphysik komplett -> Kein Fling möglich!
         if hum then hum.PlatformStand = true end 
-        
         local bv = root:FindFirstChild("RyuHover")
         if not bv then
             bv = Instance.new("BodyVelocity")
             bv.Name = "RyuHover"
             bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bv.Velocity = Vector3.new(0, 0, 0) -- Hält den Spieler wie festgenagelt in der Luft
+            bv.Velocity = Vector3.new(0, 0, 0) 
             bv.Parent = root
         end
     else
@@ -258,8 +259,28 @@ local function ToggleHover(state)
     end
 end
 
+--// ABSOLUTER FLING PROTECTOR
+RunService.Stepped:Connect(function()
+    if RyuConfig.AutoFarm then
+        local char = LocalPlayer.Character
+        if char then
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then
+                root.Velocity = Vector3.new(0, 0, 0)
+                root.RotVelocity = Vector3.new(0, 0, 0)
+            end
+            
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then 
+                    v.CanCollide = false 
+                end
+            end
+        end
+    end
+end)
+
+
 --// SICHERER LERP-TWEEN (ZITTERFREI!)
--- Nutzt KEIN TweenService mehr, sondern lupenreine Mathematik für den flüssigsten Flug.
 local function SafeLerp(targetCFrame)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -278,8 +299,6 @@ local function SafeLerp(targetCFrame)
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm then break end
         local alpha = (tick() - startTime) / timeToTake
-        
-        -- Butterweiche Interpolation
         root.CFrame = startCFrame:Lerp(targetCFrame, alpha)
         RunService.Heartbeat:Wait()
     end
@@ -301,21 +320,8 @@ local function EquipAndAttack()
     VirtualUser:ClickButton1(Vector2.new())
 end
 
---// NOCLIP ENGINE (Damit du nicht an Bäumen oder Gegnern hängenbleibst)
-RunService.Stepped:Connect(function()
-    if RyuConfig.AutoFarm then
-        local char = LocalPlayer.Character
-        if char then
-            for _, v in pairs(char:GetChildren()) do
-                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then 
-                    v.CanCollide = false 
-                end
-            end
-        end
-    end
-end)
 
---// AUTO FARM CORE LOOP (Zitterfrei & Void-Sicher)
+--// AUTO FARM CORE LOOP (Y-AXIS ANCHOR)
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -326,7 +332,7 @@ task.spawn(function()
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             
             if hrp and hum and hum.Health > 0 then
-                ToggleHover(true) -- Aktiviere Schwerelosigkeit
+                ToggleHover(true) 
 
                 local npcs = Workspace:FindFirstChild("NPCs")
                 if npcs then
@@ -335,8 +341,8 @@ task.spawn(function()
                         if npc.Name == RyuConfig.TargetMob then
                             local mHum = npc:FindFirstChildOfClass("Humanoid")
                             local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                            -- VOID-BLOCKER: Gegner unter der Map (Y < 5) werden brutal ignoriert!
-                            if mHum and mRoot and mHum.Health > 0 and mRoot.Position.Y > 5 then
+                            -- VOID-BUGFIX: Wir prüfen NICHT mehr auf > 5, das hat Fishman Cave zerstört!
+                            if mHum and mRoot and mHum.Health > 0 then
                                 table.insert(targetMobs, npc)
                             end
                         end
@@ -348,21 +354,26 @@ task.spawn(function()
                         local mHum = mainTarget:FindFirstChildOfClass("Humanoid")
                         
                         if mRoot and mHum then
-                            local targetSkyPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
+                            -- DER RETTENDE Y-ANKER: Wir merken uns die Höhe des Gegners BEVOR der Kampf losgeht!
+                            local startY = mRoot.Position.Y 
                             
-                            -- Anflug (Jetzt zitterfrei)
+                            local targetSkyPos = Vector3.new(mRoot.Position.X, startY + RyuConfig.KillHeight, mRoot.Position.Z)
+                            
+                            -- Anflug
                             SafeLerp(CFrame.new(targetSkyPos))
                             
                             -- Kampf Loop
                             while RyuConfig.AutoFarm and mHum and mHum.Health > 0 and hum.Health > 0 do
-                                -- VOID-NOTBREMSE: Bricht sofort ab, falls der Gegner im Kampf runterfällt!
-                                if mRoot.Position.Y < 5 then break end 
-
-                                targetSkyPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
+                                -- VOID-NOTBREMSE: Wenn der Gegner > 15 Studs durch den Boden fällt, brich SOFORT ab!
+                                if mRoot.Position.Y < (startY - 15) then break end 
                                 
-                                -- DYNAMIC PITCH ROTATION (Ausrichtung ohne echten Boden)
+                                -- SICHERHEITS-Y: Zwingt deinen Charakter, niemals dem NPC tief in den Boden zu folgen!
+                                local safeNPC_Y = math.max(mRoot.Position.Y, startY - 5)
+                                targetSkyPos = Vector3.new(mRoot.Position.X, safeNPC_Y + RyuConfig.KillHeight, mRoot.Position.Z)
+                                
+                                -- DYNAMIC PITCH ROTATION (Ausrichtung)
                                 local flatLook = CFrame.lookAt(targetSkyPos, Vector3.new(mRoot.Position.X, targetSkyPos.Y, mRoot.Position.Z))
-                                local fullLook = CFrame.lookAt(targetSkyPos, mRoot.Position)
+                                local fullLook = CFrame.lookAt(targetSkyPos, Vector3.new(mRoot.Position.X, safeNPC_Y, mRoot.Position.Z))
                                 
                                 -- Blendet stufenlos zwischen flachem und steilem Blick
                                 local charRotation = flatLook:Lerp(fullLook, RyuConfig.LookAngle / 100)
