@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MAX SPEED 50 & PURE M1)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - HYPER EFFICIENT COMBAT)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -9,7 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualUser = game:GetService("VirtualUser")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -560,7 +560,15 @@ end)
 --// ============================================================================
 --// MODULE HOOKING: PURE RAW COMBAT (SIMPLIFIED & M1-ONLY)
 --// ============================================================================
--- FIX: Zieht die Waffe (Simuliert Taste "1")
+local function GetInputCallbacks()
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack and backpack:FindFirstChild("InputCallbacks") then return require(backpack.InputCallbacks) end
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("InputCallbacks") then return require(char.InputCallbacks) end
+    return nil
+end
+
+-- FIX: Zieht die Waffe (Kugelsicher! Simuliert Taste "1")
 local function EquipCombat()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -569,25 +577,58 @@ local function EquipCombat()
     local targetWep = RyuConfig.TargetWeapon
     if not targetWep or targetWep == "" then targetWep = "Combat" end
     
-    local tool = char:FindFirstChild(targetWep) or LocalPlayer.Backpack:FindFirstChild(targetWep)
+    -- 1. Ist die Waffe schon in der Hand? -> Abbrechen, alles gut!
+    if char:FindFirstChild(targetWep) then return end
+    for _, item in pairs(char:GetChildren()) do
+        if item:IsA("Tool") and (item.Name:lower():find(targetWep:lower()) or item:GetAttribute("MeleeTool")) then
+            return 
+        end
+    end
     
+    -- 2. Wenn nicht, aus dem Rucksack holen
+    local tool = LocalPlayer.Backpack:FindFirstChild(targetWep)
+    
+    -- 3. Fallback: Suche nach ähnlichen Begriffen ("Melee", "Sword" etc.)
     if not tool then
         for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-            if item:IsA("Tool") and (item.Name:lower():find(targetWep:lower()) or item:GetAttribute("MeleeTool")) then
+            if item:IsA("Tool") and (item.Name:lower():find(targetWep:lower()) or item:GetAttribute("MeleeTool") or item.Name:lower():find("melee") or item.Name:lower():find("sword") or item.Name:lower():find("combat")) then
                 tool = item; break
             end
         end
     end
     
+    -- 4. Letzter Fallback: Nimm einfach IRGENDEIN Tool, das du hast
+    if not tool then
+        for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+            if item:IsA("Tool") then tool = item; break end
+        end
+    end
+    
+    -- 5. Physisch in die Hand nehmen
     if tool and tool.Parent == LocalPlayer.Backpack then
         hum:EquipTool(tool)
         task.wait(0.1)
     end
 end
 
--- FIX: Simuliert physisches Mausklicken (M1)
+-- FIX: Simuliert physisches Mausklicken (M1) + VIM (Hardware Click)
 local function PerformAttack()
     pcall(function()
+        -- Löst den internen Remote-Call von GPO aus
+        local inputModule = GetInputCallbacks()
+        if inputModule and inputModule.Callbacks and inputModule.Callbacks.Attack then
+            inputModule.Callbacks.Attack:PC_Activate()
+        end
+        
+        -- Physischer Fallback 1: Exploit Mouse Click
+        if mouse1click then mouse1click() end
+        
+        -- Physischer Fallback 2: Virtual Input Manager (Hardware Level)
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
+        task.wait()
+        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+        
+        -- Physischer Fallback 3: Virtual User (Klassisch)
         VirtualUser:CaptureController()
         VirtualUser:ClickButton1(Vector2.new())
     end)
@@ -731,20 +772,22 @@ task.spawn(function()
                             local flatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             
-                            local attackPos = mRoot.Position + (flatDir.Unit * 2)
+                            local attackPos = mRoot.Position + (flatDir.Unit * 3)
                             
-                            SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
+                            -- FIX: 1.5x Schneller Jagen!
+                            SafeTween(CFrame.lookAt(attackPos, mRoot.Position), RyuConfig.TweenSpeed * 1.5)
                             
                             local startHp = mHum.Health
                             local timeout = tick()
                             
+                            -- FIX: Aggro-Timeout auf 1.5 Sekunden halbiert (Schnelleres Kiten)
                             while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
-                                if tick() - timeout > 3 then break end 
+                                if tick() - timeout > 1.5 then break end 
                                 
                                 -- DYNAMISCHER SCANNER: Verfolgt den Mob in Echtzeit
                                 local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                                 if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
-                                attackPos = mRoot.Position + (curFlatDir.Unit * 2)
+                                attackPos = mRoot.Position + (curFlatDir.Unit * 3)
                                 
                                 local bp = root:FindFirstChild("RyuHover")
                                 if bp then bp.Position = attackPos end
@@ -772,8 +815,9 @@ task.spawn(function()
                             SafeTween(CFrame.new(skyPos))
                             
                             local gatherTimeout = tick()
+                            -- FIX: Gather Timeout von 6 auf 4 Sekunden reduziert
                             while RyuConfig.AutoFarm and hum.Health > 0 do
-                                if tick() - gatherTimeout > 6 then break end 
+                                if tick() - gatherTimeout > 4 then break end 
                                 
                                 local allHere = true
                                 for _, mob in pairs(aggroedMobs) do
@@ -826,6 +870,13 @@ task.spawn(function()
                                         if mHum and mHum.Health > 0 and mRoot then
                                             aliveCount = aliveCount + 1
                                             if not targetLook then targetLook = mRoot.Position end
+                                            
+                                            -- FIX: Monster-Hitbox massiv vergrößern und fixieren!
+                                            if mRoot.Size.Y < 40 then
+                                                mRoot.Size = Vector3.new(40, 40, 40)
+                                                mRoot.CanCollide = false
+                                                mRoot.Velocity = Vector3.new(0,0,0)
+                                            end
                                         end
                                     end
                                 end
@@ -856,4 +907,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Tween Speed Safe & Pure M1 Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Max Speed 50 & 100% Reliable M1s Active!", 4)
