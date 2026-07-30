@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - DOLPHIN LEAP & UI FIX)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FAKE FLOOR & LONG DIALOG)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -338,7 +338,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// FISHMAN CAVE SMART TP SECTION (MIT DELFIN-SPRUNG AC BYPASS)
+--// NEU: FISHMAN CAVE SMART TP SECTION (Mit Fake Boden & AC-Schutz)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -355,85 +355,136 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
+        -- Erstelle den permanenten Fake-Boden für den Tween
+        local platform = Instance.new("Part")
+        platform.Name = "RyuTPPlatform"
+        platform.Size = Vector3.new(20, 1, 20)
+        platform.Anchored = true
+        platform.CanCollide = true
+        platform.Transparency = 0.5
+        platform.Material = Enum.Material.ForceField
+        platform.Color = Color3.fromRGB(0, 255, 255)
+        platform.Parent = Workspace
+        
         ToggleHover(true)
         
-        -- NEU: Dolphin-Leap Logik (Eleganter Weitsprung ins Wasser)
-        local function DolphinLerp(startPoint, endPoint)
-            local totalDist = (startPoint - endPoint).Magnitude
+        local function CustomLerp(tPos)
+            local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / RyuConfig.FishmanSpeed
-            if t < 0.1 then root.CFrame = CFrame.new(endPoint) return end
+            if t < 0.1 then return end
             
-            -- Macht alle 250 Studs einen Delphin-Sprung ins Wasser
-            local leaps = math.ceil(totalDist / 250)
-            local currentPos = startPoint
+            local startPos = root.Position
+            local startTime = tick()
             
-            for i = 1, leaps do
-                local chunkEnd = startPoint:Lerp(endPoint, i / leaps)
+            while tick() - startTime < t do
+                local alpha = (tick() - startTime) / t
+                local intermediatePos = startPos:Lerp(tPos, alpha)
                 
-                -- Nur wenn wir hoch in der Luft sind, machen wir den Tauchgang ins Wasser
-                if startPoint.Y > 1000 and i < leaps then
-                    local divePoint = currentPos:Lerp(chunkEnd, 0.5)
-                    divePoint = Vector3.new(divePoint.X, 25, divePoint.Z) -- Taucht auf Meeresspiegel-Höhe ab
-                    
-                    -- 1. Sturzflug ins Wasser
-                    local d1 = (root.Position - divePoint).Magnitude
-                    local t1 = d1 / RyuConfig.FishmanSpeed
-                    local st1 = tick()
-                    while tick() - st1 < t1 do
-                        local a = (tick() - st1) / t1
-                        local pos = currentPos:Lerp(divePoint, a)
-                        local bp = root:FindFirstChild("RyuHover")
-                        if bp then bp.Position = pos end
-                        root.CFrame = CFrame.lookAt(pos, divePoint)
-                        RunService.Heartbeat:Wait()
-                    end
-                    
-                    -- 2. Kurzes "ins Wasser tasten" (Physik Reset für AC Bypass)
+                -- ANTI-CHEAT ERKENNUNG (Rote Meldung / Rubberband)
+                if (root.Position - intermediatePos).Magnitude > 40 then
                     ToggleHover(false)
-                    root.Velocity = Vector3.new(0, 60, 0) -- Leichter Bounce-Effekt aus dem Wasser
-                    task.wait(0.2)
-                    ToggleHover(true)
+                    platform.CFrame = CFrame.new(0, 99999, 0) -- Boden kurz weg
+                    root.Velocity = Vector3.new(0,0,0)
                     
-                    -- 3. Wieder elegant in die Luft schleudern
-                    local bouncePos = root.Position
-                    local d2 = (bouncePos - chunkEnd).Magnitude
-                    local t2 = d2 / RyuConfig.FishmanSpeed
-                    local st2 = tick()
-                    while tick() - st2 < t2 do
-                        local a = (tick() - st2) / t2
-                        local pos = bouncePos:Lerp(chunkEnd, a)
-                        local bp = root:FindFirstChild("RyuHover")
-                        if bp then bp.Position = pos end
-                        root.CFrame = CFrame.lookAt(pos, chunkEnd)
-                        RunService.Heartbeat:Wait()
-                    end
+                    RyuNotify:Send("Anti-Cheat", "Rote Meldung/AC erkannt! Warte 1s...", 1)
+                    task.wait(1)
+                    
+                    ToggleHover(true)
+                    startPos = root.Position
+                    totalDist = (startPos - tPos).Magnitude
+                    t = totalDist / RyuConfig.FishmanSpeed
+                    startTime = tick()
                 else
-                    -- Normaler Flug für den Start/Ende des Weges
-                    local chunkStart = root.Position
-                    local dChunk = (chunkStart - chunkEnd).Magnitude
-                    local tChunk = dChunk / RyuConfig.FishmanSpeed
-                    local st = tick()
-                    while tick() - st < tChunk do
-                        local a = (tick() - st) / tChunk
-                        local pos = chunkStart:Lerp(chunkEnd, a)
-                        local bp = root:FindFirstChild("RyuHover")
-                        if bp then bp.Position = pos end
-                        root.CFrame = CFrame.lookAt(pos, chunkEnd)
-                        RunService.Heartbeat:Wait()
-                    end
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = intermediatePos end
+                    root.CFrame = CFrame.lookAt(intermediatePos, tPos)
+                    
+                    -- Halte den Boden permanent 3.5 Studs unter dem Spieler
+                    platform.CFrame = root.CFrame * CFrame.new(0, -3.5, 0)
                 end
-                currentPos = chunkEnd
+                RunService.Heartbeat:Wait()
             end
-            root.CFrame = CFrame.new(endPoint)
+            root.CFrame = CFrame.new(tPos)
         end
         
         local safeY = 1500
-        DolphinLerp(root.Position, Vector3.new(root.Position.X, safeY, root.Position.Z))
-        DolphinLerp(root.Position, Vector3.new(targetPos.X, safeY, targetPos.Z))
-        DolphinLerp(root.Position, targetPos + Vector3.new(0, 50, 0))
+        -- Fliege hoch
+        CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z))
+        -- Fliege zur Insel (mit Boden!)
+        CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z))
         
+        -- Ziel erreicht! Boden zerstören und über die Insel fallen lassen
+        platform:Destroy()
         ToggleHover(false)
-        RyuNotify:Send("Smart TP", "Willkommen in der Fishman Cave!", 3)
+        RyuNotify:Send("Smart TP", "Über der Insel angekommen! Lass fallen...", 3)
+    end)
+end)
+
+CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
+    task.spawn(function()
+        local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
+        if not cave then return end
+        
+        local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        local platform = Instance.new("Part")
+        platform.Name = "RyuTPPlatform"
+        platform.Size = Vector3.new(20, 1, 20)
+        platform.Anchored = true
+        platform.CanCollide = true
+        platform.Transparency = 0.5
+        platform.Material = Enum.Material.ForceField
+        platform.Color = Color3.fromRGB(0, 255, 255)
+        platform.Parent = Workspace
+        
+        ToggleHover(true)
+        
+        local function CustomLerp(tPos)
+            local totalDist = (root.Position - tPos).Magnitude
+            local t = totalDist / RyuConfig.FishmanSpeed
+            if t < 0.1 then return end
+            
+            local startPos = root.Position
+            local startTime = tick()
+            
+            while tick() - startTime < t do
+                local alpha = (tick() - startTime) / t
+                local intermediatePos = startPos:Lerp(tPos, alpha)
+                
+                -- ANTI-CHEAT ERKENNUNG
+                if (root.Position - intermediatePos).Magnitude > 40 then
+                    ToggleHover(false)
+                    platform.CFrame = CFrame.new(0, 99999, 0) 
+                    root.Velocity = Vector3.new(0,0,0)
+                    
+                    RyuNotify:Send("Anti-Cheat", "Rote Meldung/AC erkannt! Warte 1s...", 1)
+                    task.wait(1)
+                    
+                    ToggleHover(true)
+                    startPos = root.Position
+                    totalDist = (startPos - tPos).Magnitude
+                    t = totalDist / RyuConfig.FishmanSpeed
+                    startTime = tick()
+                else
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = intermediatePos end
+                    root.CFrame = CFrame.lookAt(intermediatePos, tPos)
+                    platform.CFrame = root.CFrame * CFrame.new(0, -3.5, 0)
+                end
+                RunService.Heartbeat:Wait()
+            end
+            root.CFrame = CFrame.new(tPos)
+        end
+        
+        -- Direkter Flug
+        CustomLerp(targetPos + Vector3.new(0, 50, 0))
+        
+        platform:Destroy()
+        ToggleHover(false)
+        RyuNotify:Send("Smart TP", "Über der Insel angekommen! Lass fallen...", 3)
     end)
 end)
 
@@ -563,7 +614,35 @@ local function CheckQuestCompleted()
     return completed
 end
 
--- NEU: AGGRESSIVER "ALL-BUTTON" KLICKER (Fixt ImageButtons mit unsichtbarem Text)
+-- SUCHT NACH DER AKTIVEN QUEST (Oben Links oder im Data-Ordner)
+local function HasActiveQuest()
+    local hasQuest = false
+    pcall(function()
+        local q = LocalPlayer:FindFirstChild("Quest")
+        if q and q:FindFirstChild("CurrentQuest") then
+            local val = q.CurrentQuest.Value
+            if val ~= "" and val ~= "None" then hasQuest = true return end
+        end
+        
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, v in pairs(pg:GetDescendants()) do
+                if v:IsA("TextLabel") and v.Visible then
+                    if v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
+                        local txt = v.Text:lower()
+                        if txt:match("%d+/%d+") or txt:match("%d+%s*/%s*%d+") then
+                            hasQuest = true
+                            return
+                        end
+                    end
+                end
+            end
+        end
+    end)
+    return hasQuest
+end
+
+-- OMNI-KLICKER (Feuert alle Tasten ab)
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -571,18 +650,12 @@ local function PerformQuestClicking()
             for _, v in pairs(pg:GetDescendants()) do
                 if (v:IsA("TextButton") or v:IsA("ImageButton")) and v.Visible then
                     local txt = ""
-                    if v:IsA("TextButton") then 
-                        txt = v.Text:lower() 
-                    end
-                    -- Checkt, ob sich ein Text in einem ImageButton versteckt
+                    if v:IsA("TextButton") then txt = v.Text:lower() end
                     local lbl = v:FindFirstChildOfClass("TextLabel")
-                    if lbl then 
-                        txt = txt .. " " .. lbl.Text:lower() 
-                    end
+                    if lbl then txt = txt .. " " .. lbl.Text:lower() end
                     
                     if txt:find("okay") or txt:find("okey") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") or txt:find("ok") then
                         if getconnections then
-                            -- Feuert ABSOLUT JEDES Event ab, egal was das Spiel will
                             for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                             for _, sig in pairs(getconnections(v.MouseButton1Down)) do sig:Fire() end
                             for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
@@ -611,7 +684,7 @@ task.spawn(function()
             end
         end
         
-        --// PHASE 1: AUTO QUEST
+        --// PHASE 1: AUTO QUEST (NEU: Bis zu 25 Sekunden Loop für lange Dialoge!)
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not isQuestActive then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
@@ -637,23 +710,30 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
-                    -- KLICKER LOOP (6 Sekunden lang, hämmert auf jeden gefundenen Dialog-Knopf)
+                    -- DER NEUE DAUER-KLICKER (Maximal 25 Sekunden)
                     local clickStart = tick()
-                    while tick() - clickStart < 6 do
+                    while tick() - clickStart < 25 do
                         PerformQuestClicking()
-                        task.wait(0.1)
+                        
+                        -- Feuere Remotes als Sicherheit
+                        pcall(function()
+                            local args = {{"npcChat", true}}
+                            ReplicatedStorage.Events.Quest:InvokeServer(unpack(args))
+                            ReplicatedStorage.Events.Quest:InvokeServer("takequest")
+                            ReplicatedStorage.Events.Quest:InvokeServer("acceptquest")
+                        end)
+                        
+                        -- WICHTIG: Wenn wir die Quest haben, brich die 25 Sekunden sofort ab!
+                        if HasActiveQuest() then
+                            break
+                        end
+                        
+                        task.wait(0.2)
                     end
-                    
-                    pcall(function()
-                        local args = {{"npcChat", true}}
-                        ReplicatedStorage.Events.Quest:InvokeServer(unpack(args))
-                        ReplicatedStorage.Events.Quest:InvokeServer("takequest")
-                        ReplicatedStorage.Events.Quest:InvokeServer("acceptquest")
-                    end)
                     
                     isQuestActive = true
                     questStartTime = tick()
-                    task.wait(1.5) 
+                    task.wait(0.5) 
                 end
             end
             
@@ -814,4 +894,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Dolphin Leap & UI Fix Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Fake Floor TP & Dauer-Quest-Klicker Active!", 4)
