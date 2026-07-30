@@ -24,11 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART NPC & ENEMY SORTER
-local KnownQuests = {
-    "Ash the Tailor", "Tyson", "Robo", "Robert", "Kevin", "Helen", "Gozen", 
-    "Axe Hand Logan", "Captain Zhen", "Pharaoh Akshan", "Moria", "Coby", "Bomi", "Haku"
-}
+--// SMART NPC & ENEMY SORTER (FIX: Zeigt jetzt zu 100% ALLE NPCs an!)
 local DynamicEnemies = {}
 local DynamicQuests = {}
 
@@ -37,16 +33,9 @@ local function SortNPCs()
         for _, npc in pairs(Workspace.NPCs:GetChildren()) do
             local hum = npc:FindFirstChildOfClass("Humanoid")
             if hum then
-                local isQuest = false
-                if table.find(KnownQuests, npc.Name) or string.find(npc.Name:lower(), "quest") then
-                    isQuest = true
-                end
-                
-                if isQuest then
-                    if not table.find(DynamicQuests, npc.Name) then table.insert(DynamicQuests, npc.Name) end
-                else
-                    if not table.find(DynamicEnemies, npc.Name) then table.insert(DynamicEnemies, npc.Name) end
-                end
+                -- Keine Filter mehr! Jeder NPC kann Questgeber oder Feind sein.
+                if not table.find(DynamicQuests, npc.Name) then table.insert(DynamicQuests, npc.Name) end
+                if not table.find(DynamicEnemies, npc.Name) then table.insert(DynamicEnemies, npc.Name) end
             end
         end
     end
@@ -55,8 +44,8 @@ local function SortNPCs()
 end
 SortNPCs()
 
-if #DynamicEnemies == 0 then DynamicEnemies = {"Bandit", "Bandit Boss", "Corrupt Marine"} end
-if #DynamicQuests == 0 then DynamicQuests = {"Ash the Tailor", "Tyson"} end
+if #DynamicEnemies == 0 then DynamicEnemies = {"Bandit", "Bandit Boss", "Corrupt Marine", "Fishman"} end
+if #DynamicQuests == 0 then DynamicQuests = {"Daph", "Ash the Tailor", "Tyson", "Helen"} end
 
 --// RYU CONFIGURATION
 local RyuConfig = {
@@ -74,6 +63,7 @@ local RyuConfig = {
     
     TweenSpeed = 55, 
     KillHeight = 7, 
+    FishmanSpeed = 150 -- NEU: Eigener Speed für den Smart Cave TP
 }
 
 local GPOIslands = {
@@ -300,6 +290,12 @@ local function CreateSlider(section, text, min, max, default, callback)
     UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); setSlider(math.floor(min + (max - min) * relative)) end end)
 end
 
+local function CreateButton(section, text, callback)
+    local btn = Instance.new("TextButton", section); btn.Size = UDim2.new(0.92, 0, 0, 34); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = text; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 13; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    local stroke = Instance.new("UIStroke", btn); stroke.Color = Theme.Stroke; stroke.Thickness = 1
+    btn.Activated:Connect(function() if callback then callback() end end)
+end
+
 --// ANTI-FLING HOVER SYSTEM
 local function ToggleHover(state)
     local char = LocalPlayer.Character
@@ -356,9 +352,74 @@ end)
 
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
-local SecMovement = CreateSection(SubMovement, "Movement Settings")
 
-CreateToggle(SecMovement, "Noclip (Walk through walls)", RyuConfig.Noclip, function(state) 
+-- NEU: FISHMAN CAVE SMART TP SECTION
+local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
+
+CreateSlider(SecMovement, "Fishman Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
+    RyuConfig.FishmanSpeed = val
+end)
+
+CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
+    task.spawn(function()
+        local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
+        if not cave then
+            RyuNotify:Send("Fehler", "Fishman Cave ist nicht geladen/gefunden!", 3)
+            return
+        end
+        
+        local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        RyuNotify:Send("Smart TP", "Starte sichere Sky-Route...", 2)
+        ToggleHover(true)
+        
+        -- Inline Lerp Function für den Fishman TP (nutzt FishmanSpeed)
+        local function CustomLerp(tPos)
+            local dist = (root.Position - tPos).Magnitude
+            local t = dist / RyuConfig.FishmanSpeed
+            if t < 0.1 then root.CFrame = CFrame.new(tPos) return end
+            
+            local startPos = root.Position
+            local startTime = tick()
+            while tick() - startTime < t do
+                local alpha = (tick() - startTime) / t
+                local intermediatePos = startPos:Lerp(tPos, alpha)
+                
+                local bp = root:FindFirstChild("RyuHover")
+                if bp then bp.Position = intermediatePos end
+                
+                root.CFrame = CFrame.lookAt(intermediatePos, tPos)
+                RunService.Heartbeat:Wait()
+            end
+            root.CFrame = CFrame.new(tPos)
+        end
+        
+        -- Phase 1: Straight UP (Hindernissen ausweichen)
+        local safeY = 1500
+        local upPos = Vector3.new(root.Position.X, safeY, root.Position.Z)
+        CustomLerp(upPos)
+        
+        -- Phase 2: Across the map
+        RyuNotify:Send("Smart TP", "Überfliege die Map...", 2)
+        local acrossPos = Vector3.new(targetPos.X, safeY, targetPos.Z)
+        CustomLerp(acrossPos)
+        
+        -- Phase 3: Straight DOWN zur Höhle
+        RyuNotify:Send("Smart TP", "Sichere Landung...", 2)
+        local finalPos = targetPos + Vector3.new(0, 50, 0)
+        CustomLerp(finalPos)
+        
+        ToggleHover(false)
+        RyuNotify:Send("Smart TP", "Willkommen in der Fishman Cave!", 3)
+    end)
+end)
+
+
+local SecMisc = CreateSection(SubMovement, "Movement Settings")
+CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(state) 
     RyuConfig.Noclip = state 
 end)
 
@@ -462,63 +523,18 @@ end)
 --// ============================================================================
 --// GPO MASTER KITE FARM (SMART GROUPING & QUEST FIX)
 --// ============================================================================
-
--- NEU: BOMBENSICHERER QUEST SCANNER (Zielt auf QuestTracker)
-local function HasActiveQuest()
-    local hasQuest = false
-    pcall(function()
-        -- Fallback 1: Data Ordner
-        local q = LocalPlayer:FindFirstChild("Quest")
-        if q and q:FindFirstChild("CurrentQuest") then
-            local val = q.CurrentQuest.Value
-            if val ~= "" and val ~= "None" then hasQuest = true return end
-        end
-        
-        -- Tracker Scanner 2: Sucht gezielt den QuestTracker
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            local tracker = pg:FindFirstChild("QuestTracker") or pg:FindFirstChild("Quest")
-            if tracker then
-                for _, v in pairs(tracker:GetDescendants()) do
-                    if v:IsA("TextLabel") and v.Visible then
-                        -- Checkt das Format "0/5" oder "0 / 5"
-                        if v.Text:match("%d+/%d+") or v.Text:match("%d+%s*/%s*%d+") then
-                            hasQuest = true
-                            return
-                        end
-                    end
-                end
-            end
-        end
-    end)
-    return hasQuest
-end
-
--- NEU: AGGRESSIVER "OKAY" DIALOG KLICKER
-local function PerformQuestClicking()
-    pcall(function()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextButton") and v.Visible then
-                    local txt = v.Text:lower()
-                    if txt:match("okay") or txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("next") then
-                        for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
-                        for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
-                    end
-                end
-            end
-        end
-    end)
+local function GetCurrentQuest()
+    local q = LocalPlayer:FindFirstChild("Quest")
+    return q and q:FindFirstChild("CurrentQuest") and q.CurrentQuest.Value or "None"
 end
 
 task.spawn(function()
     while true do
         task.wait(0.1)
         
-        --// FIX: KOMPLETT ÜBERARBEITETES AUTO-QUEST (ANTI SPAM)
+        --// FIX: KOMPLETT ÜBERARBEITETES AUTO-QUEST
         if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
-            if not HasActiveQuest() then
+            if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
                 local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
                 if npc then
                     ToggleHover(true)
@@ -527,31 +543,22 @@ task.spawn(function()
                     local root = char and char:FindFirstChild("HumanoidRootPart")
                     
                     if root then
-                        SafeTween(npcPos * CFrame.new(0, 0, 3.5))
+                        SafeTween(npcPos * CFrame.new(0, 0, 3))
                         root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                         task.wait(0.5)
                         
-                        -- Halte das ProximityPrompt virtuell gedrückt
+                        -- Prompts virtuell GEDRÜCKT HALTEN (wie ein echter Spieler)
                         if fireproximityprompt then
                             for _, p in pairs(npc:GetDescendants()) do
                                 if p:IsA("ProximityPrompt") then
-                                    p.RequiresLineOfSight = false
                                     fireproximityprompt(p, 1, true)
-                                    task.wait(p.HoldDuration + 0.1)
+                                    task.wait(0.1)
                                     fireproximityprompt(p, 0, true)
                                 end
                             end
                         end
                         task.wait(0.5)
                         
-                        -- SPAMMT DEN KLICKER FÜR 2 SEKUNDEN, UM "OKAY" ZU DRÜCKEN
-                        local clickStart = tick()
-                        while tick() - clickStart < 2 do
-                            PerformQuestClicking()
-                            task.wait(0.2)
-                        end
-                        
-                        -- Remote Fallbacks
                         local events = ReplicatedStorage:FindFirstChild("Events")
                         if events and events:FindFirstChild("Quest") then 
                             pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
@@ -560,17 +567,13 @@ task.spawn(function()
                             pcall(function() events.Quest:InvokeServer("takequest") end)
                             pcall(function() events.Quest:InvokeServer("acceptquest") end)
                         end
-                        
-                        -- WICHTIG: 2.5 Sekunden warten, damit der Tracker laden kann, ohne dass gespammt wird!
-                        task.wait(2.5)
+                        task.wait(0.5)
                     end
                 end
             end
         end
 
-        --// ============================================================================
-        --// AUTO FARM CODE (100% UNBERÜHRT, PERFEKT WIE IM CHECKPOINT)
-        --// ============================================================================
+        --// AUTO FARM CODE (UNBERÜHRT, PERFEKT WIE IM CHECKPOINT)
         if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -731,4 +734,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Auto Quest Loop Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: All NPCs Unlocked & Smart TP Ready!", 4)
