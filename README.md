@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - EXACT CLICKER & FLAT FLY)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - AC BYPASS & UI TRACKER)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -63,7 +63,7 @@ local RyuConfig = {
     TweenSpeed = 55, 
     KillHeight = 7, 
     FishmanSpeed = 140,
-    ElevatorSpeed = 22
+    ElevatorSpeed = 15 -- FIX: Gesenkt auf 15, um "+Y Axis too fast" zu verhindern
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -339,13 +339,13 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// NEU: FISHMAN CAVE SMART TP SECTION (Flacher Flug, Strenge AC Kontrolle)
+--// NEU: FISHMAN CAVE SMART TP SECTION (Mit Grounded Fix & AC Tuning)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
     RyuConfig.FishmanSpeed = val
 end)
-CreateSlider(SecMovement, "Aufzug Geschw. (Y-Achse)", 10, 150, RyuConfig.ElevatorSpeed, function(val)
+CreateSlider(SecMovement, "Aufzug Geschw. (Y-Achse)", 5, 100, RyuConfig.ElevatorSpeed, function(val)
     RyuConfig.ElevatorSpeed = val
 end)
 
@@ -359,15 +359,16 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
+        -- FIX: Große, unauffällige Plattform unter den Füßen ("Distance from Floor >15" Bypass)
         local platform = Instance.new("Part")
-        platform.Name = "RyuTPPlatform"
-        platform.Size = Vector3.new(20, 1, 20)
+        platform.Name = "Part" -- Allgemeiner Name
+        platform.Size = Vector3.new(100, 2, 100) -- Massiv, damit der AC-Raycast garantiert trifft
         platform.Anchored = true
         platform.CanCollide = true
         platform.Transparency = 0.5
         platform.Material = Enum.Material.ForceField
         platform.Color = Color3.fromRGB(0, 255, 255)
-        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.2, 0))
+        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.1, 0))
         platform.Parent = Workspace
         
         ToggleHover(true)
@@ -384,13 +385,12 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
-                -- FIX: Zwingt den Charakter, flach zu bleiben! (Kein auf dem Rücken liegen)
+                -- Hält den Spieler extrem waagerecht
                 local lookPos = Vector3.new(tPos.X, intermediatePos.Y, tPos.Z)
                 if (lookPos - intermediatePos).Magnitude < 0.1 then 
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                -- FIX: Strengere X/Y AC Kontrolle (20 Studs Abweichung)
                 if (root.Position - intermediatePos).Magnitude > 20 then
                     ToggleHover(false)
                     platform.CFrame = CFrame.new(0, 99999, 0) 
@@ -412,9 +412,10 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     if bp then bp.Position = intermediatePos end
                     
                     root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
-                    root.Velocity = Vector3.new(0, 0, 0) -- Nullt Trägheit
+                    root.Velocity = Vector3.new(0, 0, 0) 
                     
-                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.2, intermediatePos.Z)
+                    -- Hält die Plattform EXAKT auf Fuß-Höhe ("Not Grounded!" Bypass)
+                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.1, intermediatePos.Z)
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -448,14 +449,14 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         if not root then return end
         
         local platform = Instance.new("Part")
-        platform.Name = "RyuTPPlatform"
-        platform.Size = Vector3.new(20, 1, 20)
+        platform.Name = "Part"
+        platform.Size = Vector3.new(100, 2, 100)
         platform.Anchored = true
         platform.CanCollide = true
         platform.Transparency = 0.5
         platform.Material = Enum.Material.ForceField
         platform.Color = Color3.fromRGB(0, 255, 255)
-        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.2, 0))
+        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.1, 0))
         platform.Parent = Workspace
         
         ToggleHover(true)
@@ -500,7 +501,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
                     root.Velocity = Vector3.new(0, 0, 0)
                     
-                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.2, intermediatePos.Z)
+                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.1, intermediatePos.Z)
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -673,9 +674,7 @@ local function HasActiveQuest()
     return hasQuest
 end
 
--- FIX: VIRTUAL USER CLICKER AUF EXAKTER BILDSCHIRM-POSITION
-local lastClickPos = nil
-
+-- FIX: SUCHT SICH DIE POSITION JEDES KNOPFES UND KLICKT PHYSISCH DORTHIN
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -687,23 +686,18 @@ local function PerformQuestClicking()
                     local lbl = v:FindFirstChildOfClass("TextLabel")
                     if lbl then txt = txt .. " " .. lbl.Text:lower() end
                     
-                    if txt:find("okey") or txt:find("okay") or txt:find("ok") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") or txt:find("confirm") then
+                    if txt:find("okay") or txt:find("okey") or txt:find("ok") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") or txt:find("confirm") then
                         if getconnections then
                             for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                             for _, sig in pairs(getconnections(v.MouseButton1Down)) do sig:Fire() end
                             for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
                         end
-                        -- Sichert die exakte Position (+ Inset) für den Spam-Klick
-                        lastClickPos = Vector2.new(v.AbsolutePosition.X + (v.AbsoluteSize.X / 2), v.AbsolutePosition.Y + (v.AbsoluteSize.Y / 2) + 36)
+                        -- PHYSISCHER KLICK: Wenn er "Okay!" oder "..." sieht, klickt er genau dort!
+                        VirtualUser:CaptureController()
+                        VirtualUser:ClickButton1(Vector2.new(v.AbsolutePosition.X + (v.AbsoluteSize.X / 2), v.AbsolutePosition.Y + (v.AbsoluteSize.Y / 2) + 36))
                     end
                 end
             end
-        end
-        
-        -- Physischer Fallback-Klick auf den gemerkten Button!
-        if lastClickPos then
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton1(lastClickPos)
         end
     end)
 end
@@ -758,7 +752,6 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
-                    -- FIX: Klickt für bis zu 25s und spamt echte physische Klicks auf die selbe Position!
                     local clickStart = tick()
                     while tick() - clickStart < 25 do
                         PerformQuestClicking()
@@ -771,7 +764,7 @@ task.spawn(function()
                         end)
                         
                         if (tick() - clickStart > 4) and HasActiveQuest() then break end
-                        task.wait(0.2) -- Extrem schneller Klick-Spam
+                        task.wait(0.2)
                     end
                     
                     isQuestActive = true
@@ -939,4 +932,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Strict AC Check & Physical AutoQuest Clicker Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: AC Bypass & UI Clicker Active!", 4)
