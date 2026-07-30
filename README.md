@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - PURE REMOTE & DUMP FIXES)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FUSION & AC BLIND)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -288,13 +288,20 @@ local function CreateButton(section, text, callback)
     btn.Activated:Connect(function() if callback then callback() end end)
 end
 
---// ANTI-FLING HOVER SYSTEM
+--// ============================================================================
+--// ANTI-FLING & AC BYPASS HOVER SYSTEM (Mit 'evading' Backend-Hook)
+--// ============================================================================
 local function ToggleHover(state)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
     if state then
+        -- FIX: Nutzt den HumanoidChecks Dump, um das AC komplett blind zu machen
+        char:SetAttribute("evading", true)
+        _G.soruDashing = true
+        _G.grounded = true
+        
         local bp = root:FindFirstChild("RyuHover")
         if not bp then
             bp = Instance.new("BodyPosition")
@@ -306,6 +313,9 @@ local function ToggleHover(state)
         end
         bp.Position = root.Position
     else
+        char:SetAttribute("evading", nil)
+        _G.soruDashing = nil
+        
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp:Destroy() end
     end
@@ -362,14 +372,13 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        -- FIX: Dynamische HipHeight-Berechnung aus dem Dump
         local hum = char:FindFirstChildOfClass("Humanoid")
         local hipHeight = hum and hum.HipHeight or 2.15
-        local floorOffset = hipHeight + (root.Size.Y / 2) -- Genau am Fußende des Modells
+        local floorOffset = hipHeight + (root.Size.Y / 2)
         
         local platform = Instance.new("Part")
         platform.Name = "Part" 
-        platform.Size = Vector3.new(300, 5, 300) -- Massiver unsichtbarer Boden
+        platform.Size = Vector3.new(300, 5, 300) 
         platform.Anchored = true
         platform.CanCollide = true
         platform.Transparency = 0.5
@@ -419,10 +428,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
                     root.Velocity = Vector3.new(0, 0, 0) 
                     
-                    -- FIX: Exakte Anpassung auf den Millimeter
                     platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
                     
-                    -- PURE BACKEND AC-BYPASS (Trickt die lokalen Client-Skripte aus)
+                    -- PURE BACKEND AC-BYPASS
                     char:SetAttribute("Grounded", true)
                     _G.grounded = true
                 end
@@ -697,11 +705,8 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: PURE DATA QUEST SCANNER
+--// HARMONY CORE: FUSION (AUTO QUEST + AUTO FARM)
 --// ============================================================================
-
-local isQuestActive = false
-local questStartTime = 0
 
 local function HasActiveQuest()
     local hasQuest = false
@@ -717,34 +722,33 @@ local function HasActiveQuest()
     return hasQuest
 end
 
---// ============================================================================
---// THE ULTIMATE HARMONY LOOP (QUEST -> FARM -> QUEST)
---// ============================================================================
+-- Das System wurde komplett in eine vereinte Schleife verschmolzen
 task.spawn(function()
+    local wasQuestActive = false
+
     while true do
         task.wait(0.1)
         
-        local actuallyHasQuest = HasActiveQuest()
-        
-        if isQuestActive then
-            if not actuallyHasQuest then
-                isQuestActive = false
-                RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Warte 5s...", 2)
-                
-                local char = LocalPlayer.Character
-                local root = char and char:FindFirstChild("HumanoidRootPart")
-                if root then root.Velocity = Vector3.new(0, 0, 0) end
-                
-                task.wait(5) 
-                
-            elseif tick() - questStartTime > 120 then
-                isQuestActive = false
-                RyuNotify:Send("Auto Quest", "Timeout (2 Min)! Hole Quest neu...", 2)
-            end
+        if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then
+            continue
         end
         
-        --// PHASE 1: AUTO QUEST (NO DIALOG, PURE REMOTES)
-        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not actuallyHasQuest then
+        local currentlyHasQuest = HasActiveQuest()
+        
+        -- STATUS-WECHSEL: Quest wurde soeben abgeschlossen!
+        if wasQuestActive and not currentlyHasQuest then
+            RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Warte 5s...", 2)
+            
+            local char = LocalPlayer.Character
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root then root.Velocity = Vector3.new(0, 0, 0) end
+            
+            task.wait(5)
+        end
+        wasQuestActive = currentlyHasQuest
+        
+        --// PHASE 1: QUEST ANNEHMEN (Ohne Dialog, Pure Backend)
+        if RyuConfig.AutoQuest and not currentlyHasQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
                 ToggleHover(true)
@@ -756,21 +760,25 @@ task.spawn(function()
                     -- Fliege zum NPC (Nah genug für den Remote)
                     SafeTween(npcPos * CFrame.new(0, 0, 3.5))
                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
-                    task.wait(0.3)
                     
-                    -- PURE REMOTE QUESTING (Ohne nerviges Klicken oder UI-Scannen!)
+                    -- PURE REMOTE QUESTING
                     pcall(function()
                         local QuestEvent = ReplicatedStorage.Events.Quest
+                        
+                        -- Initialisiert das Gespräch
                         QuestEvent:InvokeServer({"npcChat", true})
                         task.wait(0.1)
                         
+                        -- Nimmt die Quest an
                         local questString = "Help " .. RyuConfig.TargetNPC
                         QuestEvent:InvokeServer({"takequest", questString})
                         QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
                         
+                        -- Fallback ohne Argumente
                         QuestEvent:InvokeServer({"takequest"})
                         QuestEvent:InvokeServer("takequest")
                         
+                        -- Bestätigt die Quest
                         QuestEvent:InvokeServer({"acceptquest"})
                         QuestEvent:InvokeServer("acceptquest")
                     end)
@@ -778,10 +786,7 @@ task.spawn(function()
                     task.wait(1)
                     
                     if HasActiveQuest() then
-                        isQuestActive = true
-                        questStartTime = tick()
-                        RyuNotify:Send("Auto Quest", "Quest per Remote angenommen! Warte 3s...", 3)
-                        task.wait(3) 
+                        RyuNotify:Send("Auto Quest", "Quest per Remote angenommen!", 2)
                     else
                         RyuNotify:Send("Auto Quest", "Remote-Versuch 2 läuft...", 1)
                         task.wait(1)
@@ -789,8 +794,8 @@ task.spawn(function()
                 end
             end
             
-        --// PHASE 2: AUTO FARM (Darf nicht angefasst werden!)
-        elseif RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" and (isQuestActive or not RyuConfig.AutoQuest) then
+        --// PHASE 2: MONSTER TÖTEN (Darf nicht angefasst werden!)
+        elseif RyuConfig.AutoFarm and (currentlyHasQuest or not RyuConfig.AutoQuest) and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -812,7 +817,6 @@ task.spawn(function()
                     end
                     
                     local aggroedMobs = {}
-                    
                     EquipCombat()
                     
                     for _, mob in pairs(validMobs) do
@@ -938,7 +942,6 @@ task.spawn(function()
                             end
                         end
                     end
-                    
                 end
             end
         end
@@ -946,4 +949,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Backend God Mode Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Perfect Fusion & God Mode Active!", 4)
