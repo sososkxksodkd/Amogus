@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - JUMP BYPASS & FLAT FLOOR)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - PERFECT HOVERBOARD & 5S DELAY)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -403,8 +403,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     if bp then bp.Position = intermediatePos end
                     root.CFrame = CFrame.lookAt(intermediatePos, tPos)
                     
-                    -- FIX: Boden bleibt permanent zu 100% waagerecht (flach)!
-                    platform.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.5, 0))
+                    -- FIX: Boden ist an die Route (intermediatePos) gekoppelt und bleibt zu 100% waagerecht!
+                    -- Das verhindert Jittering und zwingt dich NICHT nach oben.
+                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.55, intermediatePos.Z)
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -481,8 +482,8 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     if bp then bp.Position = intermediatePos end
                     root.CFrame = CFrame.lookAt(intermediatePos, tPos)
                     
-                    -- FIX: Boden bleibt permanent zu 100% waagerecht (flach)!
-                    platform.CFrame = CFrame.new(root.Position - Vector3.new(0, 3.5, 0))
+                    -- FIX: Boden bleibt permanent zu 100% waagerecht an der mathematischen Route!
+                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.55, intermediatePos.Z)
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -685,9 +686,18 @@ task.spawn(function()
         task.wait(0.1)
         
         if isQuestActive then
+            -- NEU: Check auf Completed + 5 Sekunden Pause!
             if CheckQuestCompleted() then
                 isQuestActive = false
-                RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Hole neue...", 2)
+                RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Warte 5s...", 2)
+                
+                -- Stopft jede Bewegung kurz, um in Ruhe durchzuatmen
+                local char = LocalPlayer.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                if root then root.Velocity = Vector3.new(0, 0, 0) end
+                
+                task.wait(5) -- Die geforderte 5-Sekunden-Verzögerung für Auto Farm!
+                
             elseif tick() - questStartTime > 120 then
                 isQuestActive = false
                 RyuNotify:Send("Auto Quest", "Timeout (2 Min)! Hole Quest neu...", 2)
@@ -738,7 +748,7 @@ task.spawn(function()
                     isQuestActive = true
                     questStartTime = tick()
                     
-                    -- FIX: 3 Sekunden Verzögerung nach der Quest-Annahme!
+                    -- FIX: 3 Sekunden Verzögerung nach der Quest-Annahme (Auto Farm greift später ein!)
                     RyuNotify:Send("Auto Quest", "Quest angenommen! Warte 3s auf Auto Farm...", 3)
                     task.wait(3) 
                 end
