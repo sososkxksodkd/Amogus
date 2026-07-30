@@ -135,7 +135,14 @@ local MainFrame = Instance.new("Frame"); MainFrame.Size = currentMainSize; MainF
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
 
-local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
+local ResizeGrip = Instance.new("TextButton", MainFrame)
+ResizeGrip.Size = UDim2.new(0, 20, 0, 20)
+ResizeGrip.Position = UDim2.new(1, -20, 1, -20)
+ResizeGrip.BackgroundTransparency = 1
+ResizeGrip.Text = "◢"
+ResizeGrip.TextColor3 = Theme.SubText
+ResizeGrip.TextSize = 16
+ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
@@ -266,7 +273,7 @@ end
 --// UI AUFBAU: FARM (FISHMAN CAVE FARM)
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
-local SubStats = CreateSubTab(TabFarm, "Stats") -- NEU: Auto Stats Tab
+local SubStats = CreateSubTab(TabFarm, "Stats") 
 
 local SecAutoFarmMain = CreateSection(SubLeveling, "FISHMAN CAVE FARM")
 CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) 
@@ -541,7 +548,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
     end)
 end)
 
---// NEU: AUTO STATS UI (GETRENNTE TOGGLES FÜR ALLE PUNKTE)
+--// AUTO STATS UI (GETRENNTE TOGGLES FÜR ALLE PUNKTE)
 local SecAutoStats = CreateSection(SubStats, "Auto Stats System")
 CreateToggle(SecAutoStats, "Auto Strength", RyuConfig.AutoStrength, function(state) 
     RyuConfig.AutoStrength = state 
@@ -664,7 +671,6 @@ RunService.Stepped:Connect(function()
     end
 end)
 
-
 --// ============================================================================
 --// HARMONY CORE: 1-BY-1 FARM, QUEST FUSION & FAIL-SAFE
 --// ============================================================================
@@ -739,19 +745,19 @@ task.spawn(function()
     end
 end)
 
---// NEU: AUTO STATS LOOP (5 REMOTES / 3 SEKUNDEN)
+--// FIX: AUTO STATS LOOP (EXAKTE REMOTE STRUKTUR AUS DUMP)
 task.spawn(function()
     while true do
-        task.wait(3) -- Alle 3 Sekunden prüfen
+        task.wait(3) 
         
         local function upgradeStat(statName)
-            for i = 1, 5 do -- Feuert 5x schnell hintereinander
+            for i = 1, 5 do 
                 pcall(function()
                     local args = {
-                        [1] = statName,
+                        statName,
                         [3] = 1
                     }
-                    ReplicatedStorage.Events.stats:FireServer(unpack(args))
+                    ReplicatedStorage:WaitForChild("Events"):WaitForChild("stats"):FireServer(unpack(args))
                 end)
             end
         end
@@ -863,4 +869,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Fast Auto Stats Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Perfect Auto Stats Active!", 4)
