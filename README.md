@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - FUSION & AC BLIND)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - NO DELAY & NEW EXPLOITS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -69,7 +69,11 @@ local RyuConfig = {
     AntiStun = false,
     InfGeppo = false,
     NoDrown = false,
-    FastAttack = false
+    FastAttack = false,
+    Invincibility = false,
+    CoinMagnet = false,
+    NoWeather = false,
+    AutoFish = false
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -289,7 +293,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// ANTI-FLING & AC BYPASS HOVER SYSTEM (Mit 'evading' Backend-Hook)
+--// ANTI-FLING & AC BYPASS HOVER SYSTEM
 --// ============================================================================
 local function ToggleHover(state)
     local char = LocalPlayer.Character
@@ -297,7 +301,6 @@ local function ToggleHover(state)
     if not root then return end
     
     if state then
-        -- FIX: Nutzt den HumanoidChecks Dump, um das AC komplett blind zu machen
         char:SetAttribute("evading", true)
         _G.soruDashing = true
         _G.grounded = true
@@ -313,7 +316,9 @@ local function ToggleHover(state)
         end
         bp.Position = root.Position
     else
-        char:SetAttribute("evading", nil)
+        if not RyuConfig.Invincibility then
+            char:SetAttribute("evading", nil)
+        end
         _G.soruDashing = nil
         
         local bp = root:FindFirstChild("RyuHover")
@@ -430,7 +435,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     
                     platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
                     
-                    -- PURE BACKEND AC-BYPASS
                     char:SetAttribute("Grounded", true)
                     _G.grounded = true
                 end
@@ -547,11 +551,14 @@ CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(
     RyuConfig.Noclip = state 
 end)
 
---// UI AUFBAU: GOD MODE (Backend Exploits)
+--// UI AUFBAU: GOD MODE & MISC
 local TabGodMode = CreateMainTab("God Mode")
 local SubExploits = CreateSubTab(TabGodMode, "Exploits")
 
 local SecCombatGod = CreateSection(SubExploits, "Combat Overrides")
+CreateToggle(SecCombatGod, "Invincibility (I-Frames/No Hit)", RyuConfig.Invincibility, function(state)
+    RyuConfig.Invincibility = state
+end)
 CreateToggle(SecCombatGod, "Anti-Stun (Bypass CC)", RyuConfig.AntiStun, function(state)
     RyuConfig.AntiStun = state
 end)
@@ -566,7 +573,17 @@ end)
 CreateToggle(SecWorldGod, "Infinite Geppo (Fly)", RyuConfig.InfGeppo, function(state)
     RyuConfig.InfGeppo = state
 end)
+CreateToggle(SecWorldGod, "Clear Weather (No Fog/Rain)", RyuConfig.NoWeather, function(state)
+    RyuConfig.NoWeather = state
+end)
 
+local SecFarmingMisc = CreateSection(SubExploits, "Misc Automations")
+CreateToggle(SecFarmingMisc, "Auto Coin/Drop Magnet", RyuConfig.CoinMagnet, function(state)
+    RyuConfig.CoinMagnet = state
+end)
+CreateToggle(SecFarmingMisc, "Auto Fishing (AFK Catch)", RyuConfig.AutoFish, function(state)
+    RyuConfig.AutoFish = state
+end)
 
 --// ============================================================================
 --// MODULE HOOKING: PC COMBAT ENGINE & BACKEND HACKS
@@ -602,6 +619,7 @@ local function PerformAttack()
     local inputModule = GetInputCallbacks()
     pcall(function()
         if RyuConfig.FastAttack or (inputModule and inputModule.Utils.canAutoM1()) then
+            -- M1 via lokales Modul (Das ist die 100% Ban-sichere Methode statt Remotes!)
             inputModule.Callbacks.Attack:PC_Activate()
             inputModule.Callbacks.Attack:PC_Activate()
         else
@@ -651,10 +669,14 @@ local function SafeTween(targetCFrame)
 end
 
 --// ============================================================================
---// GOD MODE BACKEND LOOP (Anti-Stun, No Drown, Inf Geppo)
+--// GOD MODE BACKEND LOOP (I-Frames, Drops, Weather, Stun)
 --// ============================================================================
 RunService.Heartbeat:Connect(function()
     local char = LocalPlayer.Character
+    
+    if RyuConfig.Invincibility and char then
+        char:SetAttribute("evading", true)
+    end
     
     if RyuConfig.AntiStun then
         _G.canuse = true
@@ -689,6 +711,40 @@ RunService.Heartbeat:Connect(function()
     if RyuConfig.InfGeppo then
         _G.geppo = 1
     end
+    
+    if RyuConfig.NoWeather then
+        game.Lighting.FogEnd = 100000
+        game.Lighting.GlobalShadows = false
+        if game.Lighting:FindFirstChild("Atmosphere") then
+            game.Lighting.Atmosphere.Density = 0
+        end
+        local rain = Workspace.Effects:FindFirstChild("__RainEmitter")
+        if rain then rain:Destroy() end
+    end
+    
+    if RyuConfig.CoinMagnet and char and char:FindFirstChild("HumanoidRootPart") then
+        local myRoot = char.HumanoidRootPart
+        for _, v in pairs(Workspace.Effects:GetChildren()) do
+            if v.Name == "Coin" or v.Name == "Peli" then
+                if v:IsA("Model") and v.PrimaryPart then
+                    v:SetPrimaryPartCFrame(myRoot.CFrame)
+                elseif v:IsA("BasePart") then
+                    v.CFrame = myRoot.CFrame
+                end
+            end
+        end
+    end
+    
+    if RyuConfig.AutoFish and char then
+        local rod = char:FindFirstChild("FishingRod") or char:FindFirstChild("Fishing Rod") or char:FindFirstChild("Wooden Fishing Rod")
+        if rod then
+            local hook = Workspace:FindFirstChild("Hook", true)
+            if hook and hook:GetAttribute("Caught") then
+                VirtualUser:CaptureController()
+                VirtualUser:ClickButton1(Vector2.new())
+            end
+        end
+    end
 end)
 
 RunService.Stepped:Connect(function()
@@ -705,7 +761,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: FUSION (AUTO QUEST + AUTO FARM)
+--// HARMONY CORE: FUSION (AUTO QUEST + AUTO FARM ZERO DELAY)
 --// ============================================================================
 
 local function HasActiveQuest()
@@ -722,7 +778,6 @@ local function HasActiveQuest()
     return hasQuest
 end
 
--- Das System wurde komplett in eine vereinte Schleife verschmolzen
 task.spawn(function()
     local wasQuestActive = false
 
@@ -737,17 +792,12 @@ task.spawn(function()
         
         -- STATUS-WECHSEL: Quest wurde soeben abgeschlossen!
         if wasQuestActive and not currentlyHasQuest then
-            RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Warte 5s...", 2)
-            
-            local char = LocalPlayer.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if root then root.Velocity = Vector3.new(0, 0, 0) end
-            
-            task.wait(5)
+            RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Hole sofort neue...", 2)
+            -- Keine Pause mehr! Wir gehen direkt über zum Holen der neuen Quest.
         end
         wasQuestActive = currentlyHasQuest
         
-        --// PHASE 1: QUEST ANNEHMEN (Ohne Dialog, Pure Backend)
+        --// PHASE 1: QUEST ANNEHMEN (Ohne Dialog, Pure Backend, Keine Pausen)
         if RyuConfig.AutoQuest and not currentlyHasQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
@@ -761,35 +811,24 @@ task.spawn(function()
                     SafeTween(npcPos * CFrame.new(0, 0, 3.5))
                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
                     
-                    -- PURE REMOTE QUESTING
+                    -- PURE REMOTE QUESTING (Instant)
                     pcall(function()
                         local QuestEvent = ReplicatedStorage.Events.Quest
-                        
-                        -- Initialisiert das Gespräch
                         QuestEvent:InvokeServer({"npcChat", true})
-                        task.wait(0.1)
                         
-                        -- Nimmt die Quest an
                         local questString = "Help " .. RyuConfig.TargetNPC
                         QuestEvent:InvokeServer({"takequest", questString})
                         QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
-                        
-                        -- Fallback ohne Argumente
                         QuestEvent:InvokeServer({"takequest"})
                         QuestEvent:InvokeServer("takequest")
-                        
-                        -- Bestätigt die Quest
                         QuestEvent:InvokeServer({"acceptquest"})
                         QuestEvent:InvokeServer("acceptquest")
                     end)
                     
-                    task.wait(1)
+                    task.wait(0.5) -- Kurze Zeit geben für das Backend-Update
                     
                     if HasActiveQuest() then
-                        RyuNotify:Send("Auto Quest", "Quest per Remote angenommen!", 2)
-                    else
-                        RyuNotify:Send("Auto Quest", "Remote-Versuch 2 läuft...", 1)
-                        task.wait(1)
+                        RyuNotify:Send("Auto Quest", "Quest angenommen! Greife an...", 2)
                     end
                 end
             end
@@ -949,4 +988,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Perfect Fusion & God Mode Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Instant Quest Fusion & Max Exploits Active!", 4)
