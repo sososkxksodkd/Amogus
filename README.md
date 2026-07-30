@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE FARM & FAST AUTO STATS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (ISLAND TP, FRUIT SAFE & AUTO STATS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -28,22 +28,33 @@ end
 local DynamicEnemies = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"}
 local DynamicQuests = {"Becky", "Daph", "Tyson", "Helen"}
 
+--// NEU: INSEL LISTE AUS WORKSPACE
+local IslandList = {
+    "???? Shrine", "Coco Island", "Colosseum", "Fishman Cave", "Gravito's Fort", 
+    "Island Of Zou", "Kori Island", "Land of the Sky", "Logue Town", "Marine Base G-1", 
+    "Marine Fort F-1", "Mysterious Cliff", "Orange Town", "Restaurant Baratie", 
+    "Reverse Mountain", "Roca Island", "Sandora", "Shark Park", "Shell's Town", 
+    "Sphinx Island", "Town of Beginnings"
+}
+
 --// RYU CONFIGURATION (HARDCODED FÜR FISHMAN CAVE)
 local RyuConfig = {
     AutoFarm = false,
     AutoQuest = false,
     QuestInterval = 45, 
     
-    TargetMob = "Fishman Karate User", -- Automatisch festgelegt
-    TargetNPC = "Becky",               -- Automatisch festgelegt
-    TargetWeapon = "Combat",           -- Standard Waffe
+    TargetMob = "Fishman Karate User", 
+    TargetNPC = "Becky",               
+    TargetWeapon = "Combat",           
     
     TweenSpeed = 50, 
     KillHeight = 7, 
     FishmanSpeed = 150, 
     ElevatorSpeed = 150,
     
-    -- NEU: Getrennte Auto Stats Toggles
+    TargetIsland = IslandList[1],
+    IslandSpeed = 150,
+    
     AutoStrength = false,
     AutoStamina = false,
     AutoDefense = false,
@@ -225,6 +236,18 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
+local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
+    local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
+    local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
+    local scroll = Instance.new("ScrollingFrame", frame); scroll.Size = UDim2.new(1, 0, 0, 130); scroll.Position = UDim2.new(0, 0, 0, 25); scroll.BackgroundColor3 = Theme.Background; scroll.ScrollBarThickness = 4; Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
+    local listLayout = Instance.new("UIListLayout", scroll); listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    for _, itemName in ipairs(itemsList) do
+        local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. itemName; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+        btn.Activated:Connect(function() RyuConfig[targetConfigKey] = itemName; header.Text = headerText .. ": " .. itemName end)
+    end
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
+end
+
 local function CreateSlider(section, text, min, max, default, callback)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 50); frame.BackgroundTransparency = 1
     local label = Instance.new("TextLabel", frame); label.Size = UDim2.new(1, 0, 0, 20); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Theme.SubText; label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
@@ -396,7 +419,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        -- FIX: 5 Sekunden Warten bei AKTIVER Plattform & Hover!
         RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
         task.wait(5)
         
@@ -404,22 +426,18 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
             local portal = areaTp.FirstSea.Fishman.Part
             
-            -- FIX: AC-Reset vor dem eigentlichen Portal-TP
             ToggleHover(false)
             task.wait(0.5)
             
             root.CFrame = portal.CFrame
             root.Velocity = Vector3.new(0, 0, 0)
             
-            -- Touch-Wackeln
             task.wait(0.1)
             root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
             
             RyuNotify:Send("Smart TP", "Teleportiert durchs Portal! Warte 5 Sekunden...", 5)
             
-            -- FIX: 5 Sekunden Wartezeit nach dem Teleport
             task.wait(5)
-            
             ToggleHover(true)
             RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
             
@@ -532,7 +550,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        -- FIX: 5 Sekunden Warten bei AKTIVER Plattform & Hover!
         RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
         task.wait(5)
         
@@ -540,22 +557,18 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
             local portal = areaTp.FirstSea.Fishman.Part
             
-            -- FIX: AC-Reset vor dem eigentlichen Portal-TP
             ToggleHover(false)
             task.wait(0.5)
             
             root.CFrame = portal.CFrame
             root.Velocity = Vector3.new(0, 0, 0)
             
-            -- Touch-Wackeln
             task.wait(0.1)
             root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
             
             RyuNotify:Send("Smart TP", "Teleportiert durchs Portal! Warte 5 Sekunden...", 5)
             
-            -- FIX: 5 Sekunden Wartezeit nach dem Teleport
             task.wait(5)
-            
             ToggleHover(true)
             RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
             
@@ -594,6 +607,133 @@ CreateToggle(SecAutoStats, "Auto Sword Mastery", RyuConfig.AutoSword, function(s
 end)
 CreateToggle(SecAutoStats, "Auto Gun Mastery", RyuConfig.AutoGun, function(state) 
     RyuConfig.AutoGun = state 
+end)
+
+--// NEU: BUY & TRANSPORTATION UI
+local TabBuy = CreateMainTab("Buy")
+local SubTransport = CreateSubTab(TabBuy, "Transportation")
+
+local SecIslandTP = CreateSection(SubTransport, "Island Teleportation")
+CreateDropdown(SecIslandTP, "Select Island", IslandList, "TargetIsland")
+CreateSlider(SecIslandTP, "Travel Speed", 50, 300, RyuConfig.IslandSpeed, function(val)
+    RyuConfig.IslandSpeed = val
+end)
+
+CreateButton(SecIslandTP, "Start Teleport (Fruit Safe)", function()
+    task.spawn(function()
+        local targetIslandName = RyuConfig.TargetIsland
+        local island = Workspace:FindFirstChild(targetIslandName)
+        if not island then 
+            RyuNotify:Send("Error", "Insel '" .. targetIslandName .. "' nicht gefunden!", 3)
+            return 
+        end
+        
+        local targetPos = island:IsA("Model") and island:GetPivot().Position or island.CFrame.Position
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        local hipHeight = hum and hum.HipHeight or 2.15
+        local floorOffset = hipHeight + (root.Size.Y / 2)
+        
+        local platform = Instance.new("Part")
+        platform.Name = "Part" 
+        platform.Size = Vector3.new(40, 3, 40) 
+        platform.Anchored = true
+        platform.CanCollide = true
+        platform.Transparency = 0.5
+        platform.Material = Enum.Material.ForceField
+        platform.Color = Color3.fromRGB(0, 255, 0) -- Grün zur Unterscheidung
+        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, floorOffset, 0))
+        platform.Parent = Workspace
+        
+        ToggleHover(true)
+        
+        -- FRUIT PROTECTION LOOP (Verhindert das Ertrinken im Ozean bei AC Drops!)
+        local isTraveling = true
+        task.spawn(function()
+            while isTraveling do
+                task.wait(0.05)
+                if char and root and root.Position.Y < 15 then
+                    root.CFrame = CFrame.new(root.Position.X, root.Position.Y + 50, root.Position.Z)
+                    root.Velocity = Vector3.new(0, 0, 0)
+                end
+            end
+        end)
+        
+        local function IslandLerp(tPos, currentSpeed)
+            local totalDist = (root.Position - tPos).Magnitude
+            local t = totalDist / currentSpeed
+            if t < 0.1 then return end
+            
+            local startPos = root.Position
+            local startTime = tick()
+            local lastDrop = tick()
+            
+            char:SetAttribute("evading", true)
+            _G.soruDashing = true
+            
+            while tick() - startTime < t do
+                local alpha = (tick() - startTime) / t
+                local intermediatePos = startPos:Lerp(tPos, alpha)
+                
+                local lookPos = Vector3.new(tPos.X, intermediatePos.Y, tPos.Z)
+                if (lookPos - intermediatePos).Magnitude < 0.1 then 
+                    lookPos = intermediatePos + root.CFrame.LookVector 
+                end
+                
+                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
+                    local isDrop = (tick() - lastDrop >= 2.5)
+                    
+                    ToggleHover(false)
+                    platform.CFrame = CFrame.new(0, 99999, 0) 
+                    
+                    if hum then hum.Jump = true end
+                    root.Velocity = Vector3.new(0, 50, 0)
+                    
+                    task.wait(isDrop and 0.7 or 1)
+                    
+                    ToggleHover(true)
+                    startPos = root.Position
+                    totalDist = (startPos - tPos).Magnitude
+                    t = totalDist / currentSpeed
+                    startTime = tick()
+                    lastDrop = tick()
+                else
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = intermediatePos end
+                    
+                    root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
+                    root.Velocity = Vector3.new(0, 0, 0) 
+                    
+                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
+                    
+                    char:SetAttribute("Grounded", true)
+                    _G.grounded = true
+                end
+                RunService.Heartbeat:Wait()
+            end
+            root.CFrame = CFrame.new(tPos)
+            
+            char:SetAttribute("evading", nil)
+            _G.soruDashing = nil
+        end
+        
+        local safeY = 1500
+        RyuNotify:Send("Island TP", "Reise nach " .. targetIslandName .. "...", 3)
+        IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed)
+        IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed)
+        IslandLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.IslandSpeed)
+        
+        isTraveling = false
+        if hum then hum.Jump = true end
+        root.Velocity = Vector3.new(0, 0, 0)
+        
+        platform:Destroy()
+        ToggleHover(false)
+        RyuNotify:Send("Island TP", "Ziel erreicht!", 3)
+    end)
 end)
 
 --// ============================================================================
@@ -775,7 +915,7 @@ task.spawn(function()
     end
 end)
 
---// FIX: AUTO STATS LOOP (OHNE UNPACK BUG)
+--// AUTO STATS LOOP
 task.spawn(function()
     while true do
         task.wait(3) 
@@ -895,4 +1035,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Fishman Cave TP Fixed!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Buy Tab & Fruit Protection Active!", 4)
