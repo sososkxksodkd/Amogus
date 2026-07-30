@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - SMART GROUP & FAST M1)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - HARMONY QUEST LOOP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SMART NPC & ENEMY SORTER (FIX: Zeigt jetzt zu 100% ALLE NPCs an!)
+--// SMART NPC & ENEMY SORTER
 local DynamicEnemies = {}
 local DynamicQuests = {}
 
@@ -33,7 +33,6 @@ local function SortNPCs()
         for _, npc in pairs(Workspace.NPCs:GetChildren()) do
             local hum = npc:FindFirstChildOfClass("Humanoid")
             if hum then
-                -- Keine Filter mehr! Jeder NPC kann Questgeber oder Feind sein.
                 if not table.find(DynamicQuests, npc.Name) then table.insert(DynamicQuests, npc.Name) end
                 if not table.find(DynamicEnemies, npc.Name) then table.insert(DynamicEnemies, npc.Name) end
             end
@@ -63,7 +62,7 @@ local RyuConfig = {
     
     TweenSpeed = 55, 
     KillHeight = 7, 
-    FishmanSpeed = 150 -- NEU: Eigener Speed für den Smart Cave TP
+    FishmanSpeed = 150
 }
 
 local GPOIslands = {
@@ -115,7 +114,7 @@ function RyuNotify:Send(title, text, duration)
     end)
 end
 
---// RAINBOW OVERHEAD TITLE (Volt Optimized)
+--// RAINBOW OVERHEAD TITLE
 local function AddRainbowTag(character)
     local head = character:WaitForChild("Head", 5)
     if head then
@@ -147,7 +146,7 @@ end
 if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
 LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
 
---// UI SETUP (Reskalierbar)
+--// UI SETUP
 local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50) }
 local currentMainSize = UDim2.new(0, 550, 0, 380) 
 local SidebarWidth = 150
@@ -353,10 +352,10 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
--- NEU: FISHMAN CAVE SMART TP SECTION
+--// NEU: FISHMAN CAVE SMART TP SECTION (Mit Boden- & Sky-Tween)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
-CreateSlider(SecMovement, "Fishman Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
+CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
     RyuConfig.FishmanSpeed = val
 end)
 
@@ -376,7 +375,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         RyuNotify:Send("Smart TP", "Starte sichere Sky-Route...", 2)
         ToggleHover(true)
         
-        -- Inline Lerp Function für den Fishman TP (nutzt FishmanSpeed)
         local function CustomLerp(tPos)
             local dist = (root.Position - tPos).Magnitude
             local t = dist / RyuConfig.FishmanSpeed
@@ -397,7 +395,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             root.CFrame = CFrame.new(tPos)
         end
         
-        -- Phase 1: Straight UP (Hindernissen ausweichen)
+        -- Phase 1: Straight UP
         local safeY = 1500
         local upPos = Vector3.new(root.Position.X, safeY, root.Position.Z)
         CustomLerp(upPos)
@@ -407,8 +405,54 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local acrossPos = Vector3.new(targetPos.X, safeY, targetPos.Z)
         CustomLerp(acrossPos)
         
-        -- Phase 3: Straight DOWN zur Höhle
+        -- Phase 3: Straight DOWN
         RyuNotify:Send("Smart TP", "Sichere Landung...", 2)
+        local finalPos = targetPos + Vector3.new(0, 50, 0)
+        CustomLerp(finalPos)
+        
+        ToggleHover(false)
+        RyuNotify:Send("Smart TP", "Willkommen in der Fishman Cave!", 3)
+    end)
+end)
+
+-- NEU: Direkter Boden-TP Button
+CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
+    task.spawn(function()
+        local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
+        if not cave then
+            RyuNotify:Send("Fehler", "Fishman Cave ist nicht geladen/gefunden!", 3)
+            return
+        end
+        
+        local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
+        
+        RyuNotify:Send("Smart TP", "Starte Boden-Route (Direkt)...", 2)
+        ToggleHover(true)
+        
+        local function CustomLerp(tPos)
+            local dist = (root.Position - tPos).Magnitude
+            local t = dist / RyuConfig.FishmanSpeed
+            if t < 0.1 then root.CFrame = CFrame.new(tPos) return end
+            
+            local startPos = root.Position
+            local startTime = tick()
+            while tick() - startTime < t do
+                local alpha = (tick() - startTime) / t
+                local intermediatePos = startPos:Lerp(tPos, alpha)
+                
+                local bp = root:FindFirstChild("RyuHover")
+                if bp then bp.Position = intermediatePos end
+                
+                root.CFrame = CFrame.lookAt(intermediatePos, tPos)
+                RunService.Heartbeat:Wait()
+            end
+            root.CFrame = CFrame.new(tPos)
+        end
+        
+        -- Direkter Tween (ohne Phase 1 und Phase 2)
         local finalPos = targetPos + Vector3.new(0, 50, 0)
         CustomLerp(finalPos)
         
@@ -453,7 +497,6 @@ local function EquipCombat()
     end
 end
 
--- EXTRA SCHNELLE SCHLÄGE
 local function PerformAttack()
     local inputModule = GetInputCallbacks()
     pcall(function()
@@ -489,9 +532,10 @@ local function SafeTween(targetCFrame)
 
     local startTime = tick()
     while tick() - startTime < timeToTake do
+        -- Breche ab, wenn Farm/Quest ausgeschaltet wurde
         if not RyuConfig.AutoFarm and not RyuConfig.AutoQuest then break end
-        local alpha = (tick() - startTime) / timeToTake
         
+        local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
         
         local bp = root:FindFirstChild("RyuHover")
@@ -506,7 +550,6 @@ local function SafeTween(targetCFrame)
     root.CFrame = targetCFrame
 end
 
---// NEUES GPO-SICHERES NOCLIP SYSTEM
 RunService.Stepped:Connect(function()
     if RyuConfig.Noclip or RyuConfig.AutoFarm or RyuConfig.AutoQuest then
         local char = LocalPlayer.Character
@@ -521,60 +564,117 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// GPO MASTER KITE FARM (SMART GROUPING & QUEST FIX)
+--// HARMONY CORE: SMART QUEST SCANNER & CLICKER
 --// ============================================================================
-local function GetCurrentQuest()
-    local q = LocalPlayer:FindFirstChild("Quest")
-    return q and q:FindFirstChild("CurrentQuest") and q.CurrentQuest.Value or "None"
-end
-
-task.spawn(function()
-    while true do
-        task.wait(0.1)
-        
-        --// FIX: KOMPLETT ÜBERARBEITETES AUTO-QUEST
-        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
-            if GetCurrentQuest() == "None" or GetCurrentQuest() == "" then
-                local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
-                if npc then
-                    ToggleHover(true)
-                    local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
-                    local char = LocalPlayer.Character
-                    local root = char and char:FindFirstChild("HumanoidRootPart")
-                    
-                    if root then
-                        SafeTween(npcPos * CFrame.new(0, 0, 3))
-                        root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
-                        task.wait(0.5)
-                        
-                        -- Prompts virtuell GEDRÜCKT HALTEN (wie ein echter Spieler)
-                        if fireproximityprompt then
-                            for _, p in pairs(npc:GetDescendants()) do
-                                if p:IsA("ProximityPrompt") then
-                                    fireproximityprompt(p, 1, true)
-                                    task.wait(0.1)
-                                    fireproximityprompt(p, 0, true)
-                                end
-                            end
+local function HasActiveQuest()
+    local hasQuest = false
+    pcall(function()
+        -- 1. Zielt gezielt auf den QuestTracker oben links
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            local tracker = pg:FindFirstChild("QuestTracker") or pg:FindFirstChild("Quest")
+            if tracker then
+                for _, v in pairs(tracker:GetDescendants()) do
+                    if v:IsA("TextLabel") and v.Visible then
+                        if v.Text:match("%d+/%d+") or v.Text:match("%d+%s*/%s*%d+") then 
+                            hasQuest = true
+                            return
                         end
-                        task.wait(0.5)
-                        
-                        local events = ReplicatedStorage:FindFirstChild("Events")
-                        if events and events:FindFirstChild("Quest") then 
-                            pcall(function() events.Quest:InvokeServer("getNPCQuestLocations") end)
-                            pcall(function() events.Quest:InvokeServer({{"npcChat", true}}) end)
-                            task.wait(0.3)
-                            pcall(function() events.Quest:InvokeServer("takequest") end)
-                            pcall(function() events.Quest:InvokeServer("acceptquest") end)
-                        end
-                        task.wait(0.5)
                     end
                 end
             end
         end
+        -- 2. Fallback im Data Folder
+        local q = LocalPlayer:FindFirstChild("Quest")
+        if q and q:FindFirstChild("CurrentQuest") then
+            local val = q.CurrentQuest.Value
+            if val ~= "" and val ~= "None" then hasQuest = true return end
+        end
+    end)
+    return hasQuest
+end
 
-        --// AUTO FARM CODE (UNBERÜHRT, PERFEKT WIE IM CHECKPOINT)
-        if RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
+local function PerformQuestClicking()
+    pcall(function()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, v in pairs(pg:GetDescendants()) do
+                if v:IsA("TextButton") and v.Visible then
+                    local txt = v.Text:lower()
+                    if txt:match("okay") or txt:match("%.%.%.") or txt:match("…") or txt:match("yes") or txt:match("accept") or txt:match("sure") or txt:match("next") then
+                        for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
+                        for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
+                    end
+                end
+            end
+        end
+    end)
+end
+
+--// ============================================================================
+--// THE ULTIMATE HARMONY LOOP (QUEST -> FARM -> QUEST)
+--// ============================================================================
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        
+        local hasQuest = HasActiveQuest()
+        
+        --// PHASE 1: AUTO QUEST (Priorität: Nur wenn wir KEINE Quest haben!)
+        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" and not hasQuest then
+            local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
+            if npc then
+                ToggleHover(true)
+                local npcPos = npc:IsA("Model") and npc:GetPivot() or npc.CFrame
+                local char = LocalPlayer.Character
+                local root = char and char:FindFirstChild("HumanoidRootPart")
+                
+                if root then
+                    SafeTween(npcPos * CFrame.new(0, 0, 3))
+                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
+                    task.wait(0.5)
+                    
+                    if fireproximityprompt then
+                        for _, p in pairs(npc:GetDescendants()) do
+                            if p:IsA("ProximityPrompt") then
+                                fireproximityprompt(p, 1, true)
+                                task.wait(0.1)
+                                fireproximityprompt(p, 0, true)
+                            end
+                        end
+                    end
+                    task.wait(0.5)
+                    
+                    -- Klickt unaufhörlich auf "Okay", "..." u.s.w.
+                    local clickStart = tick()
+                    while tick() - clickStart < 2 do
+                        PerformQuestClicking()
+                        task.wait(0.2)
+                    end
+                    
+                    -- NEU: DEIN PERFEKTER REMOTE FIX
+                    pcall(function()
+                        local args = {
+                            {
+                                "npcChat",
+                                true
+                            }
+                        }
+                        game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer(unpack(args))
+                    end)
+                    
+                    -- Sicherheits-Fallbacks
+                    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer("takequest") end)
+                    pcall(function() game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Quest"):InvokeServer("acceptquest") end)
+                    
+                    -- WARTEN: Das Spiel lädt jetzt in Ruhe den QuestTracker (Verhindert jeglichen Spam)
+                    task.wait(2.5)
+                end
+            end
+            
+        --// PHASE 2: AUTO FARM (Startet nur: Wenn Quest vorhanden ODER AutoQuest aus ist!)
+        -- Dieser Code ist ZU 100% UNBERÜHRT, exakt wie im Checkpoint!
+        elseif RyuConfig.AutoFarm and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" and (hasQuest or not RyuConfig.AutoQuest) then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -625,7 +725,7 @@ task.spawn(function()
                                 root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
                                 
                                 PerformAttack()
-                                RunService.Heartbeat:Wait() -- Null Verzögerung! Fäuste fliegen sofort!
+                                RunService.Heartbeat:Wait()
                             end
                             
                             if mHum.Health > 0 and mHum.Health < startHp then
@@ -645,7 +745,6 @@ task.spawn(function()
                             
                             SafeTween(CFrame.new(skyPos))
                             
-                            -- WARTEN BIS ALLE 5 GEGNER DA SIND! (Smart Grouping)
                             local gatherTimeout = tick()
                             while RyuConfig.AutoFarm and hum.Health > 0 do
                                 if tick() - gatherTimeout > 6 then break end 
@@ -670,7 +769,6 @@ task.spawn(function()
                             local killTimeout = tick()
                             local myLastHealth = hum.Health
                             
-                            -- DAS GEMETZEL STARTET
                             while RyuConfig.AutoFarm and hum.Health > 0 do
                                 if tick() - killTimeout > 25 then break end 
                                 
@@ -717,7 +815,7 @@ task.spawn(function()
                                 end
                                 
                                 PerformAttack()
-                                RunService.Heartbeat:Wait() -- Maximum Schlag-Geschwindigkeit
+                                RunService.Heartbeat:Wait()
                             end
                             
                             for _, mob in pairs(aggroedMobs) do
@@ -734,4 +832,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: All NPCs Unlocked & Smart TP Ready!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Quest/Farm Harmony Loaded!", 4)
