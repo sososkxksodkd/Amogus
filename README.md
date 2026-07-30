@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - PURE REMOTE QUESTING)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - GOD MODE & BACKEND HOOKS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -9,6 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser = game:GetService("VirtualUser")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -62,7 +63,13 @@ local RyuConfig = {
     TweenSpeed = 55, 
     KillHeight = 7, 
     FishmanSpeed = 140,
-    ElevatorSpeed = 15
+    ElevatorSpeed = 15,
+    
+    -- GOD MODE CONFIG
+    AntiStun = false,
+    InfGeppo = false,
+    NoDrown = false,
+    FastAttack = false
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -304,7 +311,7 @@ local function ToggleHover(state)
     end
 end
 
--- UI AUFBAU
+--// UI AUFBAU: FARM
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 
@@ -313,11 +320,9 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
-
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
     RyuConfig.DynamicHeight = state 
 end)
-
 CreateToggle(SecAutoFarmMain, "Auto Quest", RyuConfig.AutoQuest, function(state) 
     RyuConfig.AutoQuest = state 
 end)
@@ -335,12 +340,11 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
+--// UI AUFBAU: PLAYER
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// FISHMAN CAVE SMART TP SECTION (Unangetastet!)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
-
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
     RyuConfig.FishmanSpeed = val
 end)
@@ -522,8 +526,29 @@ CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(
     RyuConfig.Noclip = state 
 end)
 
+--// NEU: UI AUFBAU: GOD MODE (Backend Exploits)
+local TabGodMode = CreateMainTab("God Mode")
+local SubExploits = CreateSubTab(TabGodMode, "Exploits")
+
+local SecCombatGod = CreateSection(SubExploits, "Combat Overrides")
+CreateToggle(SecCombatGod, "Anti-Stun (Bypass CC)", RyuConfig.AntiStun, function(state)
+    RyuConfig.AntiStun = state
+end)
+CreateToggle(SecCombatGod, "Fast Attack (Bypass M1 Cooldown)", RyuConfig.FastAttack, function(state)
+    RyuConfig.FastAttack = state
+end)
+
+local SecWorldGod = CreateSection(SubExploits, "World & Physics")
+CreateToggle(SecWorldGod, "No Drown (Devil Fruit Bypass)", RyuConfig.NoDrown, function(state)
+    RyuConfig.NoDrown = state
+end)
+CreateToggle(SecWorldGod, "Infinite Geppo (Fly)", RyuConfig.InfGeppo, function(state)
+    RyuConfig.InfGeppo = state
+end)
+
+
 --// ============================================================================
---// MODULE HOOKING: PC COMBAT ENGINE
+--// MODULE HOOKING: PC COMBAT ENGINE & BACKEND HACKS
 --// ============================================================================
 local function GetInputCallbacks()
     local backpack = LocalPlayer:FindFirstChild("Backpack")
@@ -555,7 +580,8 @@ end
 local function PerformAttack()
     local inputModule = GetInputCallbacks()
     pcall(function()
-        if inputModule and inputModule.Utils.canAutoM1() then
+        -- FIX: FastAttack Bypass nutzt direkt den internen PC_Activate Befehl
+        if RyuConfig.FastAttack or (inputModule and inputModule.Utils.canAutoM1()) then
             inputModule.Callbacks.Attack:PC_Activate()
             inputModule.Callbacks.Attack:PC_Activate()
         else
@@ -604,6 +630,45 @@ local function SafeTween(targetCFrame)
     root.CFrame = targetCFrame
 end
 
+--// ============================================================================
+--// GOD MODE BACKEND LOOP (Anti-Stun, No Drown, Inf Geppo)
+--// ============================================================================
+RunService.Heartbeat:Connect(function()
+    local char = LocalPlayer.Character
+    
+    -- 1. Anti-Stun Backend Hook
+    if RyuConfig.AntiStun then
+        _G.canuse = true
+        _G.blocking = false
+        if char then
+            local stuns = {"Stun", "Dizzed", "frozen", "Rag", "Cuffed", "PB"}
+            for _, v in pairs(stuns) do
+                local s = char:FindFirstChild(v)
+                if s then s:Destroy() end
+            end
+            local hum = char:FindFirstChildOfClass("Humanoid")
+            if hum and hum.WalkSpeed == 0 then
+                hum.WalkSpeed = 16
+            end
+        end
+    end
+    
+    -- 2. No Drown / Devil Fruit Water Bypass
+    if RyuConfig.NoDrown then
+        if char then
+            char:SetAttribute("underWater", nil)
+            char:SetAttribute("isDrowning", nil)
+            char:SetAttribute("timeUntilDrown", nil)
+        end
+        _G.swimming = false
+    end
+    
+    -- 3. Infinite Geppo
+    if RyuConfig.InfGeppo then
+        _G.geppo = 1 -- Resetted intern den GPO Sprung-Counter permanent
+    end
+end)
+
 RunService.Stepped:Connect(function()
     if RyuConfig.Noclip or RyuConfig.AutoFarm or RyuConfig.AutoQuest then
         local char = LocalPlayer.Character
@@ -624,7 +689,6 @@ end)
 local isQuestActive = false
 local questStartTime = 0
 
--- NEU: Purer Backend Check! Kein GUI Scanning mehr.
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
@@ -648,10 +712,8 @@ task.spawn(function()
         
         local actuallyHasQuest = HasActiveQuest()
         
-        -- Überprüfen, ob die Quest abgeschlossen wurde
         if isQuestActive then
             if not actuallyHasQuest then
-                -- Quest war aktiv, ist jetzt weg -> Completed!
                 isQuestActive = false
                 RyuNotify:Send("Auto Quest", "Quest abgeschlossen! Warte 5s...", 2)
                 
@@ -659,7 +721,7 @@ task.spawn(function()
                 local root = char and char:FindFirstChild("HumanoidRootPart")
                 if root then root.Velocity = Vector3.new(0, 0, 0) end
                 
-                task.wait(5) -- 5 Sekunden Pause für Auto Farm
+                task.wait(5) 
                 
             elseif tick() - questStartTime > 120 then
                 isQuestActive = false
@@ -693,24 +755,18 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
-                    -- DIE ULTIMATIVE REMOTE-LÖSUNG: Kein Klicken, pure Daten!
                     pcall(function()
                         local QuestEvent = ReplicatedStorage.Events.Quest
-                        
-                        -- Initialisiert das Gespräch
                         QuestEvent:InvokeServer({"npcChat", true})
                         task.wait(0.1)
                         
-                        -- Nimmt die Quest an (GPO Format: "Help [NPC Name]" oder "[NPC Name]")
                         local questString = "Help " .. RyuConfig.TargetNPC
                         QuestEvent:InvokeServer({"takequest", questString})
                         QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
                         
-                        -- Fallback ohne Argumente
                         QuestEvent:InvokeServer({"takequest"})
                         QuestEvent:InvokeServer("takequest")
                         
-                        -- Bestätigt die Quest
                         QuestEvent:InvokeServer({"acceptquest"})
                         QuestEvent:InvokeServer("acceptquest")
                     end)
@@ -723,7 +779,6 @@ task.spawn(function()
                         RyuNotify:Send("Auto Quest", "Quest per Remote angenommen! Warte 3s...", 3)
                         task.wait(3) 
                     else
-                        -- Fallback für extrem hartnäckige NPCs
                         RyuNotify:Send("Auto Quest", "Remote-Versuch 2 läuft...", 1)
                         task.wait(1)
                     end
@@ -887,4 +942,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Pure Remote Backend Questing Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: God Mode Engine Active!", 4)
