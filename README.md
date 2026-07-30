@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MAX TWEEN & NO MAGNET)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MAX TWEEN & CLEAN UI)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -397,15 +397,22 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 then
+                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
+                    local isDrop = (tick() - lastDrop >= 2.5)
+                    
                     ToggleHover(false)
                     platform.CFrame = CFrame.new(0, 99999, 0) 
                     
                     if hum then hum.Jump = true end
                     root.Velocity = Vector3.new(0, 50, 0)
                     
-                    RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
-                    task.wait(1)
+                    if isDrop then
+                        RyuNotify:Send("Smart TP", "Sicherheits-Drop (AC Reset)...", 1)
+                    else
+                        RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
+                    end
+                    
+                    task.wait(isDrop and 0.7 or 1)
                     
                     ToggleHover(true)
                     startPos = root.Position
@@ -496,7 +503,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                -- Boden-TP alle 2.5s droppen für exakt 0.7s
                 if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
                     local isDrop = (tick() - lastDrop >= 2.5)
                     
@@ -512,7 +518,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
                     end
                     
-                    -- Fällt für genau 0.7 Sekunden!
                     task.wait(isDrop and 0.7 or 1)
                     
                     ToggleHover(true)
@@ -559,16 +564,8 @@ CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(
 end)
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT
+--// MODULE HOOKING: PURE RAW COMBAT 
 --// ============================================================================
-local function GetInputCallbacks()
-    local backpack = LocalPlayer:FindFirstChild("Backpack")
-    if backpack and backpack:FindFirstChild("InputCallbacks") then return require(backpack.InputCallbacks) end
-    local char = LocalPlayer.Character
-    if char and char:FindFirstChild("InputCallbacks") then return require(char.InputCallbacks) end
-    return nil
-end
-
 local function EquipCombat()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -595,13 +592,8 @@ end
 
 local function PerformAttack()
     pcall(function()
-        local inputModule = GetInputCallbacks()
-        if inputModule and inputModule.Callbacks and inputModule.Callbacks.Attack then
-            inputModule.Callbacks.Attack:PC_Activate()
-        else
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton1(Vector2.new())
-        end
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton1(Vector2.new())
     end)
 end
 
@@ -878,4 +870,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Clean System Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: System Cleaned & Scanner Kept!", 4)
