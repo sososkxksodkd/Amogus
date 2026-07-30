@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - BULLETPROOF CLICKER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - BRUTE FORCE DIALOG CLICKER)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -359,10 +359,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        -- FIX: Große, unauffällige Plattform unter den Füßen ("Distance from Floor >15" Bypass)
         local platform = Instance.new("Part")
-        platform.Name = "Part" -- Allgemeiner Name
-        platform.Size = Vector3.new(100, 2, 100) -- Massiv, damit der AC-Raycast garantiert trifft
+        platform.Name = "Part" 
+        platform.Size = Vector3.new(100, 2, 100) 
         platform.Anchored = true
         platform.CanCollide = true
         platform.Transparency = 0.5
@@ -385,7 +384,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
-                -- Hält den Spieler extrem waagerecht
                 local lookPos = Vector3.new(tPos.X, intermediatePos.Y, tPos.Z)
                 if (lookPos - intermediatePos).Magnitude < 0.1 then 
                     lookPos = intermediatePos + root.CFrame.LookVector 
@@ -414,7 +412,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
                     root.Velocity = Vector3.new(0, 0, 0) 
                     
-                    -- Hält die Plattform EXAKT auf Fuß-Höhe ("Not Grounded!" Bypass)
                     platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.1, intermediatePos.Z)
                 end
                 RunService.Heartbeat:Wait()
@@ -674,12 +671,13 @@ local function HasActiveQuest()
     return hasQuest
 end
 
--- FIX: KUGELSICHERER OMNI-KLICKER (Jeder Klick ist isoliert!)
+-- FIX: BRUTE FORCE OMNI-KLICKER (Klickt auch blind in die Mitte für "...")
 local function PerformQuestClicking()
-    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-    if pg then
-        for _, v in pairs(pg:GetDescendants()) do
-            pcall(function()
+    local clickedSomething = false
+    pcall(function()
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, v in pairs(pg:GetDescendants()) do
                 if (v:IsA("TextButton") or v:IsA("ImageButton")) and v.Visible then
                     local txt = v.Name:lower()
                     if v:IsA("TextButton") then txt = txt .. " " .. v.Text:lower() end
@@ -687,6 +685,7 @@ local function PerformQuestClicking()
                     if lbl then txt = txt .. " " .. lbl.Text:lower() end
                     
                     if txt:find("okay") or txt:find("okey") or txt:find("ok") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") or txt:find("confirm") then
+                        clickedSomething = true
                         if getconnections then
                             pcall(function()
                                 for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
@@ -700,9 +699,16 @@ local function PerformQuestClicking()
                         end)
                     end
                 end
-            end)
+            end
         end
-    end
+        
+        -- FALLBACK: Wenn er "Okay!" nicht findet, klickt er gnadenlos in die Mitte des Bildschirms!
+        -- Das überspringt GPO's unsichtbare "..." Dialog-Boxen garantiert!
+        if not clickedSomething then
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton1(Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2))
+        end
+    end)
 end
 
 --// ============================================================================
@@ -766,7 +772,7 @@ task.spawn(function()
                             ReplicatedStorage.Events.Quest:InvokeServer("acceptquest")
                         end)
                         
-                        if (tick() - clickStart > 4) and HasActiveQuest() then break end
+                        if (tick() - clickStart > 2.5) and HasActiveQuest() then break end
                         task.wait(0.2)
                     end
                     
@@ -935,4 +941,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Strict AC Check & Bulletproof AutoQuest Clicker!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Brute Force Clicker Active!", 4)
