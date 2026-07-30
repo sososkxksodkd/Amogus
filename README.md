@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - CLEAN MASTER BUILD (V1 - STABLE AUTO FARM)
+--// RYU HUB - CLEAN MASTER BUILD (V2 - PERFECT HITBOX & SLIDER)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local VirtualUser = game:GetService("VirtualUser")
 local Workspace = game:GetService("Workspace")
+local UserInputService = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 
@@ -26,25 +27,25 @@ local RyuConfig = {
     TargetMob = "Bandit",
     TargetWeapon = "Combat",
     TweenSpeed = 45,
-    KillHeight = 8
+    KillHeight = 5 -- Standardmäßig 5 Studs Abstand
 }
 
--- Mobs (nur echte Feinde, keine Shop-NPCs)
+-- Mobs (nur echte Feinde)
 local GPOEnemies = {
     "Bandit", "Bandit Boss", "Marine", "Corrupt Marine", 
     "Sword Bandit", "Fishman", "Skypiean", "Snow Bandit", "Zombie"
 }
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
 
---// UI SETUP (Strukturiert: Oben Start, Unten Auswahl)
+--// UI SETUP
 local RyuHub = Instance.new("ScreenGui")
 RyuHub.Name = "RyuHubPremium"
 RyuHub.ResetOnSpawn = false
 RyuHub.Parent = guiParent
 
 local MainFrame = Instance.new("Frame", RyuHub)
-MainFrame.Size = UDim2.new(0, 400, 0, 350)
-MainFrame.Position = UDim2.new(0.5, -200, 0.5, -175)
+MainFrame.Size = UDim2.new(0, 400, 0, 390) -- Frame etwas größer gemacht für den Slider
+MainFrame.Position = UDim2.new(0.5, -200, 0.5, -195)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 MainFrame.Active = true
 MainFrame.Draggable = true
@@ -91,8 +92,8 @@ MobLabel.Font = Enum.Font.Gotham
 MobLabel.TextSize = 12
 
 local MobScroll = Instance.new("ScrollingFrame", MainFrame)
-MobScroll.Size = UDim2.new(0.9, 0, 0, 80)
-MobScroll.Position = UDim2.new(0.05, 0, 0, 125)
+MobScroll.Size = UDim2.new(0.9, 0, 0, 75)
+MobScroll.Position = UDim2.new(0.05, 0, 0, 120)
 MobScroll.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 MobScroll.ScrollBarThickness = 4
 local MobLayout = Instance.new("UIListLayout", MobScroll)
@@ -115,7 +116,7 @@ MobLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() Mob
 
 local WepLabel = Instance.new("TextLabel", MainFrame)
 WepLabel.Size = UDim2.new(0.9, 0, 0, 20)
-WepLabel.Position = UDim2.new(0.05, 0, 0, 215)
+WepLabel.Position = UDim2.new(0.05, 0, 0, 205)
 WepLabel.BackgroundTransparency = 1
 WepLabel.Text = "Wähle Waffe (Aktuell: " .. RyuConfig.TargetWeapon .. ")"
 WepLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -123,8 +124,8 @@ WepLabel.Font = Enum.Font.Gotham
 WepLabel.TextSize = 12
 
 local WepScroll = Instance.new("ScrollingFrame", MainFrame)
-WepScroll.Size = UDim2.new(0.9, 0, 0, 80)
-WepScroll.Position = UDim2.new(0.05, 0, 0, 240)
+WepScroll.Size = UDim2.new(0.9, 0, 0, 75)
+WepScroll.Position = UDim2.new(0.05, 0, 0, 225)
 WepScroll.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
 WepScroll.ScrollBarThickness = 4
 local WepLayout = Instance.new("UIListLayout", WepScroll)
@@ -145,25 +146,57 @@ for _, wepName in ipairs(GPOWeapons) do
 end
 WepLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() WepScroll.CanvasSize = UDim2.new(0, 0, 0, WepLayout.AbsoluteContentSize.Y) end)
 
+--// ABSTAND SLIDER (NEU)
+local DistLabel = Instance.new("TextLabel", MainFrame)
+DistLabel.Size = UDim2.new(0.9, 0, 0, 20)
+DistLabel.Position = UDim2.new(0.05, 0, 0, 315)
+DistLabel.BackgroundTransparency = 1
+DistLabel.Text = "Abstand zum Gegner: " .. RyuConfig.KillHeight .. " Studs"
+DistLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+DistLabel.Font = Enum.Font.GothamBold
+DistLabel.TextSize = 12
+DistLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local DistSliderBg = Instance.new("TextButton", MainFrame)
+DistSliderBg.Size = UDim2.new(0.9, 0, 0, 12)
+DistSliderBg.Position = UDim2.new(0.05, 0, 0, 340)
+DistSliderBg.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+DistSliderBg.Text = ""
+Instance.new("UICorner", DistSliderBg).CornerRadius = UDim.new(1, 0)
+
+local DistSliderFill = Instance.new("Frame", DistSliderBg)
+DistSliderFill.Size = UDim2.new((RyuConfig.KillHeight - 3) / (15 - 3), 0, 1, 0) -- Min 3, Max 15
+DistSliderFill.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
+Instance.new("UICorner", DistSliderFill).CornerRadius = UDim.new(1, 0)
+
+local dragging = false
+DistSliderBg.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = true end
+end)
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then dragging = false end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local relative = math.clamp((input.Position.X - DistSliderBg.AbsolutePosition.X) / DistSliderBg.AbsoluteSize.X, 0, 1)
+        DistSliderFill.Size = UDim2.new(relative, 0, 1, 0)
+        RyuConfig.KillHeight = math.floor(3 + (15 - 3) * relative)
+        DistLabel.Text = "Abstand zum Gegner: " .. RyuConfig.KillHeight .. " Studs"
+    end
+end)
+
 --// UNSICHTBARER BODEN (PLATFORM SYSTEM)
 local RyuPlatform = Instance.new("Part")
 RyuPlatform.Name = "RyuSafePlatform"
-RyuPlatform.Size = Vector3.new(10, 1, 10) -- 10x10 Platte
+RyuPlatform.Size = Vector3.new(10, 1, 10) 
 RyuPlatform.Anchored = true
-RyuPlatform.Transparency = 1 -- Unsichtbar
-RyuPlatform.CanCollide = true -- Spieler kann darauf stehen!
+RyuPlatform.Transparency = 1 
+RyuPlatform.CanCollide = true 
 RyuPlatform.Parent = Workspace
 
--- Hält die Plattform immer genau unter dem Spieler, wenn gefarmt wird
+-- Verstecke Plattform, wenn Farmen aus ist
 RunService.Heartbeat:Connect(function()
-    if RyuConfig.AutoFarm and LocalPlayer.Character then
-        local hrp = LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            -- Setzt die Plattform genau 3.5 Studs unter den Mittelpunkt des Charakters
-            RyuPlatform.CFrame = CFrame.new(hrp.Position - Vector3.new(0, 3.5, 0))
-        end
-    else
-        -- Versteckt die Plattform weit weg, wenn Auto Farm aus ist
+    if not RyuConfig.AutoFarm then
         RyuPlatform.CFrame = CFrame.new(0, 99999, 0)
     end
 end)
@@ -199,12 +232,11 @@ local function EquipAndAttack()
         hum:EquipTool(tool)
     end
     
-    -- Simuliert simplen Mausklick für Angriffe
     VirtualUser:CaptureController()
     VirtualUser:ClickButton1(Vector2.new())
 end
 
---// AUTO FARM CORE LOOP (Zieht 2-5 Gegner zusammen)
+--// AUTO FARM CORE LOOP (Zieht Mobs zusammen)
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -217,7 +249,7 @@ task.spawn(function()
             if hrp and hum and hum.Health > 0 then
                 local npcs = Workspace:FindFirstChild("NPCs")
                 if npcs then
-                    -- 1. Finde Feinde des ausgewählten Typs
+                    -- 1. Finde Feinde
                     local targetMobs = {}
                     for _, npc in pairs(npcs:GetChildren()) do
                         if npc.Name == RyuConfig.TargetMob then
@@ -229,28 +261,61 @@ task.spawn(function()
                         end
                     end
                     
-                    -- 2. Wenn Gegner gefunden wurden, schnapp dir bis zu 5 Stück
                     if #targetMobs > 0 then
                         local mainTarget = targetMobs[1]
                         local mRoot = mainTarget:FindFirstChild("HumanoidRootPart")
+                        local mHum = mainTarget:FindFirstChildOfClass("Humanoid")
                         
-                        if mRoot then
-                            -- Fliege über den ersten Gegner
-                            local farmPosition = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
-                            SafeTween(farmPosition)
+                        if mRoot and mHum then
+                            -- ELEVATOR FIX: Ziel-Position basiert IMMER auf dem Gegner, NICHT auf dir!
+                            local targetSkyPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
                             
-                            -- Töte, solange der Hauptgegner lebt
-                            local mHum = mainTarget:FindFirstChildOfClass("Humanoid")
+                            -- Fliege zur Position
+                            SafeTween(targetSkyPos)
+                            
                             while RyuConfig.AutoFarm and mHum and mHum.Health > 0 and hum.Health > 0 do
-                                -- Richte Charakter nach unten zum Gegner aus
-                                hrp.CFrame = CFrame.lookAt(hrp.Position, mRoot.Position)
+                                -- Aktualisiere die Position dynamisch (falls der Gegner läuft)
+                                targetSkyPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
                                 
-                                -- Erweitere die Hitbox leicht, damit die Kills sicher treffen
-                                mRoot.Size = Vector3.new(15, 15, 15)
-                                mRoot.CanCollide = false
+                                -- Setze die Plattform genau 3.1 Studs unter deine gewünschte Standposition
+                                RyuPlatform.CFrame = CFrame.new(targetSkyPos - Vector3.new(0, 3.1, 0))
+                                
+                                -- Richte Charakter starr zum Gegner nach unten aus
+                                hrp.CFrame = CFrame.lookAt(targetSkyPos, mRoot.Position)
+                                
+                                -- MASSEN-HITBOX SYSTEM (Zieht bis zu 5 Gegner zusammen)
+                                local aggroCount = 0
+                                for _, npc in pairs(targetMobs) do
+                                    if npc and npc.Parent and aggroCount < 5 then
+                                        local subRoot = npc:FindFirstChild("HumanoidRootPart")
+                                        local subHum = npc:FindFirstChildOfClass("Humanoid")
+                                        if subRoot and subHum and subHum.Health > 0 then
+                                            local dist = (subRoot.Position - mRoot.Position).Magnitude
+                                            if dist < 40 then -- Wenn sie nah am Hauptziel sind
+                                                aggroCount = aggroCount + 1
+                                                -- Erweitere die Hitbox, damit deine Fäuste alle gleichzeitig treffen
+                                                subRoot.Size = Vector3.new(15, 15, 15)
+                                                subRoot.CanCollide = false
+                                                subRoot.Transparency = 0.8 -- Leicht unsichtbar, damit es nicht stört
+                                            end
+                                        end
+                                    end
+                                end
                                 
                                 EquipAndAttack()
                                 task.wait(0.1)
+                            end
+                            
+                            -- Resette die Plattform kurz nach dem Kill
+                            RyuPlatform.CFrame = CFrame.new(0, 99999, 0)
+                            
+                            -- Mache tote Gegner wieder normal
+                            for _, npc in pairs(targetMobs) do
+                                local subRoot = npc and npc:FindFirstChild("HumanoidRootPart")
+                                if subRoot then
+                                    subRoot.Size = Vector3.new(2, 2, 1)
+                                    subRoot.Transparency = 0
+                                end
                             end
                         end
                     end
