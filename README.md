@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PERFECT ISLAND TP & FRUIT SAFE FIX)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (ISLAND TP 3s/0.3s & MAX SPEED 85)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -49,11 +49,11 @@ local RyuConfig = {
     
     TweenSpeed = 50, 
     KillHeight = 7, 
-    FishmanSpeed = 150, 
-    ElevatorSpeed = 150,
+    FishmanSpeed = 85, -- FIX: Standard & Max Speed auf 85
+    ElevatorSpeed = 85,
     
     TargetIsland = IslandList[1],
-    IslandSpeed = 150,
+    IslandSpeed = 85,
     
     AutoStrength = false,
     AutoStamina = false,
@@ -146,7 +146,14 @@ local MainFrame = Instance.new("Frame"); MainFrame.Size = currentMainSize; MainF
 local Topbar = Instance.new("Frame", MainFrame); Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 local Title = Instance.new("TextLabel", Topbar); Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextColor3 = Theme.Text; Title.TextXAlignment = Enum.TextXAlignment.Left
 
-local ResizeGrip = Instance.new("TextButton", MainFrame); ResizeGrip.Size = UDim2.new(0, 20, 0, 20); ResizeGrip.Position = UDim2.new(1, -20, 1, -20); ResizeGrip.BackgroundTransparency = 1; ResizeGrip.Text = "◢"; ResizeGrip.TextColor3 = Theme.SubText; ResizeGrip.TextSize = 16; ResizeGrip.Font = Enum.Font.GothamBold
+local ResizeGrip = Instance.new("TextButton", MainFrame)
+ResizeGrip.Size = UDim2.new(0, 20, 0, 20)
+ResizeGrip.Position = UDim2.new(1, -20, 1, -20)
+ResizeGrip.BackgroundTransparency = 1
+ResizeGrip.Text = "◢"
+ResizeGrip.TextColor3 = Theme.SubText
+ResizeGrip.TextSize = 16
+ResizeGrip.Font = Enum.Font.GothamBold
 
 local CloseBtn = Instance.new("TextButton", Topbar); CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 
@@ -304,7 +311,7 @@ CreateSlider(SecAutoFarmMain, "Quest Interval (Secs)", 10, 100, RyuConfig.QuestI
 end)
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
-CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 10, 50, RyuConfig.TweenSpeed, function(val) 
+CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 10, 85, RyuConfig.TweenSpeed, function(val) 
     RyuConfig.TweenSpeed = val 
 end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) 
@@ -312,10 +319,10 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
 end)
 
 local SecMovement = CreateSection(SubLeveling, "Fishman Cave Movement")
-CreateSlider(SecMovement, "Cave Travel Speed", 50, 150, RyuConfig.FishmanSpeed, function(val)
+CreateSlider(SecMovement, "Cave Travel Speed", 50, 85, RyuConfig.FishmanSpeed, function(val)
     RyuConfig.FishmanSpeed = val
 end)
-CreateSlider(SecMovement, "Aufzug Geschw. (Y-Achse)", 5, 150, RyuConfig.ElevatorSpeed, function(val)
+CreateSlider(SecMovement, "Aufzug Geschw. (Y-Achse)", 5, 85, RyuConfig.ElevatorSpeed, function(val)
     RyuConfig.ElevatorSpeed = val
 end)
 
@@ -381,7 +388,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     ToggleHover(true)
                     startPos = root.Position
                     totalDist = (startPos - tPos).Magnitude
-                    currentSpeed = currentSpeed > 0 and currentSpeed or 150
+                    currentSpeed = currentSpeed > 0 and currentSpeed or 85
                     t = totalDist / currentSpeed
                     startTime = tick()
                     lastDrop = tick()
@@ -516,7 +523,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     ToggleHover(true)
                     startPos = root.Position
                     totalDist = (startPos - tPos).Magnitude
-                    currentSpeed = currentSpeed > 0 and currentSpeed or 150
+                    currentSpeed = currentSpeed > 0 and currentSpeed or 85
                     t = totalDist / currentSpeed
                     startTime = tick()
                     lastDrop = tick()
@@ -604,22 +611,20 @@ CreateToggle(SecAutoStats, "Auto Gun Mastery", RyuConfig.AutoGun, function(state
     RyuConfig.AutoGun = state 
 end)
 
-
 --// NEU: BUY TAB -> TRANSPORTATION
 local TabBuy = CreateMainTab("Buy")
 local SubTransport = CreateSubTab(TabBuy, "Transportation")
 
 local SecIslandTP = CreateSection(SubTransport, "Island Teleportation")
 CreateDropdown(SecIslandTP, "Select Island", IslandList, "TargetIsland")
-CreateSlider(SecIslandTP, "Travel Speed", 50, 300, RyuConfig.IslandSpeed, function(val)
+CreateSlider(SecIslandTP, "Travel Speed", 50, 85, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
 
-CreateButton(SecIslandTP, "Start Teleport (Fruit Safe)", function()
+CreateButton(SecIslandTP, "Start Teleport", function()
     task.spawn(function()
         local targetIslandName = RyuConfig.TargetIsland
         
-        -- FIX 1: ROBUSTER INSEL SCANNER 
         local island = Workspace:FindFirstChild(targetIslandName) 
         if not island then
             for _, v in pairs(Workspace:GetChildren()) do
@@ -636,7 +641,6 @@ CreateButton(SecIslandTP, "Start Teleport (Fruit Safe)", function()
             return 
         end
         
-        -- FIX 2: ROBUSTE POSITIONS-ERKENNUNG (Egal ob Model, Folder oder Block)
         local targetPos
         if island:IsA("Model") and island.PrimaryPart then
             targetPos = island.PrimaryPart.Position
@@ -654,7 +658,6 @@ CreateButton(SecIslandTP, "Start Teleport (Fruit Safe)", function()
             end
         end
         
-        -- 50 Studs über der Insel landen (damit man nicht im Boden verbuggt)
         targetPos = targetPos + Vector3.new(0, 50, 0)
         
         local char = LocalPlayer.Character
@@ -672,17 +675,18 @@ CreateButton(SecIslandTP, "Start Teleport (Fruit Safe)", function()
         platform.CanCollide = true
         platform.Transparency = 0.5
         platform.Material = Enum.Material.ForceField
-        platform.Color = Color3.fromRGB(0, 255, 0) -- Grün zur Unterscheidung
+        platform.Color = Color3.fromRGB(0, 255, 0) 
         platform.CFrame = CFrame.new(root.Position - Vector3.new(0, floorOffset, 0))
         platform.Parent = Workspace
         
         ToggleHover(true)
         
+        -- FIX: Exakt das Fishman Cave Lerp System, aber alle 3s für 0.3s Drop
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return end
             
-            currentSpeed = currentSpeed > 0 and currentSpeed or 150
+            currentSpeed = currentSpeed > 0 and currentSpeed or 85
             local t = totalDist / currentSpeed
             if t < 0.1 then return end
             
@@ -702,8 +706,9 @@ CreateButton(SecIslandTP, "Start Teleport (Fruit Safe)", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
-                    local isDrop = (tick() - lastDrop >= 2.5)
+                -- NEU: Island Drop System (Alle 3 Sekunden)
+                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 3) then
+                    local isDrop = (tick() - lastDrop >= 3)
                     
                     ToggleHover(false)
                     platform.CFrame = CFrame.new(0, 99999, 0) 
@@ -711,18 +716,9 @@ CreateButton(SecIslandTP, "Start Teleport (Fruit Safe)", function()
                     if hum then hum.Jump = true end
                     root.Velocity = Vector3.new(0, 50, 0)
                     
-                    -- FIX 3: FRUIT SAFE FALL (Integriert in den AC Drop)
+                    -- NEU: Exakt 0.3 Sekunden warten (Fruit Safe by Design)
                     if isDrop then
-                        local fallTime = 0.7
-                        local fallStart = tick()
-                        while tick() - fallStart < fallTime do
-                            -- Wenn der Spieler während des Falls unter Höhe 25 fällt, sofort abbrechen!
-                            if root.Position.Y < 25 then 
-                                root.Velocity = Vector3.new(0, 50, 0)
-                                break 
-                            end
-                            RunService.Heartbeat:Wait()
-                        end
+                        task.wait(0.3)
                     else
                         task.wait(1)
                     end
@@ -730,7 +726,7 @@ CreateButton(SecIslandTP, "Start Teleport (Fruit Safe)", function()
                     ToggleHover(true)
                     startPos = root.Position
                     totalDist = (startPos - tPos).Magnitude
-                    currentSpeed = currentSpeed > 0 and currentSpeed or 150
+                    currentSpeed = currentSpeed > 0 and currentSpeed or 85
                     t = totalDist / currentSpeed
                     startTime = tick()
                     lastDrop = tick()
@@ -1070,4 +1066,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Perfect Island TP Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Max Speed 85 & Island TP Safe Drop Active!", 4)
