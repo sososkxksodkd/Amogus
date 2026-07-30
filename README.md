@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - CLEAN MASTER BUILD (V4 - FLING FIX & DUAL SLIDERS)
+--// RYU HUB - CLEAN MASTER BUILD (V5 - NO PLATFORM, PERFECT HOVER & SLIDERS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -49,10 +49,9 @@ MainFrame.Size = UDim2.new(0, 400, 0, 430)
 MainFrame.Position = UDim2.new(0.5, -200, 0.5, -215)
 MainFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18)
 MainFrame.Active = true
-MainFrame.Draggable = false -- DEAKTIVIERT: Verhindert, dass das Fenster die Mausklicks der Slider stiehlt!
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
 
--- TOPBAR DRAGGING (Ermöglicht sauberes Verschieben nur über die Titelleiste)
+-- TOPBAR DRAGGING (Sauberes Verschieben)
 local Topbar = Instance.new("Frame", MainFrame)
 Topbar.Size = UDim2.new(1, 0, 0, 40)
 Topbar.BackgroundTransparency = 1
@@ -171,9 +170,10 @@ for _, wepName in ipairs(GPOWeapons) do
 end
 WepLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() WepScroll.CanvasSize = UDim2.new(0, 0, 0, WepLayout.AbsoluteContentSize.Y) end)
 
---// SLIDER FUNKTIONS-BAUSTEIN (Universal & 100% Repariert)
-local function CreateUISlider(posY, titleText, minVal, maxVal, defaultVal, callback)
-    local label = Instance.new("TextLabel", MainFrame)
+
+--// UNIVERSELLE SLIDER ENGINE (100% Repariert)
+local function CreateUISlider(parent, posY, titleText, minVal, maxVal, defaultVal, callback)
+    local label = Instance.new("TextLabel", parent)
     label.Size = UDim2.new(0.9, 0, 0, 18)
     label.Position = UDim2.new(0.05, 0, 0, posY)
     label.BackgroundTransparency = 1
@@ -183,10 +183,11 @@ local function CreateUISlider(posY, titleText, minVal, maxVal, defaultVal, callb
     label.TextSize = 11
     label.TextXAlignment = Enum.TextXAlignment.Left
 
-    local bg = Instance.new("Frame", MainFrame)
+    local bg = Instance.new("TextButton", parent)
     bg.Size = UDim2.new(0.9, 0, 0, 12)
     bg.Position = UDim2.new(0.05, 0, 0, posY + 20)
     bg.BackgroundColor3 = Color3.fromRGB(30, 30, 35)
+    bg.Text = ""
     Instance.new("UICorner", bg).CornerRadius = UDim.new(1, 0)
 
     local fill = Instance.new("Frame", bg)
@@ -194,63 +195,91 @@ local function CreateUISlider(posY, titleText, minVal, maxVal, defaultVal, callb
     fill.BackgroundColor3 = Color3.fromRGB(50, 200, 50)
     Instance.new("UICorner", fill).CornerRadius = UDim.new(1, 0)
 
-    local isSliderDragging = false
+    local isDragging = false
 
-    local function UpdateSlider(input)
+    local function updateSlider(input)
         local relative = math.clamp((input.Position.X - bg.AbsolutePosition.X) / bg.AbsoluteSize.X, 0, 1)
         fill.Size = UDim2.new(relative, 0, 1, 0)
-        local calculatedVal = math.floor(minVal + (maxVal - minVal) * relative)
-        label.Text = titleText .. ": " .. calculatedVal
-        callback(calculatedVal)
+        local val = math.floor(minVal + (maxVal - minVal) * relative)
+        label.Text = titleText .. ": " .. val
+        callback(val)
     end
 
     bg.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isSliderDragging = true
-            UpdateSlider(input)
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if isSliderDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
-            UpdateSlider(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = true
+            updateSlider(input)
         end
     end)
 
     UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            isSliderDragging = false
+        if input.UserInputType == Enum.UserInputType.MouseButton1 then
+            isDragging = false
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if isDragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+            updateSlider(input)
         end
     end)
 end
 
--- SLIDER 1: ABSTAND ZUM GEGNER (Höhe)
-CreateUISlider(275, "Abstand zum Gegner (Höhe)", 3, 15, RyuConfig.KillHeight, function(val)
+-- Beide Slider instanziieren
+CreateUISlider(MainFrame, 275, "Abstand zum Gegner", 3, 15, RyuConfig.KillHeight, function(val)
     RyuConfig.KillHeight = val
 end)
 
--- SLIDER 2: KÖRPER-NEIGUNGSWINKEL (Guck-Funktion)
-CreateUISlider(335, "Körper-Blickwinkel (Schräg gucken)", 0, 100, RyuConfig.LookAngle, function(val)
+CreateUISlider(MainFrame, 330, "Körper-Blickwinkel (%)", 0, 100, RyuConfig.LookAngle, function(val)
     RyuConfig.LookAngle = val
 end)
 
---// UNSICHTBARER BODEN (PLATFORM SYSTEM)
-local RyuPlatform = Instance.new("Part")
-RyuPlatform.Name = "RyuSafePlatform"
-RyuPlatform.Size = Vector3.new(12, 1, 12) 
-RyuPlatform.Anchored = true
-RyuPlatform.Transparency = 1 
-RyuPlatform.CanCollide = true 
-RyuPlatform.Parent = Workspace
 
--- Status-Manager für den Boden
-RunService.Heartbeat:Connect(function()
-    if not RyuConfig.AutoFarm then
-        RyuPlatform.CFrame = CFrame.new(0, 99999, 0)
+--// ANTI-GRAVITY HOVER SYSTEM (BODENLOS & SCHWERELOS)
+local function ToggleHover(state)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    if state then
+        local bv = root:FindFirstChild("RyuHover")
+        if not bv then
+            bv = Instance.new("BodyVelocity")
+            bv.Name = "RyuHover"
+            bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bv.Velocity = Vector3.new(0, 0, 0) -- Hält den Spieler extrem stark in der Luft
+            bv.Parent = root
+        end
+    else
+        local bv = root:FindFirstChild("RyuHover")
+        if bv then bv:Destroy() end
+    end
+end
+
+--// ABSOLUTER FLING & VOID PROTECTOR (Blockiert 100% aller Physik-Aussetzer)
+RunService.Stepped:Connect(function()
+    if RyuConfig.AutoFarm then
+        local char = LocalPlayer.Character
+        if char then
+            local root = char:FindFirstChild("HumanoidRootPart")
+            if root then
+                -- Stoppt JEDE Kraft, die das Spiel auf deinen Charakter ausüben will!
+                root.Velocity = Vector3.new(0, 0, 0)
+                root.RotVelocity = Vector3.new(0, 0, 0)
+            end
+            
+            -- Macht Arme und Beine durchlässig, damit sie nicht in Feinden hängenbleiben
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" then 
+                    v.CanCollide = false 
+                end
+            end
+        end
     end
 end)
 
---// SICHERER TWEEN
+
+--// SICHERER TWEEN (Bewegt den Charakter sanft zum Ziel)
 local function SafeTween(targetPos)
     local char = LocalPlayer.Character
     local hrp = char and char:FindFirstChild("HumanoidRootPart")
@@ -264,6 +293,7 @@ local function SafeTween(targetPos)
         return 
     end
 
+    ToggleHover(true) -- Sicherstellen, dass Hover aktiv ist
     local twInfo = TweenInfo.new(timeToTake, Enum.EasingStyle.Linear)
     local tw = TweenService:Create(hrp, twInfo, {CFrame = CFrame.new(targetPos)})
     tw:Play()
@@ -285,7 +315,8 @@ local function EquipAndAttack()
     VirtualUser:ClickButton1(Vector2.new())
 end
 
---// AUTO FARM CORE LOOP (Gefixtes Rotations- & Void-System)
+
+--// AUTO FARM CORE LOOP (Zitterfrei & Void-Sicher)
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -295,13 +326,9 @@ task.spawn(function()
             local hrp = char and char:FindFirstChild("HumanoidRootPart")
             local hum = char and char:FindFirstChildOfClass("Humanoid")
             
-            -- VOID NOTBREMSE: Verhindert Stürze unter die Map
-            if hrp and hrp.Position.Y < -50 then
-                hrp.CFrame = CFrame.new(0, 150, 0)
-                task.wait(1)
-            end
-            
             if hrp and hum and hum.Health > 0 then
+                ToggleHover(true) -- Aktiviere Schwerelosigkeit
+
                 local npcs = Workspace:FindFirstChild("NPCs")
                 if npcs then
                     local targetMobs = {}
@@ -309,7 +336,8 @@ task.spawn(function()
                         if npc.Name == RyuConfig.TargetMob then
                             local mHum = npc:FindFirstChildOfClass("Humanoid")
                             local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                            if mHum and mRoot and mHum.Health > 0 and mRoot.Position.Y > 0 then
+                            -- VOID-BLOCKER: Gegner unter der Map (Y < 5) werden brutal ignoriert!
+                            if mHum and mRoot and mHum.Health > 0 and mRoot.Position.Y > 5 then
                                 table.insert(targetMobs, npc)
                             end
                         end
@@ -323,26 +351,23 @@ task.spawn(function()
                         if mRoot and mHum then
                             local targetSkyPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
                             
-                            -- Plattform vor dem Flug ausrichten
-                            RyuPlatform.CFrame = CFrame.new(targetSkyPos.X, targetSkyPos.Y - 3.2, targetSkyPos.Z)
+                            -- Anflug
                             SafeTween(targetSkyPos)
                             
+                            -- Kampf Loop
                             while RyuConfig.AutoFarm and mHum and mHum.Health > 0 and hum.Health > 0 do
+                                -- VOID-NOTBREMSE: Bricht sofort ab, falls der Gegner im Kampf runterfällt!
+                                if mRoot.Position.Y < 5 then break end 
+
                                 targetSkyPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
                                 
-                                -- 1. DIE PLATFORM BLEIBT IMMER 100% WAAGERECHT FLACH UNTER DEN FÜSSEN!
-                                RyuPlatform.CFrame = CFrame.new(targetSkyPos.X, targetSkyPos.Y - 3.2, targetSkyPos.Z)
-                                
-                                -- 2. DYNAMIC PITCH ROTATION (Charakter schaut schräg nach unten zum Feind)
+                                -- DYNAMIC PITCH ROTATION (Ausrichtung ohne echten Boden)
                                 local flatLook = CFrame.lookAt(targetSkyPos, Vector3.new(mRoot.Position.X, targetSkyPos.Y, mRoot.Position.Z))
                                 local fullLook = CFrame.lookAt(targetSkyPos, mRoot.Position)
                                 
-                                -- Blendet stufenlos über Slider (0% bis 100%) zwischen flachem und steilem Blick
+                                -- Blendet stufenlos zwischen flachem und steilem Blick
                                 local charRotation = flatLook:Lerp(fullLook, RyuConfig.LookAngle / 100)
                                 hrp.CFrame = charRotation
-                                
-                                -- Stopper für ungewollte Physik-Impulse
-                                hrp.Velocity = Vector3.new(0, 0, 0)
                                 
                                 -- Massen-Hitbox (Bis zu 5 Mobs)
                                 local aggroCount = 0
@@ -366,8 +391,7 @@ task.spawn(function()
                                 task.wait(0.1)
                             end
                             
-                            RyuPlatform.CFrame = CFrame.new(0, 99999, 0)
-                            
+                            -- Mache tote Gegner wieder normal
                             for _, npc in pairs(targetMobs) do
                                 local subRoot = npc and npc:FindFirstChild("HumanoidRootPart")
                                 if subRoot then
@@ -378,7 +402,11 @@ task.spawn(function()
                         end
                     end
                 end
+            else
+                ToggleHover(false)
             end
+        else
+            ToggleHover(false)
         end
     end
 end)
