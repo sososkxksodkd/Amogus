@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - BRING MOBS & 150 SPEED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - MAX TWEEN & NO MAGNET)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -54,7 +54,6 @@ local RyuConfig = {
     AutoFarm = false,
     QuestInterval = 45, 
     DynamicHeight = false, 
-    BringMobs = false, -- NEU: Bring Mobs / Mob Aura
     
     TargetMob = DynamicEnemies[1],
     TargetIsland = "Town of Beginnings",
@@ -63,8 +62,8 @@ local RyuConfig = {
     
     TweenSpeed = 150, 
     KillHeight = 7, 
-    FishmanSpeed = 150, -- FIX: Standardmäßig auf 150 gesetzt
-    ElevatorSpeed = 150 -- FIX: Standardmäßig auf 150 gesetzt
+    FishmanSpeed = 150, 
+    ElevatorSpeed = 150 
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -284,7 +283,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// ANTI-FLING HOVER SYSTEM (Cleaned up)
+--// ANTI-FLING HOVER SYSTEM 
 --// ============================================================================
 local function ToggleHover(state)
     local char = LocalPlayer.Character
@@ -317,9 +316,6 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm & Quest", RyuConfig.AutoFarm, fu
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
-CreateToggle(SecAutoFarmMain, "Bring Mobs (Mob Aura)", RyuConfig.BringMobs, function(state) 
-    RyuConfig.BringMobs = state 
-end)
 CreateToggle(SecAutoFarmMain, "Dynamic Height (Anti-Hit)", RyuConfig.DynamicHeight, function(state) 
     RyuConfig.DynamicHeight = state 
 end)
@@ -328,6 +324,7 @@ local SecAutoFarmConfig = CreateSection(SubLeveling, "Farm Setup")
 CreateDropdown(SecAutoFarmConfig, "Select Weapon/Style", GPOWeapons, "TargetWeapon")
 CreateDropdown(SecAutoFarmConfig, "Select Enemy", DynamicEnemies, "TargetMob")
 CreateDropdown(SecAutoFarmConfig, "Select Quest NPC", DynamicQuests, "TargetNPC")
+
 CreateSlider(SecAutoFarmConfig, "Quest Interval (Secs)", 10, 100, RyuConfig.QuestInterval, function(val) 
     RyuConfig.QuestInterval = val 
 end)
@@ -345,7 +342,6 @@ local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
--- FIX: Slider Limits für Fishman Cave auf 150 max!
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 150, RyuConfig.FishmanSpeed, function(val)
     RyuConfig.FishmanSpeed = val
 end)
@@ -500,7 +496,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                -- FIX: Boden-TP alle 2.5s droppen für exakt 0.7s
+                -- Boden-TP alle 2.5s droppen für exakt 0.7s
                 if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
                     local isDrop = (tick() - lastDrop >= 2.5)
                     
@@ -516,7 +512,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
                     end
                     
-                    -- FIX: Fällt für genau 0.7 Sekunden!
+                    -- Fällt für genau 0.7 Sekunden!
                     task.wait(isDrop and 0.7 or 1)
                     
                     ToggleHover(true)
@@ -563,8 +559,16 @@ CreateToggle(SecMisc, "Noclip (Walk through walls)", RyuConfig.Noclip, function(
 end)
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT (SIMPLIFIED & BUGFREE)
+--// MODULE HOOKING: PURE RAW COMBAT
 --// ============================================================================
+local function GetInputCallbacks()
+    local backpack = LocalPlayer:FindFirstChild("Backpack")
+    if backpack and backpack:FindFirstChild("InputCallbacks") then return require(backpack.InputCallbacks) end
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChild("InputCallbacks") then return require(char.InputCallbacks) end
+    return nil
+end
+
 local function EquipCombat()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -589,11 +593,15 @@ local function EquipCombat()
     end
 end
 
--- FIX: Reine Mausklick-Simulation (Kein In-Die-Luft-Schlagen mehr durch das Update unten)
 local function PerformAttack()
     pcall(function()
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton1(Vector2.new())
+        local inputModule = GetInputCallbacks()
+        if inputModule and inputModule.Callbacks and inputModule.Callbacks.Attack then
+            inputModule.Callbacks.Attack:PC_Activate()
+        else
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton1(Vector2.new())
+        end
     end)
 end
 
@@ -735,18 +743,11 @@ task.spawn(function()
                             mRoot.Size = Vector3.new(30, 30, 30)
                             mRoot.CanCollide = false
                             
-                            -- FIX: Bring Mobs oder Dynamisches Verfolgen (gegen In-die-Luft-schlagen)
-                            if RyuConfig.BringMobs then
-                                mRoot.CFrame = root.CFrame * CFrame.new(0, 0, -3.5)
-                                mRoot.Velocity = Vector3.new(0, 0, 0)
-                            end
-                            
                             local flatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                             
-                            local attackPos = RyuConfig.BringMobs and root.Position or (mRoot.Position + (flatDir.Unit * 2))
+                            local attackPos = mRoot.Position + (flatDir.Unit * 2)
                             
-                            -- FIX: 1.5x Schneller Jagen!
                             SafeTween(CFrame.lookAt(attackPos, mRoot.Position), RyuConfig.TweenSpeed * 1.5)
                             
                             local startHp = mHum.Health
@@ -755,24 +756,16 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and hum.Health > 0 and mHum.Health >= startHp and mHum.Health > 0 do
                                 if tick() - timeout > 3 then break end 
                                 
-                                -- FIX: Aktualisiert die Position während des Schlagens permanent!
-                                if RyuConfig.BringMobs then
-                                    mRoot.CFrame = root.CFrame * CFrame.new(0, 0, -3.5)
-                                    mRoot.Velocity = Vector3.new(0, 0, 0)
-                                else
-                                    local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
-                                    if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
-                                    attackPos = mRoot.Position + (curFlatDir.Unit * 2)
-                                end
+                                -- DYNAMISCHER SCANNER: Verfolgt den Mob in Echtzeit, schlägt nie in die Luft
+                                local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
+                                if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
+                                attackPos = mRoot.Position + (curFlatDir.Unit * 2)
                                 
                                 local bp = root:FindFirstChild("RyuHover")
-                                if bp then bp.Position = RyuConfig.BringMobs and root.Position or attackPos end
+                                if bp then bp.Position = attackPos end
                                 
-                                if not RyuConfig.BringMobs then
-                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
-                                end
+                                root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
                                 
-                                -- FIX: Doppeltes Schlagen für maximalen Speed!
                                 PerformAttack()
                                 PerformAttack()
                                 RunService.Heartbeat:Wait()
@@ -854,13 +847,6 @@ task.spawn(function()
                                                 mRoot.Size = Vector3.new(30, 30, 30)
                                                 mRoot.CanCollide = false
                                             end
-                                            
-                                            -- FIX: Bring Mobs in the Sky Phase
-                                            if RyuConfig.BringMobs then
-                                                mRoot.CFrame = root.CFrame * CFrame.new(0, 0, -3.5)
-                                                mRoot.Velocity = Vector3.new(0, 0, 0)
-                                                targetLook = mRoot.Position
-                                            end
                                         end
                                     end
                                 end
@@ -870,11 +856,10 @@ task.spawn(function()
                                 local bp = root:FindFirstChild("RyuHover")
                                 if bp then bp.Position = skyPos end
                                 
-                                if targetLook and not RyuConfig.BringMobs then
+                                if targetLook then
                                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetLook.X, root.Position.Y, targetLook.Z))
                                 end
                                 
-                                -- FIX: Doppeltes Schlagen für maximalen Speed!
                                 PerformAttack()
                                 PerformAttack()
                                 RunService.Heartbeat:Wait()
@@ -893,4 +878,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Bring Mobs & Dynamic Combat Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Clean System Active!", 4)
