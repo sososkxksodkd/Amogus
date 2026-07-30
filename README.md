@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - BULLETPROOF COMBAT)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - GUI TRACKER & RAW COMBAT)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -586,7 +586,7 @@ CreateToggle(SecFarmingMisc, "Auto Fishing (AFK Catch)", RyuConfig.AutoFish, fun
 end)
 
 --// ============================================================================
---// MODULE HOOKING: PC COMBAT ENGINE & BACKEND HACKS
+--// MODULE HOOKING: COMBAT ENGINE (SIMPLIFIED & FOOLPROOF)
 --// ============================================================================
 local function GetInputCallbacks()
     local backpack = LocalPlayer:FindFirstChild("Backpack")
@@ -596,48 +596,48 @@ local function GetInputCallbacks()
     return nil
 end
 
+-- FIX: Nimmt explizit Combat oder die gewählte Waffe in die Hand
 local function EquipCombat()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not hum then return end
     
-    local tool = char:FindFirstChild(RyuConfig.TargetWeapon) or LocalPlayer.Backpack:FindFirstChild(RyuConfig.TargetWeapon)
+    local targetWep = RyuConfig.TargetWeapon
+    if not targetWep or targetWep == "" then targetWep = "Combat" end
+    
+    local tool = char:FindFirstChild(targetWep) or LocalPlayer.Backpack:FindFirstChild(targetWep)
+    
+    -- Fallback: Sucht nach etwas Ähnlichem, falls der exakte Name nicht da ist
     if not tool then
         for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-            if item:IsA("Tool") and (item.Name:lower():find("combat") or item.Name:lower():find("melee") or item:GetAttribute("MeleeTool")) then
+            if item:IsA("Tool") and (item.Name:lower():find(targetWep:lower()) or item:GetAttribute("MeleeTool")) then
                 tool = item; break
             end
         end
     end
+    
     if tool and tool.Parent == LocalPlayer.Backpack then
         hum:EquipTool(tool)
         task.wait(0.1)
     end
 end
 
--- FIX: KUGELSICHERE ATTACKEN-FUNKTION MIT FALLBACK
+-- FIX: Simple, kugelsichere Klick-Methode für Auto Farm!
 local function PerformAttack()
-    local inputModule = GetInputCallbacks()
-    local attackFired = false
-    
-    -- Versuch 1: Unsichtbarer Fast-Attack über das GPO-Input-Modul
     pcall(function()
-        if inputModule and inputModule.Callbacks and inputModule.Callbacks.Attack then
-            if RyuConfig.FastAttack or (inputModule.Utils and inputModule.Utils.canAutoM1()) then
+        -- Wenn FastAttack aktiv ist, nutze das interne Modul-Bypass
+        if RyuConfig.FastAttack then
+            local inputModule = GetInputCallbacks()
+            if inputModule and inputModule.Callbacks and inputModule.Callbacks.Attack then
                 inputModule.Callbacks.Attack:PC_Activate()
                 inputModule.Callbacks.Attack:PC_Activate()
-                attackFired = true
             end
         end
+        
+        -- Echter, physikalischer Mausklick (Kugelsicherer Fallback für jeden normalen Schlag!)
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton1(Vector2.new())
     end)
-    
-    -- Versuch 2 (Sicherheits-Fallback): Falls das Modul nicht da ist, nutze die echte Maus-Simulation
-    if not attackFired then
-        pcall(function()
-            VirtualUser:CaptureController()
-            VirtualUser:ClickButton1(Vector2.new())
-        end)
-    end
 end
 
 --// ============================================================================
@@ -775,14 +775,33 @@ end)
 --// HARMONY CORE: FUSION (AUTO QUEST + AUTO FARM ZERO DELAY)
 --// ============================================================================
 
+-- FIX: GUI Check + Backend Check (Verhindert das Steckenbleiben beim NPC)
 local function HasActiveQuest()
     local hasQuest = false
     pcall(function()
+        -- 1. Backend Check
         local q = LocalPlayer:FindFirstChild("Quest")
         if q and q:FindFirstChild("CurrentQuest") then
             local val = q.CurrentQuest.Value
             if val ~= "" and val ~= "None" then 
                 hasQuest = true 
+                return
+            end
+        end
+        
+        -- 2. GUI Check (Prüft den Bildschirm oben links auf "0/5" etc.)
+        local pg = LocalPlayer:FindFirstChild("PlayerGui")
+        if pg then
+            for _, v in pairs(pg:GetDescendants()) do
+                if v:IsA("TextLabel") and v.Visible then
+                    if v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
+                        local txt = v.Text:lower()
+                        if txt:match("%d+/%d+") or txt:match("%d+%s*/%s*%d+") then
+                            hasQuest = true
+                            return
+                        end
+                    end
+                end
             end
         end
     end)
@@ -806,7 +825,7 @@ task.spawn(function()
         end
         wasQuestActive = currentlyHasQuest
         
-        --// PHASE 1: QUEST ANNEHMEN
+        --// PHASE 1: QUEST ANNEHMEN (Ohne Hänger, sofortiger Farm)
         if RyuConfig.AutoQuest and not currentlyHasQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             local npc = Workspace:FindFirstChild(RyuConfig.TargetNPC, true)
             if npc then
@@ -833,14 +852,10 @@ task.spawn(function()
                     end)
                     
                     task.wait(0.5) 
-                    
-                    if HasActiveQuest() then
-                        RyuNotify:Send("Auto Quest", "Quest angenommen! Greife an...", 2)
-                    end
                 end
             end
             
-        --// PHASE 2: MONSTER TÖTEN
+        --// PHASE 2: MONSTER TÖTEN (Raw Combat)
         elseif RyuConfig.AutoFarm and (currentlyHasQuest or not RyuConfig.AutoQuest) and RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -995,4 +1010,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Combat Engine Fixed & Bulletproof!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Strict Combat Clicks & GUI Quest Scanner!", 4)
