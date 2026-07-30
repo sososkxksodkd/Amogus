@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - 4S QUEST & SAFE ELEVATOR)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PC EXCLUSIVE - EXACT CLICKER & FLAT FLY)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -63,7 +63,7 @@ local RyuConfig = {
     TweenSpeed = 55, 
     KillHeight = 7, 
     FishmanSpeed = 140,
-    ElevatorSpeed = 22 -- Sanfterer Y-Aufzug gegen +Y Axis Strikes
+    ElevatorSpeed = 22
 }
 
 local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
@@ -339,7 +339,7 @@ end)
 local TabPlayer = CreateMainTab("Player")
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 
---// FISHMAN CAVE SMART TP SECTION
+--// NEU: FISHMAN CAVE SMART TP SECTION (Flacher Flug, Strenge AC Kontrolle)
 local SecMovement = CreateSection(SubMovement, "Smart Cave Travel")
 
 CreateSlider(SecMovement, "Cave Travel Speed", 50, 300, RyuConfig.FishmanSpeed, function(val)
@@ -384,7 +384,14 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
-                if (root.Position - intermediatePos).Magnitude > 40 then
+                -- FIX: Zwingt den Charakter, flach zu bleiben! (Kein auf dem Rücken liegen)
+                local lookPos = Vector3.new(tPos.X, intermediatePos.Y, tPos.Z)
+                if (lookPos - intermediatePos).Magnitude < 0.1 then 
+                    lookPos = intermediatePos + root.CFrame.LookVector 
+                end
+                
+                -- FIX: Strengere X/Y AC Kontrolle (20 Studs Abweichung)
+                if (root.Position - intermediatePos).Magnitude > 20 then
                     ToggleHover(false)
                     platform.CFrame = CFrame.new(0, 99999, 0) 
                     
@@ -392,7 +399,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     if hum then hum.Jump = true end
                     root.Velocity = Vector3.new(0, 50, 0)
                     
-                    RyuNotify:Send("Anti-Cheat", "Rote Meldung/AC erkannt! Springe & Warte 1s...", 1)
+                    RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
                     task.wait(1)
                     
                     ToggleHover(true)
@@ -403,7 +410,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 else
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = intermediatePos end
-                    root.CFrame = CFrame.lookAt(intermediatePos, tPos)
+                    
+                    root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
+                    root.Velocity = Vector3.new(0, 0, 0) -- Nullt Trägheit
                     
                     platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.2, intermediatePos.Z)
                 end
@@ -463,7 +472,12 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
-                if (root.Position - intermediatePos).Magnitude > 40 then
+                local lookPos = Vector3.new(tPos.X, intermediatePos.Y, tPos.Z)
+                if (lookPos - intermediatePos).Magnitude < 0.1 then 
+                    lookPos = intermediatePos + root.CFrame.LookVector 
+                end
+                
+                if (root.Position - intermediatePos).Magnitude > 20 then
                     ToggleHover(false)
                     platform.CFrame = CFrame.new(0, 99999, 0) 
                     
@@ -471,7 +485,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     if hum then hum.Jump = true end
                     root.Velocity = Vector3.new(0, 50, 0)
                     
-                    RyuNotify:Send("Anti-Cheat", "Rote Meldung/AC erkannt! Springe & Warte 1s...", 1)
+                    RyuNotify:Send("Anti-Cheat", "X/Y AC erkannt! Kontrollierte Pause (1s)...", 1)
                     task.wait(1)
                     
                     ToggleHover(true)
@@ -482,7 +496,9 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 else
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = intermediatePos end
-                    root.CFrame = CFrame.lookAt(intermediatePos, tPos)
+                    
+                    root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
+                    root.Velocity = Vector3.new(0, 0, 0)
                     
                     platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - 3.2, intermediatePos.Z)
                 end
@@ -657,7 +673,9 @@ local function HasActiveQuest()
     return hasQuest
 end
 
--- FIX: EXPLIZITER "OKEY!" & "OKAY!" DIALOG KLICKER
+-- FIX: VIRTUAL USER CLICKER AUF EXAKTER BILDSCHIRM-POSITION
+local lastClickPos = nil
+
 local function PerformQuestClicking()
     pcall(function()
         local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -669,16 +687,23 @@ local function PerformQuestClicking()
                     local lbl = v:FindFirstChildOfClass("TextLabel")
                     if lbl then txt = txt .. " " .. lbl.Text:lower() end
                     
-                    -- Deckt "Okey!", "Okay!", "okey", "okay", "yes", "next" ab
                     if txt:find("okey") or txt:find("okay") or txt:find("ok") or txt:find("yes") or txt:find("%.%.%.") or txt:find("…") or txt:find("accept") or txt:find("sure") or txt:find("next") or txt:find("confirm") then
                         if getconnections then
                             for _, sig in pairs(getconnections(v.MouseButton1Click)) do sig:Fire() end
                             for _, sig in pairs(getconnections(v.MouseButton1Down)) do sig:Fire() end
                             for _, sig in pairs(getconnections(v.Activated)) do sig:Fire() end
                         end
+                        -- Sichert die exakte Position (+ Inset) für den Spam-Klick
+                        lastClickPos = Vector2.new(v.AbsolutePosition.X + (v.AbsoluteSize.X / 2), v.AbsolutePosition.Y + (v.AbsoluteSize.Y / 2) + 36)
                     end
                 end
             end
+        end
+        
+        -- Physischer Fallback-Klick auf den gemerkten Button!
+        if lastClickPos then
+            VirtualUser:CaptureController()
+            VirtualUser:ClickButton1(lastClickPos)
         end
     end)
 end
@@ -733,7 +758,7 @@ task.spawn(function()
                     end
                     task.wait(0.5)
                     
-                    -- FIX: Klickt für bis zu 25s, aber mindestens 2.5s auf "Okay!" / "Okey!"
+                    -- FIX: Klickt für bis zu 25s und spamt echte physische Klicks auf die selbe Position!
                     local clickStart = tick()
                     while tick() - clickStart < 25 do
                         PerformQuestClicking()
@@ -745,16 +770,15 @@ task.spawn(function()
                             ReplicatedStorage.Events.Quest:InvokeServer("acceptquest")
                         end)
                         
-                        if (tick() - clickStart > 2.5) and HasActiveQuest() then break end
-                        task.wait(0.2)
+                        if (tick() - clickStart > 4) and HasActiveQuest() then break end
+                        task.wait(0.2) -- Extrem schneller Klick-Spam
                     end
                     
                     isQuestActive = true
                     questStartTime = tick()
                     
-                    -- FIX: EXAKT 4 SEKUNDEN WARTEN vor dem Auto Farm!
-                    RyuNotify:Send("Auto Quest", "Quest angenommen! Warte 4s auf Auto Farm...", 4)
-                    task.wait(4) 
+                    RyuNotify:Send("Auto Quest", "Quest angenommen! Warte 3s auf Auto Farm...", 3)
+                    task.wait(3) 
                 end
             end
             
@@ -915,4 +939,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: 4s Quest Wait & Elevator Fixed!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Strict AC Check & Physical AutoQuest Clicker Active!", 4)
