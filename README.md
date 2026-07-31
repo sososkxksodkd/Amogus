@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART ROUTE SCANNER & AVOIDANCE)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (DIRECTIONAL SCANNER & START-LAG FIX)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -910,23 +910,31 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 
                 local flatMyPos = Vector3.new(root.Position.X, 0, root.Position.Z)
                 local islandAvoidance = Vector3.new(0, 0, 0)
+                local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
                 
-                -- MACRO AVOIDANCE: Fliegt geschmeidig in einem riesigen Bogen um fremde Inseln!
-                for _, obsPos in ipairs(obstacleIslands) do
-                    local flatObs = Vector3.new(obsPos.X, 0, obsPos.Z)
-                    local dist = (flatMyPos - flatObs).Magnitude
-                    local safeRadius = 2000
+                if (flatTarget - flatMyPos).Magnitude > 0 then
+                    local toTargetDir = (flatTarget - flatMyPos).Unit
                     
-                    if dist < safeRadius then
-                        local pushDir = (flatMyPos - flatObs).Unit
-                        if pushDir.Magnitude > 0 then
-                            local toTarget = (Vector3.new(tPos.X, 0, tPos.Z) - flatMyPos).Unit
-                            local rightVec = Vector3.new(0, 1, 0):Cross(pushDir).Unit
-                            local dot = rightVec:Dot(toTarget)
-                            local dodgeDir = (dot > 0) and rightVec or -rightVec
+                    -- MACRO AVOIDANCE: Nur Inseln VOR uns ausweichen + Start-Insel ignorieren!
+                    for _, obsPos in ipairs(obstacleIslands) do
+                        local flatObs = Vector3.new(obsPos.X, 0, obsPos.Z)
+                        local dist = (flatMyPos - flatObs).Magnitude
+                        local safeRadius = 2000
+                        
+                        -- Ignoriere Inseln, die näher als 500 Studs sind (Start-Insel)
+                        if dist < safeRadius and dist > 500 then
+                            local toObsDir = (flatObs - flatMyPos).Unit
                             
-                            local strength = ((safeRadius - dist) / safeRadius)
-                            islandAvoidance = islandAvoidance + (dodgeDir * strength * 800)
+                            -- Dot Product prüft, ob die Insel vor uns liegt (> 0.2 bedeutet vor uns)
+                            if toObsDir:Dot(toTargetDir) > 0.2 then
+                                local pushDir = (flatMyPos - flatObs).Unit
+                                local rightVec = Vector3.new(0, 1, 0):Cross(pushDir).Unit
+                                local dot = rightVec:Dot(toTargetDir)
+                                local dodgeDir = (dot > 0) and rightVec or -rightVec
+                                
+                                local strength = ((safeRadius - dist) / safeRadius)
+                                islandAvoidance = islandAvoidance + (dodgeDir * strength * 800)
+                            end
                         end
                     end
                 end
@@ -955,11 +963,9 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 if targetY > currentY + 0.5 then
                     currentY = currentY + (climbRate * dt)
                     if currentY > targetY then currentY = targetY end
-                    -- elapsedTime stoppt -> reine Aufwärtsbewegung (kein Noclip nach vorne)
                 elseif targetY < currentY - 5 then
                     currentY = currentY - (fallRate * dt)
                     if currentY < targetY then currentY = targetY end
-                    -- elapsedTime stoppt -> reines Fallen
                 else
                     currentY = targetY
                     elapsedTime = elapsedTime + dt
@@ -983,8 +989,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     pcall(function() footstepEvent:FireServer() end)
                 end
 
-                -- FIX: RUBBERBAND / ANTI-CHEAT DODGER
-                -- Akzeptiert die Blockade in Ziel-Nähe als erfolgreiche Ankunft!
                 local actualPos = root.Position
                 if (actualPos - finalPos).Magnitude > 15 then
                     if (actualPos - tPos).Magnitude < 150 then
@@ -1018,7 +1022,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         local safeY = 1500
         RyuNotify:Send("Island TP", "Reise nach " .. targetIslandName .. " (Sky-Route)...", 3)
         
-        -- Zuerst hoch, dann Sky-Travel, dann Runter-TP zur Ziel-Insel.
         local clipped = IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed, true)
         if not clipped then
             clipped = IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed, true)
@@ -1155,7 +1158,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             end
         end
         
-        local function IslandLerp(tPos, currentSpeed)
+        local function IslandLerp(tPos, currentSpeed, isSkyRoute)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
             
@@ -1203,23 +1206,31 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 
                 local flatMyPos = Vector3.new(root.Position.X, 0, root.Position.Z)
                 local islandAvoidance = Vector3.new(0, 0, 0)
+                local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
                 
-                -- MACRO AVOIDANCE: Fliegt geschmeidig in einem riesigen Bogen um fremde Inseln!
-                for _, obsPos in ipairs(obstacleIslands) do
-                    local flatObs = Vector3.new(obsPos.X, 0, obsPos.Z)
-                    local dist = (flatMyPos - flatObs).Magnitude
-                    local safeRadius = 2000
+                if (flatTarget - flatMyPos).Magnitude > 0 then
+                    local toTargetDir = (flatTarget - flatMyPos).Unit
                     
-                    if dist < safeRadius then
-                        local pushDir = (flatMyPos - flatObs).Unit
-                        if pushDir.Magnitude > 0 then
-                            local toTarget = (Vector3.new(tPos.X, 0, tPos.Z) - flatMyPos).Unit
-                            local rightVec = Vector3.new(0, 1, 0):Cross(pushDir).Unit
-                            local dot = rightVec:Dot(toTarget)
-                            local dodgeDir = (dot > 0) and rightVec or -rightVec
+                    -- MACRO AVOIDANCE: Nur Inseln VOR uns ausweichen + Start-Insel ignorieren!
+                    for _, obsPos in ipairs(obstacleIslands) do
+                        local flatObs = Vector3.new(obsPos.X, 0, obsPos.Z)
+                        local dist = (flatMyPos - flatObs).Magnitude
+                        local safeRadius = 2000
+                        
+                        -- Ignoriere Inseln, die näher als 500 Studs sind (Start-Insel)
+                        if dist < safeRadius and dist > 500 then
+                            local toObsDir = (flatObs - flatMyPos).Unit
                             
-                            local strength = ((safeRadius - dist) / safeRadius)
-                            islandAvoidance = islandAvoidance + (dodgeDir * strength * 800)
+                            -- Dot Product prüft, ob die Insel vor uns liegt (> 0.2 bedeutet vor uns)
+                            if toObsDir:Dot(toTargetDir) > 0.2 then
+                                local pushDir = (flatMyPos - flatObs).Unit
+                                local rightVec = Vector3.new(0, 1, 0):Cross(pushDir).Unit
+                                local dot = rightVec:Dot(toTargetDir)
+                                local dodgeDir = (dot > 0) and rightVec or -rightVec
+                                
+                                local strength = ((safeRadius - dist) / safeRadius)
+                                islandAvoidance = islandAvoidance + (dodgeDir * strength * 800)
+                            end
                         end
                     end
                 end
@@ -1229,19 +1240,21 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
                 local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
 
-                local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, currentY + 45, nextIntermediatePos.Z), Vector3.new(0, -150, 0), rayParamsDown)
-                
                 local targetY
-                if tempGroundHit and tempGroundHit.Position.Y >= -1 then
-                    targetY = tempGroundHit.Position.Y + floorOffset + 5
+                if isSkyRoute then
+                    targetY = tPos.Y 
                 else
-                    targetY = floorOffset + 1 
+                    local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, currentY + 45, nextIntermediatePos.Z), Vector3.new(0, -150, 0), rayParamsDown)
+                    if tempGroundHit and tempGroundHit.Position.Y >= -1 then
+                        targetY = tempGroundHit.Position.Y + floorOffset + 5
+                    else
+                        targetY = floorOffset + 1 
+                    end
+                    targetY = math.max(targetY, 1)
                 end
-                
-                targetY = math.max(targetY, 1)
 
                 local climbRate = 17 
-                local fallRate = 60
+                local fallRate = isSkyRoute and 300 or 60
                 
                 if targetY > currentY + 0.5 then
                     currentY = currentY + (climbRate * dt)
@@ -1307,7 +1320,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         end
         
         RyuNotify:Send("Island TP", "Gleite direkt nach " .. targetIslandName .. "...", 3)
-        IslandLerp(rawPos, RyuConfig.IslandSpeed)
+        IslandLerp(rawPos, RyuConfig.IslandSpeed, false)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -1642,4 +1655,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Smart Scanner & No-Jitter Configured!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Directional Scanner & Start-Fix Active!", 4)
