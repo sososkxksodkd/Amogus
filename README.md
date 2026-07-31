@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (WATER/ISLAND GLIDER & SPEED 70)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (WATER/ISLAND GLIDER & MAX SPEED 60)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -53,7 +53,7 @@ local RyuConfig = {
     ElevatorSpeed = 85,
     
     TargetIsland = IslandList[1],
-    IslandSpeed = 70, -- Standard Speed auf 70 angepasst
+    IslandSpeed = 60, -- Standard Speed auf 60 angepasst
     
     AutoStrength = false,
     AutoStamina = false,
@@ -741,8 +741,8 @@ local SubAutoBuy = CreateSubTab(TabMobility, "Auto Buy")
 
 local SecIslandTP = CreateSection(SubTransport, "Island Teleportation")
 CreateDropdown(SecIslandTP, "Select Island", IslandList, "TargetIsland")
--- FIX: Slider maximal auf 70 gesetzt
-CreateSlider(SecIslandTP, "Travel Speed", 50, 70, RyuConfig.IslandSpeed, function(val)
+-- FIX: Slider maximal auf 60 gesetzt
+CreateSlider(SecIslandTP, "Travel Speed", 50, 60, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
 
@@ -840,6 +840,8 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
+            local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
+            
             while tick() - startTime < t do
                 
                 if tick() - lastClipCheck > 0.1 then
@@ -867,14 +869,39 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                local bp = root:FindFirstChild("RyuHover")
-                if bp then bp.Position = intermediatePos end
-                
-                root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
-                root.Velocity = Vector3.new(0, 0, 0) 
-                
-                platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
+                -- RAYCAST NACH UNTEN (Terrain abtasten)
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
+                local tempGroundHit = Workspace:Raycast(Vector3.new(intermediatePos.X, 2500, intermediatePos.Z), Vector3.new(0, -3000, 0), rayParams)
+                
+                local finalY
+                if tempGroundHit and tempGroundHit.Position.Y >= -1 then
+                    finalY = tempGroundHit.Position.Y + floorOffset + 5
+                else
+                    finalY = floorOffset + 1
+                end
+                
+                finalY = math.max(finalY, 1)
+
+                local finalPos = Vector3.new(intermediatePos.X, finalY, intermediatePos.Z)
+                
+                local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
+                if (lookPos - finalPos).Magnitude > 0.1 then 
+                    root.CFrame = CFrame.lookAt(finalPos, lookPos)
+                else
+                    root.CFrame = CFrame.new(finalPos)
+                end
+                
+                root.Velocity = Vector3.new(0, 0, 0)
+                platform.CFrame = CFrame.new(finalPos.X, finalPos.Y - floorOffset, finalPos.Z)
+                
+                -- ANTI-CHEAT BYPASS: FOOTSTEP SPAM
+                if footstepEvent then
+                    pcall(function() footstepEvent:FireServer() end)
+                end
+                
                 RunService.Heartbeat:Wait()
             end
             
@@ -893,16 +920,8 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             return clipped
         end
         
-        local safeY = 1500
-        RyuNotify:Send("Island TP", "Reise nach " .. targetIslandName .. "...", 3)
-        
-        local clipped = IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed)
-        if not clipped then
-            clipped = IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed)
-        end
-        if not clipped then
-            IslandLerp(targetPos, RyuConfig.IslandSpeed)
-        end
+        RyuNotify:Send("Island TP", "Gleite nach " .. targetIslandName .. "...", 3)
+        IslandLerp(rawPos, RyuConfig.IslandSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -991,7 +1010,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         ToggleHover(true)
         
-        -- FIX: CLEAN TERRAIN-FOLLOWER & FOOTSTEP SPAM!
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
@@ -1032,6 +1050,11 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
+                local lookPos = Vector3.new(tPos.X, intermediatePos.Y, tPos.Z)
+                if (lookPos - intermediatePos).Magnitude < 0.1 then 
+                    lookPos = intermediatePos + root.CFrame.LookVector 
+                end
+                
                 -- RAYCAST NACH UNTEN (Terrain abtasten)
                 local rayParams = RaycastParams.new()
                 rayParams.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
@@ -1041,16 +1064,13 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 
                 local finalY
                 if tempGroundHit and tempGroundHit.Position.Y >= -1 then
-                    -- Auf einer Insel (Boden ist über oder nah am Meeresspiegel)
                     finalY = tempGroundHit.Position.Y + floorOffset + 5
                 else
-                    -- Im Meer (Boden ist tief im Minusbereich)
-                    finalY = floorOffset + 1 -- Gleitet exakt auf Wasserhöhe (knapp über Y=0)
+                    finalY = floorOffset + 1 
                 end
                 
-                finalY = math.max(finalY, 1) -- Sicherheitsnetz: Niemals ins Minus!
+                finalY = math.max(finalY, 1)
 
-                -- EXAKT 5 STUDS ÜBER DEM BODEN KLEBEN (Oder über dem Wasser)
                 local finalPos = Vector3.new(intermediatePos.X, finalY, intermediatePos.Z)
                 
                 local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
@@ -1421,4 +1441,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Perfect Terrain Glider Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Speed Limit 60 Configured!", 4)
