@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (OVERHANG/ROOF BYPASS CLIMBER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART HEAD-SCAN & VERTICAL CLIMB)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -852,7 +852,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             local clipped = false
             
             local currentDodge = Vector3.new(0, 0, 0)
-            local currentClimbPushback = Vector3.new(0, 0, 0) -- FIX: Overhang/Roof Evasion
+            local currentClimbPushback = Vector3.new(0, 0, 0)
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -911,26 +911,33 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 end
                 targetY = math.max(targetY, 1)
 
+                -- FIX: PERFEKTES KLETTERN & KOPF-SCANNER
                 local climbRate = 17
-                local fallRate = 60
-                local isClimbing = false -- FIX: Detektor fürs Klettern
+                local fallRate = 40 
+                local isClimbing = false
                 
-                if targetY > currentY + (climbRate * dt) then
+                -- Kopf-Scanner für Dächer/Overhangs
+                local headHit = Workspace:Raycast(root.Position, Vector3.new(0, 7, 0) + (forwardDir * 4), rayParamsDown)
+                local hasOverhang = headHit ~= nil
+                
+                if targetY > currentY + 0.5 then
                     currentY = currentY + (climbRate * dt)
+                    if currentY > targetY then currentY = targetY end
                     isClimbing = true
-                elseif targetY < currentY - (fallRate * dt) then
+                    -- elapsedTime wird NICHT erhöht -> 0 Vorwärtsbewegung!
+                elseif targetY < currentY - 5 then
                     currentY = currentY - (fallRate * dt)
-                    elapsedTime = elapsedTime + (dt * 0.5)
+                    if currentY < targetY then currentY = targetY end
+                    -- elapsedTime wird NICHT erhöht -> Stehenbleiben beim Runterklettern!
                 else
                     currentY = targetY
                     elapsedTime = elapsedTime + dt
                 end
 
-                -- FIX: Overhang / Roof Bypass (C-Kurve beim Klettern)
-                if isClimbing then
-                    currentClimbPushback = currentClimbPushback:Lerp(-forwardDir * 15, dt * 3)
+                if isClimbing and hasOverhang then
+                    currentClimbPushback = currentClimbPushback:Lerp(-forwardDir * 15, dt * 5)
                 else
-                    currentClimbPushback = currentClimbPushback:Lerp(Vector3.new(0, 0, 0), dt * 3)
+                    currentClimbPushback = currentClimbPushback:Lerp(Vector3.new(0, 0, 0), dt * 4)
                 end
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
@@ -951,7 +958,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     pcall(function() footstepEvent:FireServer() end)
                 end
 
-                -- FIX: RUBBERBAND / ANTI-CHEAT DODGER
                 local actualPos = root.Position
                 if (actualPos - finalPos).Magnitude > 15 then
                     RyuNotify:Send("Anti-Cheat", "Blockade erkannt! Pausiere 0.7s und weiche aus...", 2)
@@ -1107,7 +1113,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             local clipped = false
             
             local currentDodge = Vector3.new(0, 0, 0)
-            local currentClimbPushback = Vector3.new(0, 0, 0) -- FIX: Overhang/Roof Evasion
+            local currentClimbPushback = Vector3.new(0, 0, 0)
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -1166,26 +1172,33 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 end
                 targetY = math.max(targetY, 1)
 
+                -- FIX: PERFEKTES KLETTERN & KOPF-SCANNER
                 local climbRate = 17
-                local fallRate = 60
-                local isClimbing = false -- FIX: Detektor fürs Klettern
+                local fallRate = 40 
+                local isClimbing = false
                 
-                if targetY > currentY + (climbRate * dt) then
+                -- Kopf-Scanner für Dächer/Overhangs
+                local headHit = Workspace:Raycast(root.Position, Vector3.new(0, 7, 0) + (forwardDir * 4), rayParamsDown)
+                local hasOverhang = headHit ~= nil
+                
+                if targetY > currentY + 0.5 then
                     currentY = currentY + (climbRate * dt)
+                    if currentY > targetY then currentY = targetY end
                     isClimbing = true
-                elseif targetY < currentY - (fallRate * dt) then
+                    -- elapsedTime wird NICHT erhöht -> 0 Vorwärtsbewegung!
+                elseif targetY < currentY - 5 then
                     currentY = currentY - (fallRate * dt)
-                    elapsedTime = elapsedTime + (dt * 0.5)
+                    if currentY < targetY then currentY = targetY end
+                    -- elapsedTime wird NICHT erhöht -> Stehenbleiben beim Runterklettern!
                 else
                     currentY = targetY
                     elapsedTime = elapsedTime + dt
                 end
 
-                -- FIX: Overhang / Roof Bypass (C-Kurve beim Klettern)
-                if isClimbing then
-                    currentClimbPushback = currentClimbPushback:Lerp(-forwardDir * 15, dt * 3)
+                if isClimbing and hasOverhang then
+                    currentClimbPushback = currentClimbPushback:Lerp(-forwardDir * 15, dt * 5)
                 else
-                    currentClimbPushback = currentClimbPushback:Lerp(Vector3.new(0, 0, 0), dt * 3)
+                    currentClimbPushback = currentClimbPushback:Lerp(Vector3.new(0, 0, 0), dt * 4)
                 end
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
@@ -1206,7 +1219,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     pcall(function() footstepEvent:FireServer() end)
                 end
 
-                -- FIX: RUBBERBAND / ANTI-CHEAT DODGER
                 local actualPos = root.Position
                 if (actualPos - finalPos).Magnitude > 15 then
                     RyuNotify:Send("Anti-Cheat", "Blockade erkannt! Pausiere 0.7s und weiche aus...", 2)
@@ -1577,4 +1589,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Overhang Bypass Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Perfect Head-Scan & Climb Active!", 4)
