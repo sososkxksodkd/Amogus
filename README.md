@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (NO GROUNDED BUG & AUTO BUY ADDED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PRE-PORTAL ROUTE & BLACKSCREEN SCAN)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -321,10 +321,6 @@ end)
 
 CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
     task.spawn(function()
-        local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
-        if not cave then return end
-        
-        local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
@@ -402,16 +398,33 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             _G.soruDashing = nil
         end
         
+        -- FIX: Die neue Pre-Portal Route
+        local prePortalRoute = {
+            Vector3.new(1774, -4, -12104),
+            Vector3.new(1777, 64, -12190),
+            Vector3.new(1839, 70, -12212),
+            Vector3.new(1791, 60, -12290),
+            Vector3.new(1794, 47, -12309)
+        }
+        
         local safeY = 1500
+        local startWp = prePortalRoute[1]
+        
         CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed)
-        CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.FishmanSpeed)
-        CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.ElevatorSpeed)
+        CustomLerp(Vector3.new(startWp.X, safeY, startWp.Z), RyuConfig.FishmanSpeed)
+        CustomLerp(startWp, RyuConfig.ElevatorSpeed)
+        
+        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route...", 3)
+        for _, wp in ipairs(prePortalRoute) do
+            CustomLerp(wp, RyuConfig.FishmanSpeed)
+        end
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
-        task.wait(5)
+        -- FIX: Exakt 4 Sekunden warten
+        RyuNotify:Send("Smart TP", "Warte 4 Sekunden vor Portal-TP...", 4)
+        task.wait(4)
         
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
@@ -426,9 +439,55 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             task.wait(0.1)
             root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
             
-            RyuNotify:Send("Smart TP", "Teleportiert durchs Portal! Warte 5 Sekunden...", 5)
+            -- FIX: Black-Screen Scanner
+            local startBlack = tick()
+            local isBlack = false
+            RyuNotify:Send("Smart TP", "Warte auf Ladebildschirm...", 3)
             
-            task.wait(5)
+            while tick() - startBlack < 10 do
+                local foundBlack = false
+                local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                if pg then
+                    for _, v in pairs(pg:GetDescendants()) do
+                        if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
+                            if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
+                                foundBlack = true
+                                break
+                            end
+                        end
+                    end
+                end
+                if foundBlack then
+                    isBlack = true
+                    break
+                end
+                task.wait(0.1)
+            end
+            
+            if isBlack then
+                RyuNotify:Send("Smart TP", "Ladebildschirm erkannt! Warte auf Map...", 3)
+                local startClear = tick()
+                while tick() - startClear < 15 do
+                    local foundBlack = false
+                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                    if pg then
+                        for _, v in pairs(pg:GetDescendants()) do
+                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
+                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
+                                    foundBlack = true
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    if not foundBlack then break end
+                    task.wait(0.1)
+                end
+                task.wait(1) 
+            else
+                task.wait(4)
+            end
+            
             ToggleHover(true)
             RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
             
@@ -453,10 +512,6 @@ end)
 
 CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
     task.spawn(function()
-        local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
-        if not cave then return end
-        
-        local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
@@ -534,13 +589,29 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             _G.soruDashing = nil
         end
         
-        CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed)
+        -- FIX: Die neue Pre-Portal Route
+        local prePortalRoute = {
+            Vector3.new(1774, -4, -12104),
+            Vector3.new(1777, 64, -12190),
+            Vector3.new(1839, 70, -12212),
+            Vector3.new(1791, 60, -12290),
+            Vector3.new(1794, 47, -12309)
+        }
+        
+        local startWp = prePortalRoute[1]
+        CustomLerp(startWp, RyuConfig.FishmanSpeed)
+        
+        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route...", 3)
+        for _, wp in ipairs(prePortalRoute) do
+            CustomLerp(wp, RyuConfig.FishmanSpeed)
+        end
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
-        task.wait(5)
+        -- FIX: Exakt 4 Sekunden warten
+        RyuNotify:Send("Smart TP", "Warte 4 Sekunden für Portal-TP...", 4)
+        task.wait(4)
         
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
@@ -555,9 +626,55 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             task.wait(0.1)
             root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
             
-            RyuNotify:Send("Smart TP", "Teleportiert durchs Portal! Warte 5 Sekunden...", 5)
+            -- FIX: Black-Screen Scanner
+            local startBlack = tick()
+            local isBlack = false
+            RyuNotify:Send("Smart TP", "Warte auf Ladebildschirm...", 3)
             
-            task.wait(5)
+            while tick() - startBlack < 10 do
+                local foundBlack = false
+                local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                if pg then
+                    for _, v in pairs(pg:GetDescendants()) do
+                        if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
+                            if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
+                                foundBlack = true
+                                break
+                            end
+                        end
+                    end
+                end
+                if foundBlack then
+                    isBlack = true
+                    break
+                end
+                task.wait(0.1)
+            end
+            
+            if isBlack then
+                RyuNotify:Send("Smart TP", "Ladebildschirm erkannt! Warte auf Map...", 3)
+                local startClear = tick()
+                while tick() - startClear < 15 do
+                    local foundBlack = false
+                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                    if pg then
+                        for _, v in pairs(pg:GetDescendants()) do
+                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
+                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
+                                    foundBlack = true
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    if not foundBlack then break end
+                    task.wait(0.1)
+                end
+                task.wait(1) 
+            else
+                task.wait(4)
+            end
+            
             ToggleHover(true)
             RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
             
@@ -598,9 +715,10 @@ CreateToggle(SecAutoStats, "Auto Gun Mastery", RyuConfig.AutoGun, function(state
     RyuConfig.AutoGun = state 
 end)
 
---// BUY TAB -> TRANSPORTATION
-local TabBuy = CreateMainTab("Buy")
-local SubTransport = CreateSubTab(TabBuy, "Transportation")
+--// NEU: MOBILITY TAB -> TRANSPORTATION & AUTO BUY
+local TabMobility = CreateMainTab("Mobility")
+local SubTransport = CreateSubTab(TabMobility, "Transportation")
+local SubAutoBuy = CreateSubTab(TabMobility, "Auto Buy")
 
 local SecIslandTP = CreateSection(SubTransport, "Island Teleportation")
 CreateDropdown(SecIslandTP, "Select Island", IslandList, "TargetIsland")
@@ -686,7 +804,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
-        -- FIX: NOCLIP ABBRUCH-SYSTEM (OHNE GROUNDED EFFECT)
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
@@ -1057,8 +1174,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
     end)
 end)
 
---// NEU: AUTO BUY SEKTION
-local SecAutoBuy = CreateSection(SubTransport, "Auto Buy")
+local SecAutoBuy = CreateSection(SubAutoBuy, "Auto Buy")
 CreateButton(SecAutoBuy, "Buy Geppo", function()
     pcall(function()
         local inter = LocalPlayer:WaitForChild("InteractionsV2", 2)
@@ -1381,4 +1497,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Clean Island TP & Auto Buy Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Pre-Portal & Blackscreen Logic Active!", 4)
