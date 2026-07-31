@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (ANTI-NOCLIP VERTICAL CLIMB & MAX SPEED 60)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (15 SPD CLIMB GLIDER & RYUHUB PLATFORM)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -888,8 +888,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 end
                 targetY = math.max(targetY, 1)
 
-                -- SMART CLIMB SYSTEM: Verhindert AC-Kicks und Noclipping
-                local climbRate = 25 
+                local climbRate = 15 -- FIX: Klettern auf 15 reduziert
                 local fallRate = 60
                 
                 if targetY > currentY + (climbRate * dt) then
@@ -1085,16 +1084,16 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
 
                 local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, 2500, nextIntermediatePos.Z), Vector3.new(0, -3000, 0), rayParamsDown)
                 
-                local targetY
+                local finalY
                 if tempGroundHit and tempGroundHit.Position.Y >= -1 then
-                    targetY = tempGroundHit.Position.Y + floorOffset + 5
+                    finalY = tempGroundHit.Position.Y + floorOffset + 5
                 else
-                    targetY = floorOffset + 1 
+                    finalY = floorOffset + 1 
                 end
-                targetY = math.max(targetY, 1) 
+                
+                finalY = math.max(finalY, 1)
 
-                -- SMART CLIMB SYSTEM: Verhindert AC-Kicks und Noclipping
-                local climbRate = 25 
+                local climbRate = 15 -- FIX: Klettern auf 15 reduziert
                 local fallRate = 60
                 
                 if targetY > currentY + (climbRate * dt) then
@@ -1477,4 +1476,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Perfect Vertical Anti-Noclip Glide Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Update Successfully Applied!", 4)
