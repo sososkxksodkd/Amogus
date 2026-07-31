@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (NOCLIP STOP & PERFECT LANDING)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NO GROUNDED BUG & AUTO BUY ADDED)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -393,9 +393,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     root.Velocity = Vector3.new(0, 0, 0) 
                     
                     platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
-                    
-                    char:SetAttribute("Grounded", true)
-                    _G.grounded = true
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -528,9 +525,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     root.Velocity = Vector3.new(0, 0, 0)
                     
                     platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
-                    
-                    char:SetAttribute("Grounded", true)
-                    _G.grounded = true
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -603,7 +597,6 @@ end)
 CreateToggle(SecAutoStats, "Auto Gun Mastery", RyuConfig.AutoGun, function(state) 
     RyuConfig.AutoGun = state 
 end)
-
 
 --// BUY TAB -> TRANSPORTATION
 local TabBuy = CreateMainTab("Buy")
@@ -693,7 +686,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
-        -- FIX: NOCLIP ABBRUCH-SYSTEM INTEGRIERT
+        -- FIX: NOCLIP ABBRUCH-SYSTEM (OHNE GROUNDED EFFECT)
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
@@ -713,7 +706,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             
             while tick() - startTime < t do
                 
-                -- Noclip Checker: Wenn der Spieler in die Insel "noclippt", brich den Tween sofort ab!
                 if tick() - lastClipCheck > 0.1 then
                     lastClipCheck = tick()
                     pcall(function()
@@ -790,9 +782,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     root.Velocity = Vector3.new(0, 0, 0) 
                     
                     platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
-                    
-                    char:SetAttribute("Grounded", true)
-                    _G.grounded = true
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -1005,9 +994,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     root.Velocity = Vector3.new(0, 0, 0) 
                     
                     platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
-                    
-                    char:SetAttribute("Grounded", true)
-                    _G.grounded = true
                 end
                 RunService.Heartbeat:Wait()
             end
@@ -1071,6 +1057,30 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
     end)
 end)
 
+--// NEU: AUTO BUY SEKTION
+local SecAutoBuy = CreateSection(SubTransport, "Auto Buy")
+CreateButton(SecAutoBuy, "Buy Geppo", function()
+    pcall(function()
+        local inter = LocalPlayer:WaitForChild("InteractionsV2", 2)
+        if inter then
+            if inter:IsA("RemoteEvent") then
+                inter:FireServer("Geppo")
+            elseif inter:IsA("RemoteFunction") then
+                inter:InvokeServer("Geppo")
+            end
+        end
+        RyuNotify:Send("Auto Buy", "Kaufanfrage für Geppo gesendet!", 3)
+    end)
+end)
+
+local suggestLabel = Instance.new("TextLabel", SecAutoBuy)
+suggestLabel.Size = UDim2.new(0.92, 0, 0, 20)
+suggestLabel.BackgroundTransparency = 1
+suggestLabel.Text = "SUGGEST MORE IN THE DISCORD"
+suggestLabel.TextColor3 = Theme.SubText
+suggestLabel.Font = Enum.Font.GothamBold
+suggestLabel.TextSize = 11
+suggestLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 --// ============================================================================
 --// MODULE HOOKING: PURE RAW COMBAT 
@@ -1371,4 +1381,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Perfect Landing System Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Clean Island TP & Auto Buy Active!", 4)
