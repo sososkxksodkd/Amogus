@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (ISLAND TP 3s/0.3s & MAX SPEED 85)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART SCANNER & PERFECT 5-STUD DROP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -681,6 +681,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
+        -- FIX: NEUES ISLAND TWEEN SYSTEM (0.7s FALL, 5 STUDS UP)
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return end
@@ -715,7 +716,31 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     root.Velocity = Vector3.new(0, 50, 0)
                     
                     if isDrop then
-                        task.wait(0.3) 
+                        -- 0.7s Fallen lassen
+                        task.wait(0.7) 
+                        
+                        -- Genau 5 Studs nach oben tweenen
+                        ToggleHover(true)
+                        local dropPos = root.Position
+                        local recoverPos = dropPos + Vector3.new(0, 5, 0)
+                        local recTime = 0.2
+                        local recStart = tick()
+                        
+                        while tick() - recStart < recTime do
+                            local a = (tick() - recStart) / recTime
+                            local cp = dropPos:Lerp(recoverPos, a)
+                            local bp = root:FindFirstChild("RyuHover")
+                            if bp then bp.Position = cp end
+                            
+                            local lPos = Vector3.new(tPos.X, cp.Y, tPos.Z)
+                            if (lPos - cp).Magnitude > 0.1 then
+                                root.CFrame = CFrame.lookAt(cp, lPos)
+                            else
+                                root.CFrame = CFrame.new(cp)
+                            end
+                            RunService.Heartbeat:Wait()
+                        end
+                        root.Velocity = Vector3.new(0, 0, 0)
                     else
                         task.wait(1)
                     end
@@ -763,7 +788,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
     end)
 end)
 
--- NEU: BODEN-TP FÜR INSELN!
 CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
     task.spawn(function()
         local targetIslandName = RyuConfig.TargetIsland
@@ -831,6 +855,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         ToggleHover(true)
         
+        -- FIX: EXAKT DAS FISHMAN SYSTEM (0.7s FALL, 5 STUDS UP)
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return end
@@ -865,7 +890,31 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     root.Velocity = Vector3.new(0, 50, 0)
                     
                     if isDrop then
-                        task.wait(0.3) 
+                        -- 0.7s Fallen lassen
+                        task.wait(0.7) 
+                        
+                        -- Genau 5 Studs nach oben tweenen
+                        ToggleHover(true)
+                        local dropPos = root.Position
+                        local recoverPos = dropPos + Vector3.new(0, 5, 0)
+                        local recTime = 0.2
+                        local recStart = tick()
+                        
+                        while tick() - recStart < recTime do
+                            local a = (tick() - recStart) / recTime
+                            local cp = dropPos:Lerp(recoverPos, a)
+                            local bp = root:FindFirstChild("RyuHover")
+                            if bp then bp.Position = cp end
+                            
+                            local lPos = Vector3.new(tPos.X, cp.Y, tPos.Z)
+                            if (lPos - cp).Magnitude > 0.1 then
+                                root.CFrame = CFrame.lookAt(cp, lPos)
+                            else
+                                root.CFrame = CFrame.new(cp)
+                            end
+                            RunService.Heartbeat:Wait()
+                        end
+                        root.Velocity = Vector3.new(0, 0, 0)
                     else
                         task.wait(1)
                     end
@@ -895,6 +944,21 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
+        end
+        
+        -- FIX: SMART SCANNER FÜR BODEN-TP
+        local params = RaycastParams.new()
+        params.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), platform}
+        params.FilterType = Enum.RaycastFilterType.Exclude
+
+        local rayDir = targetPos - root.Position
+        local rayHit = Workspace:Raycast(root.Position, rayDir, params)
+
+        if rayHit and rayHit.Instance and rayHit.Instance.CanCollide then
+            RyuNotify:Send("Smart Scanner", "Insel im Weg! Weiche aus...", 3)
+            local safeY = math.max(1500, rayHit.Position.Y + 500)
+            IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed)
+            IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed)
         end
         
         RyuNotify:Send("Island TP", "Reise direkt nach " .. targetIslandName .. "...", 3)
@@ -1209,4 +1273,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Direct Island TP Added!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Smart Scanner & 5-Stud Drop Active!", 4)
