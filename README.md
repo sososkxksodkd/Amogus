@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PERFECT GROUND LANDING & SMART ROUTE)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (150/80 STUD TELEPORT FINISH)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -667,7 +667,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
-        -- FIX: Dynamischer Boden-Scanner (Sucht den echten Boden der Insel)
         local targetPos = rawPos
         local rayParams = RaycastParams.new()
         rayParams.FilterDescendantsInstances = {island, Workspace:FindFirstChild("Terrain")}
@@ -676,10 +675,8 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         local groundHit = Workspace:Raycast(rawPos + Vector3.new(0, 1000, 0), Vector3.new(0, -2000, 0), rayParams)
         
         if groundHit then
-            -- Wenn Boden gefunden, landet er butterweich exakt auf den Füßen!
             targetPos = groundHit.Position + Vector3.new(0, hipHeight + 2, 0)
         else
-            -- Notfall Fallback (kein +100 Studs Fehler mehr!)
             targetPos = rawPos + Vector3.new(0, hipHeight + 5, 0)
         end
         
@@ -708,10 +705,51 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             local startTime = tick()
             local lastDrop = tick()
             
+            local tp150Triggered = false
+            local tp80Triggered = false
+            
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
             while tick() - startTime < t do
+                local currentDist = (root.Position - tPos).Magnitude
+                
+                -- NEU: 150-Stud Teleport Finish
+                if currentDist <= 150 and not tp150Triggered then
+                    tp150Triggered = true
+                    ToggleHover(false)
+                    root.CFrame = CFrame.new(tPos)
+                    task.wait(0.3) -- Check für Anti-Cheat Rollback
+                    if (root.Position - tPos).Magnitude <= 20 then
+                        ToggleHover(true)
+                        break 
+                    else
+                        ToggleHover(true)
+                        startPos = root.Position
+                        totalDist = (startPos - tPos).Magnitude
+                        t = totalDist / currentSpeed
+                        startTime = tick()
+                    end
+                end
+                
+                -- NEU: 80-Stud Teleport Fallback
+                if currentDist <= 80 and tp150Triggered and not tp80Triggered then
+                    tp80Triggered = true
+                    ToggleHover(false)
+                    root.CFrame = CFrame.new(tPos)
+                    task.wait(0.3)
+                    if (root.Position - tPos).Magnitude <= 20 then
+                        ToggleHover(true)
+                        break
+                    else
+                        ToggleHover(true)
+                        startPos = root.Position
+                        totalDist = (startPos - tPos).Magnitude
+                        t = totalDist / currentSpeed
+                        startTime = tick()
+                    end
+                end
+
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
@@ -777,7 +815,11 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 end
                 RunService.Heartbeat:Wait()
             end
-            root.CFrame = CFrame.new(tPos)
+            
+            local finalDist = (root.Position - tPos).Magnitude
+            if finalDist > 20 then
+                root.CFrame = CFrame.new(tPos)
+            end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
@@ -851,7 +893,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
-        -- FIX: Dynamischer Boden-Scanner (Verhindert das Fliegen am Ende)
         local targetPos = rawPos
         local rayParams = RaycastParams.new()
         rayParams.FilterDescendantsInstances = {island, Workspace:FindFirstChild("Terrain")}
@@ -890,10 +931,51 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             local startTime = tick()
             local lastDrop = tick()
             
+            local tp150Triggered = false
+            local tp80Triggered = false
+            
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
             while tick() - startTime < t do
+                local currentDist = (root.Position - tPos).Magnitude
+                
+                -- NEU: 150-Stud Teleport Finish
+                if currentDist <= 150 and not tp150Triggered then
+                    tp150Triggered = true
+                    ToggleHover(false)
+                    root.CFrame = CFrame.new(tPos)
+                    task.wait(0.3)
+                    if (root.Position - tPos).Magnitude <= 20 then
+                        ToggleHover(true)
+                        break 
+                    else
+                        ToggleHover(true)
+                        startPos = root.Position
+                        totalDist = (startPos - tPos).Magnitude
+                        t = totalDist / currentSpeed
+                        startTime = tick()
+                    end
+                end
+                
+                -- NEU: 80-Stud Teleport Fallback
+                if currentDist <= 80 and tp150Triggered and not tp80Triggered then
+                    tp80Triggered = true
+                    ToggleHover(false)
+                    root.CFrame = CFrame.new(tPos)
+                    task.wait(0.3)
+                    if (root.Position - tPos).Magnitude <= 20 then
+                        ToggleHover(true)
+                        break
+                    else
+                        ToggleHover(true)
+                        startPos = root.Position
+                        totalDist = (startPos - tPos).Magnitude
+                        t = totalDist / currentSpeed
+                        startTime = tick()
+                    end
+                end
+
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
@@ -959,7 +1041,11 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 end
                 RunService.Heartbeat:Wait()
             end
-            root.CFrame = CFrame.new(tPos)
+            
+            local finalDist = (root.Position - tPos).Magnitude
+            if finalDist > 20 then
+                root.CFrame = CFrame.new(tPos)
+            end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
@@ -1305,4 +1391,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Perfect Final Landing Fixed!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Smart 150/80 Stud Finish Active!", 4)
