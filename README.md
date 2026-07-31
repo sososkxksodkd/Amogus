@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART HEAD-SCAN & VERTICAL CLIMB)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NO-JITTER GLIDER & SMART ROUTING)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -837,7 +837,8 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
-        local function IslandLerp(tPos, currentSpeed)
+        -- FIX: isSkyRoute Parameter hinzugefügt (fliegt über alle Inseln hinweg!)
+        local function IslandLerp(tPos, currentSpeed, isSkyRoute)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
             
@@ -851,7 +852,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             local lastClipCheck = tick()
             local clipped = false
             
-            local currentDodge = Vector3.new(0, 0, 0)
             local currentClimbPushback = Vector3.new(0, 0, 0)
             
             char:SetAttribute("evading", true)
@@ -865,6 +865,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
 
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
+                dt = math.clamp(dt, 0.001, 0.05)
                 
                 if tick() - lastClipCheck > 0.1 then
                     lastClipCheck = tick()
@@ -886,49 +887,39 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 local forwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Unit
                 if forwardDir.Magnitude == 0 then forwardDir = root.CFrame.LookVector end
                 
-                local isBlocked = false
-                local dodgeHit = Workspace:Raycast(root.Position, forwardDir * 35, rayParamsDown)
-                if dodgeHit and dodgeHit.Instance and dodgeHit.Instance.CanCollide then
-                    isBlocked = true
-                    local rightVec = Vector3.new(0, 1, 0):Cross(forwardDir).Unit
-                    currentDodge = currentDodge:Lerp(rightVec * 45, dt * 4) 
-                else
-                    currentDodge = currentDodge:Lerp(Vector3.new(0, 0, 0), dt * 3)
-                end
-                
                 local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
-                local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
+                local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha)
 
-                local targetY = currentY
-                if not isBlocked then
+                local targetY
+                if isSkyRoute then
+                    targetY = tPos.Y 
+                else
                     local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, currentY + 45, nextIntermediatePos.Z), Vector3.new(0, -150, 0), rayParamsDown)
-                    
                     if tempGroundHit and tempGroundHit.Position.Y >= -1 then
                         targetY = tempGroundHit.Position.Y + floorOffset + 5
                     else
                         targetY = floorOffset + 1
                     end
+                    targetY = math.max(targetY, 1)
                 end
-                targetY = math.max(targetY, 1)
 
-                -- FIX: PERFEKTES KLETTERN & KOPF-SCANNER
-                local climbRate = 17
-                local fallRate = 40 
+                local climbRate = 17 
+                local fallRate = isSkyRoute and 300 or 60
                 local isClimbing = false
                 
-                -- Kopf-Scanner für Dächer/Overhangs
-                local headHit = Workspace:Raycast(root.Position, Vector3.new(0, 7, 0) + (forwardDir * 4), rayParamsDown)
+                local headHit = nil
+                if not isSkyRoute then
+                    headHit = Workspace:Raycast(root.Position, Vector3.new(0, 7, 0) + (forwardDir * 4), rayParamsDown)
+                end
                 local hasOverhang = headHit ~= nil
                 
                 if targetY > currentY + 0.5 then
                     currentY = currentY + (climbRate * dt)
                     if currentY > targetY then currentY = targetY end
                     isClimbing = true
-                    -- elapsedTime wird NICHT erhöht -> 0 Vorwärtsbewegung!
                 elseif targetY < currentY - 5 then
                     currentY = currentY - (fallRate * dt)
                     if currentY < targetY then currentY = targetY end
-                    -- elapsedTime wird NICHT erhöht -> Stehenbleiben beim Runterklettern!
                 else
                     currentY = targetY
                     elapsedTime = elapsedTime + dt
@@ -941,7 +932,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 end
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
-                local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge + currentClimbPushback
+                local intermediatePos = startPos:Lerp(tPos, alpha) + currentClimbPushback
                 local finalPos = Vector3.new(intermediatePos.X, currentY, intermediatePos.Z)
                 
                 local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
@@ -960,26 +951,22 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
 
                 local actualPos = root.Position
                 if (actualPos - finalPos).Magnitude > 15 then
-                    RyuNotify:Send("Anti-Cheat", "Blockade erkannt! Pausiere 0.7s und weiche aus...", 2)
-                    task.wait(0.7)
-                    
-                    local actualForwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(actualPos.X, 0, actualPos.Z)).Unit
-                    if actualForwardDir.Magnitude == 0 then actualForwardDir = root.CFrame.LookVector end
-                    
-                    local rightVec = Vector3.new(0, 1, 0):Cross(actualForwardDir).Unit
-                    local dodgeDir = (math.random() > 0.5) and rightVec or -rightVec
-                    
-                    currentDodge = currentDodge + (dodgeDir * 30)
-                    
-                    currentY = root.Position.Y
-                    startPos = root.Position - currentDodge - currentClimbPushback
-                    lastClipCheck = tick()
+                    if (actualPos - tPos).Magnitude < 150 then
+                        RyuNotify:Send("Island TP", "Zielinsel erreicht (Noclip-Stop)!", 3)
+                        break
+                    else
+                        RyuNotify:Send("Anti-Cheat", "Blockade! Pausiere 0.7s...", 2)
+                        task.wait(0.7)
+                        currentY = root.Position.Y
+                        startPos = root.Position - currentClimbPushback
+                        lastClipCheck = tick()
+                    end
                 end
             end
             
             if not clipped then
                 local finalDist = (root.Position - tPos).Magnitude
-                if finalDist > 20 then
+                if finalDist > 20 and finalDist < 150 then
                     root.CFrame = CFrame.new(tPos)
                 end
             else
@@ -992,8 +979,16 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             return clipped
         end
         
-        RyuNotify:Send("Island TP", "Gleite nach " .. targetIslandName .. "...", 3)
-        IslandLerp(rawPos, RyuConfig.IslandSpeed)
+        local safeY = 1500
+        RyuNotify:Send("Island TP", "Reise nach " .. targetIslandName .. " (Sky-Route)...", 3)
+        
+        local clipped = IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed, true)
+        if not clipped then
+            clipped = IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed, true)
+        end
+        if not clipped then
+            IslandLerp(targetPos, RyuConfig.IslandSpeed, false)
+        end
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -1098,7 +1093,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         ToggleHover(true)
         
-        local function IslandLerp(tPos, currentSpeed)
+        local function IslandLerp(tPos, currentSpeed, isSkyRoute)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
             
@@ -1112,7 +1107,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             local lastClipCheck = tick()
             local clipped = false
             
-            local currentDodge = Vector3.new(0, 0, 0)
             local currentClimbPushback = Vector3.new(0, 0, 0)
             
             char:SetAttribute("evading", true)
@@ -1126,6 +1120,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
 
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
+                dt = math.clamp(dt, 0.001, 0.05)
                 
                 if tick() - lastClipCheck > 0.1 then
                     lastClipCheck = tick()
@@ -1147,49 +1142,39 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 local forwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Unit
                 if forwardDir.Magnitude == 0 then forwardDir = root.CFrame.LookVector end
                 
-                local isBlocked = false
-                local dodgeHit = Workspace:Raycast(root.Position, forwardDir * 35, rayParamsDown)
-                if dodgeHit and dodgeHit.Instance and dodgeHit.Instance.CanCollide then
-                    isBlocked = true
-                    local rightVec = Vector3.new(0, 1, 0):Cross(forwardDir).Unit
-                    currentDodge = currentDodge:Lerp(rightVec * 45, dt * 4)
-                else
-                    currentDodge = currentDodge:Lerp(Vector3.new(0, 0, 0), dt * 3)
-                end
-                
                 local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
-                local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
+                local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha)
 
-                local targetY = currentY
-                if not isBlocked then
+                local targetY
+                if isSkyRoute then
+                    targetY = tPos.Y 
+                else
                     local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, currentY + 45, nextIntermediatePos.Z), Vector3.new(0, -150, 0), rayParamsDown)
-                    
                     if tempGroundHit and tempGroundHit.Position.Y >= -1 then
                         targetY = tempGroundHit.Position.Y + floorOffset + 5
                     else
                         targetY = floorOffset + 1 
                     end
+                    targetY = math.max(targetY, 1)
                 end
-                targetY = math.max(targetY, 1)
 
-                -- FIX: PERFEKTES KLETTERN & KOPF-SCANNER
-                local climbRate = 17
-                local fallRate = 40 
+                local climbRate = 17 
+                local fallRate = isSkyRoute and 300 or 60
                 local isClimbing = false
                 
-                -- Kopf-Scanner für Dächer/Overhangs
-                local headHit = Workspace:Raycast(root.Position, Vector3.new(0, 7, 0) + (forwardDir * 4), rayParamsDown)
+                local headHit = nil
+                if not isSkyRoute then
+                    headHit = Workspace:Raycast(root.Position, Vector3.new(0, 7, 0) + (forwardDir * 4), rayParamsDown)
+                end
                 local hasOverhang = headHit ~= nil
                 
                 if targetY > currentY + 0.5 then
                     currentY = currentY + (climbRate * dt)
                     if currentY > targetY then currentY = targetY end
                     isClimbing = true
-                    -- elapsedTime wird NICHT erhöht -> 0 Vorwärtsbewegung!
                 elseif targetY < currentY - 5 then
                     currentY = currentY - (fallRate * dt)
                     if currentY < targetY then currentY = targetY end
-                    -- elapsedTime wird NICHT erhöht -> Stehenbleiben beim Runterklettern!
                 else
                     currentY = targetY
                     elapsedTime = elapsedTime + dt
@@ -1202,7 +1187,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 end
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
-                local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge + currentClimbPushback
+                local intermediatePos = startPos:Lerp(tPos, alpha) + currentClimbPushback
                 local finalPos = Vector3.new(intermediatePos.X, currentY, intermediatePos.Z)
                 
                 local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
@@ -1221,26 +1206,22 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
 
                 local actualPos = root.Position
                 if (actualPos - finalPos).Magnitude > 15 then
-                    RyuNotify:Send("Anti-Cheat", "Blockade erkannt! Pausiere 0.7s und weiche aus...", 2)
-                    task.wait(0.7)
-                    
-                    local actualForwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(actualPos.X, 0, actualPos.Z)).Unit
-                    if actualForwardDir.Magnitude == 0 then actualForwardDir = root.CFrame.LookVector end
-                    
-                    local rightVec = Vector3.new(0, 1, 0):Cross(actualForwardDir).Unit
-                    local dodgeDir = (math.random() > 0.5) and rightVec or -rightVec
-                    
-                    currentDodge = currentDodge + (dodgeDir * 30)
-                    
-                    currentY = root.Position.Y
-                    startPos = root.Position - currentDodge - currentClimbPushback
-                    lastClipCheck = tick()
+                    if (actualPos - tPos).Magnitude < 150 then
+                        RyuNotify:Send("Island TP", "Zielinsel erreicht (Noclip-Stop)!", 3)
+                        break
+                    else
+                        RyuNotify:Send("Anti-Cheat", "Blockade! Pausiere 0.7s...", 2)
+                        task.wait(0.7)
+                        currentY = root.Position.Y
+                        startPos = root.Position - currentClimbPushback
+                        lastClipCheck = tick()
+                    end
                 end
             end
             
             if not clipped then
                 local finalDist = (root.Position - tPos).Magnitude
-                if finalDist > 20 then
+                if finalDist > 20 and finalDist < 150 then
                     root.CFrame = CFrame.new(tPos)
                 end
             else
@@ -1254,7 +1235,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         end
         
         RyuNotify:Send("Island TP", "Gleite direkt nach " .. targetIslandName .. "...", 3)
-        IslandLerp(rawPos, RyuConfig.IslandSpeed)
+        IslandLerp(rawPos, RyuConfig.IslandSpeed, false)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -1589,4 +1570,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Perfect Head-Scan & Climb Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Smart Sky-Route & Zitter-Fix Active!", 4)
