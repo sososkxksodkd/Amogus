@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART PORTAL RETRY SYSTEM)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE 2.5s DROP & SMART RETRY)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -417,7 +417,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             local tpSuccess = false
             local isBlack = false
             
-            -- SMART RETRY LOOP FÜR DEN PORTAL-TELEPORT
             while not tpSuccess do
                 ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
@@ -598,7 +597,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             local tpSuccess = false
             local isBlack = false
             
-            -- SMART RETRY LOOP FÜR DEN PORTAL-TELEPORT
             while not tpSuccess do
                 ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
@@ -1484,4 +1482,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Smart Portal Retry System Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Fishman Cave 2.5s Drop Active!", 4)
