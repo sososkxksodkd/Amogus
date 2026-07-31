@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE 2.5s DROP & SMART RETRY)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (ULTIMATE TERRAIN-GLIDE & FOOTSTEP BYPASS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -346,7 +346,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         ToggleHover(true)
         
-        local function CustomLerp(tPos, currentSpeed)
+        local function CustomLerp(tPos, currentSpeed, isHoverMode)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / currentSpeed
             if t < 0.1 then return end
@@ -367,7 +367,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
+                if (root.Position - intermediatePos).Magnitude > 20 or (not isHoverMode and tick() - lastDrop >= 2.5) then
                     local isDrop = (tick() - lastDrop >= 2.5)
                     
                     ToggleHover(false)
@@ -402,10 +402,26 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             _G.soruDashing = nil
         end
         
+        local prePortalRoute = {
+            Vector3.new(1774, -4, -12104),
+            Vector3.new(1777, 64, -12190),
+            Vector3.new(1839, 70, -12212),
+            Vector3.new(1791, 60, -12290),
+            Vector3.new(1794, 47, -12309)
+        }
+        
         local safeY = 1500
-        CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed)
-        CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.FishmanSpeed)
-        CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.ElevatorSpeed)
+        local startWp = prePortalRoute[1]
+        
+        CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed, false)
+        CustomLerp(Vector3.new(startWp.X, safeY, startWp.Z), RyuConfig.FishmanSpeed, false)
+        CustomLerp(startWp, RyuConfig.ElevatorSpeed, false)
+        
+        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route (Schwebend)...", 3)
+        for i = 2, #prePortalRoute do
+            local wp = prePortalRoute[i]
+            CustomLerp(wp, 25, true) 
+        end
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -475,7 +491,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     if not foundBlack then break end
                     task.wait(0.1)
                 end
-                task.wait(1)
+                task.wait(1) 
             else
                 task.wait(2)
             end
@@ -491,7 +507,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             }
             
             for _, wp in ipairs(caveRoute) do
-                CustomLerp(wp, RyuConfig.FishmanSpeed)
+                CustomLerp(wp, RyuConfig.FishmanSpeed, false)
             end
             
             RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
@@ -529,7 +545,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         ToggleHover(true)
         
-        local function CustomLerp(tPos, currentSpeed)
+        local function CustomLerp(tPos, currentSpeed, isHoverMode)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / currentSpeed
             if t < 0.1 then return end
@@ -550,7 +566,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
+                if (root.Position - intermediatePos).Magnitude > 20 or (not isHoverMode and tick() - lastDrop >= 2.5) then
                     local isDrop = (tick() - lastDrop >= 2.5)
                     
                     ToggleHover(false)
@@ -585,7 +601,22 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             _G.soruDashing = nil
         end
         
-        CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed)
+        local prePortalRoute = {
+            Vector3.new(1774, -4, -12104),
+            Vector3.new(1777, 64, -12190),
+            Vector3.new(1839, 70, -12212),
+            Vector3.new(1791, 60, -12290),
+            Vector3.new(1794, 47, -12309)
+        }
+        
+        local startWp = prePortalRoute[1]
+        CustomLerp(startWp, RyuConfig.FishmanSpeed, false)
+        
+        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route (Schwebend)...", 3)
+        for i = 2, #prePortalRoute do
+            local wp = prePortalRoute[i]
+            CustomLerp(wp, 25, true) 
+        end
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -671,7 +702,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             }
             
             for _, wp in ipairs(caveRoute) do
-                CustomLerp(wp, RyuConfig.FishmanSpeed)
+                CustomLerp(wp, RyuConfig.FishmanSpeed, false)
             end
             
             RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
@@ -763,19 +794,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
-        local targetPos = rawPos
-        local rayParams = RaycastParams.new()
-        rayParams.FilterDescendantsInstances = {island, Workspace:FindFirstChild("Terrain")}
-        rayParams.FilterType = Enum.RaycastFilterType.Include
-        
-        local groundHit = Workspace:Raycast(rawPos + Vector3.new(0, 1000, 0), Vector3.new(0, -2000, 0), rayParams)
-        
-        if groundHit then
-            targetPos = groundHit.Position + Vector3.new(0, hipHeight + 2, 0)
-        else
-            targetPos = rawPos + Vector3.new(0, hipHeight + 5, 0)
-        end
-        
         local platform = Instance.new("Part")
         platform.Name = "Part" 
         platform.Size = Vector3.new(40, 3, 40) 
@@ -789,6 +807,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
+        -- FIX: CLEAN TERRAIN-FOLLOWER & FOOTSTEP SPAM!
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
@@ -799,12 +818,13 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             
             local startPos = root.Position
             local startTime = tick()
-            local lastDrop = tick()
             local lastClipCheck = tick()
             local clipped = false
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
+            
+            local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
             while tick() - startTime < t do
                 
@@ -828,63 +848,32 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
-                local lookPos = Vector3.new(tPos.X, intermediatePos.Y, tPos.Z)
-                if (lookPos - intermediatePos).Magnitude < 0.1 then 
-                    lookPos = intermediatePos + root.CFrame.LookVector 
+                -- RAYCAST NACH UNTEN (Terrain abtasten)
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+                local groundHit = Workspace:Raycast(Vector3.new(intermediatePos.X, 2500, intermediatePos.Z), Vector3.new(0, -3000, 0), rayParams)
+                local groundY = groundHit and groundHit.Position.Y or 15
+
+                -- EXAKT 5 STUDS ÜBER DEM BODEN KLEBEN
+                local finalPos = Vector3.new(intermediatePos.X, groundY + floorOffset + 5, intermediatePos.Z)
+                
+                local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
+                if (lookPos - finalPos).Magnitude > 0.1 then 
+                    root.CFrame = CFrame.lookAt(finalPos, lookPos)
+                else
+                    root.CFrame = CFrame.new(finalPos)
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 3) then
-                    local isDrop = (tick() - lastDrop >= 3)
-                    
-                    ToggleHover(false)
-                    platform.CFrame = CFrame.new(0, 99999, 0) 
-                    
-                    if hum then hum.Jump = true end
-                    root.Velocity = Vector3.new(0, 50, 0)
-                    
-                    if isDrop then
-                        task.wait(0.7) 
-                        ToggleHover(true)
-                        local dropPos = root.Position
-                        local recoverPos = dropPos + Vector3.new(0, 5, 0)
-                        local recTime = 0.2
-                        local recStart = tick()
-                        
-                        while tick() - recStart < recTime do
-                            local a = (tick() - recStart) / recTime
-                            local cp = dropPos:Lerp(recoverPos, a)
-                            local bp = root:FindFirstChild("RyuHover")
-                            if bp then bp.Position = cp end
-                            
-                            local lPos = Vector3.new(tPos.X, cp.Y, tPos.Z)
-                            if (lPos - cp).Magnitude > 0.1 then
-                                root.CFrame = CFrame.lookAt(cp, lPos)
-                            else
-                                root.CFrame = CFrame.new(cp)
-                            end
-                            RunService.Heartbeat:Wait()
-                        end
-                        root.Velocity = Vector3.new(0, 0, 0)
-                    else
-                        task.wait(1)
-                    end
-                    
-                    ToggleHover(true)
-                    startPos = root.Position
-                    totalDist = (startPos - tPos).Magnitude
-                    currentSpeed = currentSpeed > 0 and currentSpeed or 85
-                    t = totalDist / currentSpeed
-                    startTime = tick()
-                    lastDrop = tick()
-                else
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = intermediatePos end
-                    
-                    root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
-                    root.Velocity = Vector3.new(0, 0, 0) 
-                    
-                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
+                root.Velocity = Vector3.new(0, 0, 0)
+                platform.CFrame = CFrame.new(finalPos.X, finalPos.Y - floorOffset, finalPos.Z)
+                
+                -- ANTI-CHEAT BYPASS: FOOTSTEP SPAM
+                if footstepEvent then
+                    pcall(function() footstepEvent:FireServer() end)
                 end
+                
                 RunService.Heartbeat:Wait()
             end
             
@@ -903,16 +892,8 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             return clipped
         end
         
-        local safeY = 1500
-        RyuNotify:Send("Island TP", "Reise nach " .. targetIslandName .. "...", 3)
-        
-        local clipped = IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed)
-        if not clipped then
-            clipped = IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed)
-        end
-        if not clipped then
-            IslandLerp(targetPos, RyuConfig.IslandSpeed)
-        end
+        RyuNotify:Send("Island TP", "Gleite nach " .. targetIslandName .. "...", 3)
+        IslandLerp(rawPos, RyuConfig.IslandSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -975,19 +956,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
-        local targetPos = rawPos
-        local rayParams = RaycastParams.new()
-        rayParams.FilterDescendantsInstances = {island, Workspace:FindFirstChild("Terrain")}
-        rayParams.FilterType = Enum.RaycastFilterType.Include
-        
-        local groundHit = Workspace:Raycast(rawPos + Vector3.new(0, 1000, 0), Vector3.new(0, -2000, 0), rayParams)
-        
-        if groundHit then
-            targetPos = groundHit.Position + Vector3.new(0, hipHeight + 2, 0)
-        else
-            targetPos = rawPos + Vector3.new(0, hipHeight + 5, 0)
-        end
-        
         local platform = Instance.new("Part")
         platform.Name = "Part" 
         platform.Size = Vector3.new(40, 3, 40) 
@@ -1001,6 +969,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         ToggleHover(true)
         
+        -- FIX: CLEAN TERRAIN-FOLLOWER & FOOTSTEP SPAM!
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
@@ -1011,12 +980,13 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             
             local startPos = root.Position
             local startTime = tick()
-            local lastDrop = tick()
             local lastClipCheck = tick()
             local clipped = false
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
+            
+            local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
             while tick() - startTime < t do
                 
@@ -1040,63 +1010,32 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
-                local lookPos = Vector3.new(tPos.X, intermediatePos.Y, tPos.Z)
-                if (lookPos - intermediatePos).Magnitude < 0.1 then 
-                    lookPos = intermediatePos + root.CFrame.LookVector 
+                -- RAYCAST NACH UNTEN (Terrain abtasten)
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+                local groundHit = Workspace:Raycast(Vector3.new(intermediatePos.X, 2500, intermediatePos.Z), Vector3.new(0, -3000, 0), rayParams)
+                local groundY = groundHit and groundHit.Position.Y or 15
+
+                -- EXAKT 5 STUDS ÜBER DEM BODEN KLEBEN
+                local finalPos = Vector3.new(intermediatePos.X, groundY + floorOffset + 5, intermediatePos.Z)
+                
+                local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
+                if (lookPos - finalPos).Magnitude > 0.1 then 
+                    root.CFrame = CFrame.lookAt(finalPos, lookPos)
+                else
+                    root.CFrame = CFrame.new(finalPos)
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 3) then
-                    local isDrop = (tick() - lastDrop >= 3)
-                    
-                    ToggleHover(false)
-                    platform.CFrame = CFrame.new(0, 99999, 0) 
-                    
-                    if hum then hum.Jump = true end
-                    root.Velocity = Vector3.new(0, 50, 0)
-                    
-                    if isDrop then
-                        task.wait(0.7) 
-                        ToggleHover(true)
-                        local dropPos = root.Position
-                        local recoverPos = dropPos + Vector3.new(0, 5, 0)
-                        local recTime = 0.2
-                        local recStart = tick()
-                        
-                        while tick() - recStart < recTime do
-                            local a = (tick() - recStart) / recTime
-                            local cp = dropPos:Lerp(recoverPos, a)
-                            local bp = root:FindFirstChild("RyuHover")
-                            if bp then bp.Position = cp end
-                            
-                            local lPos = Vector3.new(tPos.X, cp.Y, tPos.Z)
-                            if (lPos - cp).Magnitude > 0.1 then
-                                root.CFrame = CFrame.lookAt(cp, lPos)
-                            else
-                                root.CFrame = CFrame.new(cp)
-                            end
-                            RunService.Heartbeat:Wait()
-                        end
-                        root.Velocity = Vector3.new(0, 0, 0)
-                    else
-                        task.wait(1)
-                    end
-                    
-                    ToggleHover(true)
-                    startPos = root.Position
-                    totalDist = (startPos - tPos).Magnitude
-                    currentSpeed = currentSpeed > 0 and currentSpeed or 85
-                    t = totalDist / currentSpeed
-                    startTime = tick()
-                    lastDrop = tick()
-                else
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = intermediatePos end
-                    
-                    root.CFrame = CFrame.lookAt(intermediatePos, lookPos)
-                    root.Velocity = Vector3.new(0, 0, 0) 
-                    
-                    platform.CFrame = CFrame.new(intermediatePos.X, intermediatePos.Y - floorOffset, intermediatePos.Z)
+                root.Velocity = Vector3.new(0, 0, 0)
+                platform.CFrame = CFrame.new(finalPos.X, finalPos.Y - floorOffset, finalPos.Z)
+                
+                -- ANTI-CHEAT BYPASS: FOOTSTEP SPAM
+                if footstepEvent then
+                    pcall(function() footstepEvent:FireServer() end)
                 end
+                
                 RunService.Heartbeat:Wait()
             end
             
@@ -1115,40 +1054,8 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             return clipped
         end
         
-        local params = RaycastParams.new()
-        params.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), platform}
-        params.FilterType = Enum.RaycastFilterType.Exclude
-
-        local maxAttempts = 5
-        local attempts = 0
-        local targetReached = false
-
-        while attempts < maxAttempts do
-            local currentPos = root.Position
-            local rayDir = targetPos - currentPos
-            local rayHit = Workspace:Raycast(currentPos, rayDir, params)
-
-            if rayHit and rayHit.Instance and rayHit.Instance.CanCollide then
-                RyuNotify:Send("Smart Scanner", "Hindernis! Weiche auf dem Boden aus...", 3)
-                
-                local flatDir = Vector3.new(rayDir.X, 0, rayDir.Z).Unit
-                local rightVector = Vector3.new(0, 1, 0):Cross(flatDir).Unit
-                
-                local detourPos = rayHit.Position + (rightVector * 1500)
-                detourPos = Vector3.new(detourPos.X, currentPos.Y, detourPos.Z)
-                
-                local clipped = IslandLerp(detourPos, RyuConfig.IslandSpeed)
-                if clipped then targetReached = true; break end
-                attempts = attempts + 1
-            else
-                break 
-            end
-        end
-        
-        if not targetReached then
-            RyuNotify:Send("Island TP", "Reise direkt nach " .. targetIslandName .. "...", 3)
-            IslandLerp(targetPos, RyuConfig.IslandSpeed)
-        end
+        RyuNotify:Send("Island TP", "Gleite direkt nach " .. targetIslandName .. "...", 3)
+        IslandLerp(rawPos, RyuConfig.IslandSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -1482,4 +1389,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Fishman Cave 2.5s Drop Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Ultimate Spider-Glide Active!", 4)
