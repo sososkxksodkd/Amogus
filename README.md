@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (17 SPD CLIMB & 0.7s AC-DODGER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (OVERHANG/ROOF BYPASS CLIMBER)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -850,7 +850,9 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             local currentY = root.Position.Y
             local lastClipCheck = tick()
             local clipped = false
+            
             local currentDodge = Vector3.new(0, 0, 0)
+            local currentClimbPushback = Vector3.new(0, 0, 0) -- FIX: Overhang/Roof Evasion
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -881,28 +883,41 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     if clipped then break end
                 end
                 
+                local forwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Unit
+                if forwardDir.Magnitude == 0 then forwardDir = root.CFrame.LookVector end
+                
+                local isBlocked = false
+                local dodgeHit = Workspace:Raycast(root.Position, forwardDir * 35, rayParamsDown)
+                if dodgeHit and dodgeHit.Instance and dodgeHit.Instance.CanCollide then
+                    isBlocked = true
+                    local rightVec = Vector3.new(0, 1, 0):Cross(forwardDir).Unit
+                    currentDodge = currentDodge:Lerp(rightVec * 45, dt * 4) 
+                else
+                    currentDodge = currentDodge:Lerp(Vector3.new(0, 0, 0), dt * 3)
+                end
+                
                 local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
                 local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
 
-                -- FIX: Scanne von weit oben, um JEDES Objekt (Bäume, Dächer) zu erkennen!
-                local topDownStart = Vector3.new(nextIntermediatePos.X, currentY + 500, nextIntermediatePos.Z)
-                local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -1000, 0), rayParamsDown)
-                
-                local targetY
-                if tempGroundHit and tempGroundHit.Position.Y >= -1 then
-                    targetY = tempGroundHit.Position.Y + floorOffset + 5
-                else
-                    targetY = floorOffset + 1
+                local targetY = currentY
+                if not isBlocked then
+                    local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, currentY + 45, nextIntermediatePos.Z), Vector3.new(0, -150, 0), rayParamsDown)
+                    
+                    if tempGroundHit and tempGroundHit.Position.Y >= -1 then
+                        targetY = tempGroundHit.Position.Y + floorOffset + 5
+                    else
+                        targetY = floorOffset + 1
+                    end
                 end
                 targetY = math.max(targetY, 1)
 
-                -- Klettern auf exakt 17 Studs pro Sekunde
-                local climbRate = 17 
+                local climbRate = 17
                 local fallRate = 60
+                local isClimbing = false -- FIX: Detektor fürs Klettern
                 
                 if targetY > currentY + (climbRate * dt) then
                     currentY = currentY + (climbRate * dt)
-                    -- elapsedTime stoppt -> reine Aufwärtsbewegung (kein Noclip nach vorne)
+                    isClimbing = true
                 elseif targetY < currentY - (fallRate * dt) then
                     currentY = currentY - (fallRate * dt)
                     elapsedTime = elapsedTime + (dt * 0.5)
@@ -911,11 +926,15 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     elapsedTime = elapsedTime + dt
                 end
 
-                -- Sanftes Zentrieren nach einem Dodge
-                currentDodge = currentDodge:Lerp(Vector3.new(0, 0, 0), dt * 0.5)
+                -- FIX: Overhang / Roof Bypass (C-Kurve beim Klettern)
+                if isClimbing then
+                    currentClimbPushback = currentClimbPushback:Lerp(-forwardDir * 15, dt * 3)
+                else
+                    currentClimbPushback = currentClimbPushback:Lerp(Vector3.new(0, 0, 0), dt * 3)
+                end
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
-                local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
+                local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge + currentClimbPushback
                 local finalPos = Vector3.new(intermediatePos.X, currentY, intermediatePos.Z)
                 
                 local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
@@ -933,24 +952,21 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 end
 
                 -- FIX: RUBBERBAND / ANTI-CHEAT DODGER
-                -- Wenn das Anti-Cheat dich zurück teleportiert, blockiert es dich.
                 local actualPos = root.Position
                 if (actualPos - finalPos).Magnitude > 15 then
                     RyuNotify:Send("Anti-Cheat", "Blockade erkannt! Pausiere 0.7s und weiche aus...", 2)
                     task.wait(0.7)
                     
-                    local forwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(actualPos.X, 0, actualPos.Z)).Unit
-                    if forwardDir.Magnitude == 0 then forwardDir = root.CFrame.LookVector end
+                    local actualForwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(actualPos.X, 0, actualPos.Z)).Unit
+                    if actualForwardDir.Magnitude == 0 then actualForwardDir = root.CFrame.LookVector end
                     
-                    -- Weiche links oder rechts aus
-                    local rightVec = Vector3.new(0, 1, 0):Cross(forwardDir).Unit
+                    local rightVec = Vector3.new(0, 1, 0):Cross(actualForwardDir).Unit
                     local dodgeDir = (math.random() > 0.5) and rightVec or -rightVec
                     
                     currentDodge = currentDodge + (dodgeDir * 30)
                     
-                    -- Synchronisiere Werte neu
                     currentY = root.Position.Y
-                    startPos = root.Position - currentDodge
+                    startPos = root.Position - currentDodge - currentClimbPushback
                     lastClipCheck = tick()
                 end
             end
@@ -1089,7 +1105,9 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             local currentY = root.Position.Y
             local lastClipCheck = tick()
             local clipped = false
+            
             local currentDodge = Vector3.new(0, 0, 0)
+            local currentClimbPushback = Vector3.new(0, 0, 0) -- FIX: Overhang/Roof Evasion
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -1120,28 +1138,41 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     if clipped then break end
                 end
                 
+                local forwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Unit
+                if forwardDir.Magnitude == 0 then forwardDir = root.CFrame.LookVector end
+                
+                local isBlocked = false
+                local dodgeHit = Workspace:Raycast(root.Position, forwardDir * 35, rayParamsDown)
+                if dodgeHit and dodgeHit.Instance and dodgeHit.Instance.CanCollide then
+                    isBlocked = true
+                    local rightVec = Vector3.new(0, 1, 0):Cross(forwardDir).Unit
+                    currentDodge = currentDodge:Lerp(rightVec * 45, dt * 4)
+                else
+                    currentDodge = currentDodge:Lerp(Vector3.new(0, 0, 0), dt * 3)
+                end
+                
                 local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
                 local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
 
-                -- FIX: Scanne von weit oben, um JEDES Objekt (Bäume, Dächer) zu erkennen!
-                local topDownStart = Vector3.new(nextIntermediatePos.X, currentY + 500, nextIntermediatePos.Z)
-                local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -1000, 0), rayParamsDown)
-                
-                local targetY
-                if tempGroundHit and tempGroundHit.Position.Y >= -1 then
-                    targetY = tempGroundHit.Position.Y + floorOffset + 5
-                else
-                    targetY = floorOffset + 1 
+                local targetY = currentY
+                if not isBlocked then
+                    local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, currentY + 45, nextIntermediatePos.Z), Vector3.new(0, -150, 0), rayParamsDown)
+                    
+                    if tempGroundHit and tempGroundHit.Position.Y >= -1 then
+                        targetY = tempGroundHit.Position.Y + floorOffset + 5
+                    else
+                        targetY = floorOffset + 1 
+                    end
                 end
-                
-                finalY = math.max(targetY, 1)
+                targetY = math.max(targetY, 1)
 
-                local climbRate = 17 -- FIX: Perfektes Klettern auf 17 Studs
+                local climbRate = 17
                 local fallRate = 60
+                local isClimbing = false -- FIX: Detektor fürs Klettern
                 
                 if targetY > currentY + (climbRate * dt) then
                     currentY = currentY + (climbRate * dt)
-                    -- elapsedTime bleibt gleich = 0 horizontale Geschwindigkeit! (Nur Klettern)
+                    isClimbing = true
                 elseif targetY < currentY - (fallRate * dt) then
                     currentY = currentY - (fallRate * dt)
                     elapsedTime = elapsedTime + (dt * 0.5)
@@ -1150,11 +1181,15 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     elapsedTime = elapsedTime + dt
                 end
 
-                -- Sanftes Zentrieren nach einem Dodge
-                currentDodge = currentDodge:Lerp(Vector3.new(0, 0, 0), dt * 0.5)
+                -- FIX: Overhang / Roof Bypass (C-Kurve beim Klettern)
+                if isClimbing then
+                    currentClimbPushback = currentClimbPushback:Lerp(-forwardDir * 15, dt * 3)
+                else
+                    currentClimbPushback = currentClimbPushback:Lerp(Vector3.new(0, 0, 0), dt * 3)
+                end
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
-                local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
+                local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge + currentClimbPushback
                 local finalPos = Vector3.new(intermediatePos.X, currentY, intermediatePos.Z)
                 
                 local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
@@ -1172,24 +1207,21 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 end
 
                 -- FIX: RUBBERBAND / ANTI-CHEAT DODGER
-                -- Wenn das Anti-Cheat dich zurück teleportiert, blockiert es dich.
                 local actualPos = root.Position
                 if (actualPos - finalPos).Magnitude > 15 then
                     RyuNotify:Send("Anti-Cheat", "Blockade erkannt! Pausiere 0.7s und weiche aus...", 2)
                     task.wait(0.7)
                     
-                    local forwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(actualPos.X, 0, actualPos.Z)).Unit
-                    if forwardDir.Magnitude == 0 then forwardDir = root.CFrame.LookVector end
+                    local actualForwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(actualPos.X, 0, actualPos.Z)).Unit
+                    if actualForwardDir.Magnitude == 0 then actualForwardDir = root.CFrame.LookVector end
                     
-                    -- Weiche links oder rechts aus
-                    local rightVec = Vector3.new(0, 1, 0):Cross(forwardDir).Unit
+                    local rightVec = Vector3.new(0, 1, 0):Cross(actualForwardDir).Unit
                     local dodgeDir = (math.random() > 0.5) and rightVec or -rightVec
                     
                     currentDodge = currentDodge + (dodgeDir * 30)
                     
-                    -- Synchronisiere Werte neu
                     currentY = root.Position.Y
-                    startPos = root.Position - currentDodge
+                    startPos = root.Position - currentDodge - currentClimbPushback
                     lastClipCheck = tick()
                 end
             end
@@ -1545,4 +1577,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Fully Operational AC-Dodger Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Overhang Bypass Active!", 4)
