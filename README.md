@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART SCANNER & PERFECT 5-STUD DROP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART GROUND SCANNER & PERFECT DROP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -635,7 +635,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         end
         
         if not island then 
-            RyuNotify:Send("Error", "Insel '" .. targetIslandName .. "' nicht in der Map gefunden!", 3)
+            RyuNotify:Send("Error", "Insel '" .. targetIslandName .. "' nicht gefunden!", 3)
             return 
         end
         
@@ -654,7 +654,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         end)
         
         if not targetPos then
-            RyuNotify:Send("Error", "Konnte keine Zielkoordinaten in der Insel finden!", 3)
+            RyuNotify:Send("Error", "Konnte Zielkoordinaten nicht finden!", 3)
             return
         end
         
@@ -681,7 +681,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
-        -- FIX: NEUES ISLAND TWEEN SYSTEM (0.7s FALL, 5 STUDS UP)
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return end
@@ -716,10 +715,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     root.Velocity = Vector3.new(0, 50, 0)
                     
                     if isDrop then
-                        -- 0.7s Fallen lassen
                         task.wait(0.7) 
-                        
-                        -- Genau 5 Studs nach oben tweenen
                         ToggleHover(true)
                         local dropPos = root.Position
                         local recoverPos = dropPos + Vector3.new(0, 5, 0)
@@ -828,7 +824,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         end)
         
         if not targetPos then
-            RyuNotify:Send("Error", "Konnte keine Zielkoordinaten in der Insel finden!", 3)
+            RyuNotify:Send("Error", "Konnte Zielkoordinaten nicht finden!", 3)
             return
         end
         
@@ -855,7 +851,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         ToggleHover(true)
         
-        -- FIX: EXAKT DAS FISHMAN SYSTEM (0.7s FALL, 5 STUDS UP)
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return end
@@ -890,10 +885,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     root.Velocity = Vector3.new(0, 50, 0)
                     
                     if isDrop then
-                        -- 0.7s Fallen lassen
                         task.wait(0.7) 
-                        
-                        -- Genau 5 Studs nach oben tweenen
                         ToggleHover(true)
                         local dropPos = root.Position
                         local recoverPos = dropPos + Vector3.new(0, 5, 0)
@@ -946,19 +938,35 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             _G.soruDashing = nil
         end
         
-        -- FIX: SMART SCANNER FÜR BODEN-TP
+        -- FIX: SMART SCANNER FÜR BODEN-TP (Boden-Routen-Findung statt Sky-Routen)
         local params = RaycastParams.new()
         params.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), platform}
         params.FilterType = Enum.RaycastFilterType.Exclude
 
-        local rayDir = targetPos - root.Position
-        local rayHit = Workspace:Raycast(root.Position, rayDir, params)
+        local maxAttempts = 5
+        local attempts = 0
 
-        if rayHit and rayHit.Instance and rayHit.Instance.CanCollide then
-            RyuNotify:Send("Smart Scanner", "Insel im Weg! Weiche aus...", 3)
-            local safeY = math.max(1500, rayHit.Position.Y + 500)
-            IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed)
-            IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed)
+        while attempts < maxAttempts do
+            local currentPos = root.Position
+            local rayDir = targetPos - currentPos
+            local rayHit = Workspace:Raycast(currentPos, rayDir, params)
+
+            if rayHit and rayHit.Instance and rayHit.Instance.CanCollide then
+                RyuNotify:Send("Smart Scanner", "Hindernis! Weiche auf dem Boden aus...", 3)
+                
+                -- Berechne eine Position rechts vom Hindernis (Horizontaler Detour)
+                local flatDir = Vector3.new(rayDir.X, 0, rayDir.Z).Unit
+                local rightVector = Vector3.new(0, 1, 0):Cross(flatDir).Unit
+                
+                -- 1500 Studs zur Seite ausweichen, um die Insel zu umfahren
+                local detourPos = rayHit.Position + (rightVector * 1500)
+                detourPos = Vector3.new(detourPos.X, currentPos.Y, detourPos.Z) -- Höhe beibehalten!
+                
+                IslandLerp(detourPos, RyuConfig.IslandSpeed)
+                attempts = attempts + 1
+            else
+                break -- Weg ist frei!
+            end
         end
         
         RyuNotify:Send("Island TP", "Reise direkt nach " .. targetIslandName .. "...", 3)
@@ -1273,4 +1281,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Smart Scanner & 5-Stud Drop Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Smart Scanner (Ground Route) Active!", 4)
