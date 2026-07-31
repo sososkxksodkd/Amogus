@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PHYSICS BODYMOVER FLY ENGINE)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PURE PHYSICS FLY ENGINE)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -356,6 +356,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         ToggleHover(true)
         
+        -- ALTES SYSTEM WIRD NUR FÜR FISHMAN CAVE UND FARM GENUTZT (SafeTween)
         local function CustomLerp(tPos, currentSpeed, isHoverMode)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / currentSpeed
@@ -837,7 +838,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
-        -- FIX: SMART ISLAND AVOIDANCE SCANNER
+        -- HINDERNIS-INSELN SAMMELN
         local obstacleIslands = {}
         local startFlatPos = Vector3.new(root.Position.X, 0, root.Position.Z)
         
@@ -869,8 +870,8 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             end
         end
         
-        --// NEUES PHYSIK-BASIERTES FLUG-SYSTEM FÜR AUTO-TRANSPORT
-        local function IslandLerp(tPos, currentSpeed, isSkyRoute)
+        --// PURE PHYSIK-ENGINE FÜR AUTO-TRANSPORT (KEIN LERP/TWEEN MEHR!)
+        local function PhysicsFlyTo(tPos, currentSpeed, isSkyRoute)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
             
@@ -896,13 +897,10 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
-            local clipped = false
             local arrivedEarly = false
-            local currentDodge = Vector3.new(0, 0, 0)
-            
-            local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
-            local lastFootstep = tick()
             local lastACCheckPos = root.Position
+            local lastFootstep = tick()
+            local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
 
             while true do
                 local dt = RunService.Heartbeat:Wait()
@@ -911,7 +909,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 local distToTarget = (currentPos - tPos).Magnitude
                 if distToTarget <= 20 then break end
                 
-                -- Anti-Cheat Check (Rubberband-Detection mit Physik)
+                -- Anti-Cheat Check (0.7s Dodge / Ankunft)
                 if (currentPos - lastACCheckPos).Magnitude > 15 and dt < 0.1 then 
                     if distToTarget < 300 then
                         RyuNotify:Send("Island TP", "Zielinsel erreicht (Noclip-Stop)!", 3)
@@ -921,11 +919,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                         RyuNotify:Send("Anti-Cheat", "Blockade! Pausiere 0.7s...", 2)
                         bv.velocity = Vector3.new(0, 0, 0)
                         task.wait(0.7)
-                        
-                        local rightVec = Vector3.new(0, 1, 0):Cross((tPos - currentPos).Unit).Unit
-                        local dodgeDir = (math.random() > 0.5) and rightVec or -rightVec
-                        currentDodge = currentDodge + (dodgeDir * 30)
-                        
                         lastACCheckPos = root.Position
                         continue
                     end
@@ -934,11 +927,11 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 local flatMyPos = Vector3.new(currentPos.X, 0, currentPos.Z)
                 local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
                 local distFromStart = (flatMyPos - startFlatPos).Magnitude
+                
                 local toTargetDir = (flatTarget - flatMyPos).Magnitude > 0 and (flatTarget - flatMyPos).Unit or root.CFrame.LookVector
+                local avoidanceVec = Vector3.new(0, 0, 0)
                 
-                local islandAvoidance = Vector3.new(0, 0, 0)
-                
-                -- Smart Route Scanner
+                -- Smart Evader System (Reines Berechnen der Steuerrichtung)
                 if distFromStart > 300 and (flatTarget - flatMyPos).Magnitude > 0 then
                     for _, flatObs in ipairs(obstacleIslands) do
                         local dist = (flatMyPos - flatObs).Magnitude
@@ -953,25 +946,25 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                                 local dodgeDir = (dot > 0) and rightVec or -rightVec
                                 
                                 local strength = ((safeRadius - dist) / safeRadius)
-                                islandAvoidance = islandAvoidance + (dodgeDir * strength * 900)
+                                avoidanceVec = avoidanceVec + (dodgeDir * strength * 2.5)
                             end
                         end
                     end
                 end
                 
-                currentDodge = currentDodge:Lerp(islandAvoidance, dt * 2)
+                -- Flugrichtung = Ziel + Ausweich-Druck
+                local moveDir = (toTargetDir + avoidanceVec)
+                if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
                 
-                -- Y-Level ermitteln (mit Kletter-Sicherheit)
-                local targetY = isSkyRoute and tPos.Y or (floorOffset + 1)
+                -- Y-Level / Höhenanpassung
+                local targetY = isSkyRoute and tPos.Y or (floorOffset + 5)
                 
                 if not isSkyRoute then
                     local rayParamsDown = RaycastParams.new()
                     rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                     rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
                     
-                    local topDownStart = Vector3.new(currentPos.X + currentDodge.X, currentPos.Y + 500, currentPos.Z + currentDodge.Z)
-                    local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -1000, 0), rayParamsDown)
-                    
+                    local tempGroundHit = Workspace:Raycast(currentPos + Vector3.new(0, 500, 0), Vector3.new(0, -1000, 0), rayParamsDown)
                     if tempGroundHit and tempGroundHit.Position.Y >= -1 then
                         targetY = tempGroundHit.Position.Y + floorOffset + 5
                     end
@@ -979,20 +972,18 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 
                 targetY = math.max(targetY, 1) -- Y IMMER IM PLUS
                 
-                -- Physikalisches Steuern direkt zum Ziel-CFrame
-                local targetPositionWithDodge = Vector3.new(tPos.X, targetY, tPos.Z) + currentDodge
-                
-                -- Wenn Objekt direkt vor uns (Sicherheits-Klettern, falls Route versagt)
-                if targetPositionWithDodge.Y > currentPos.Y + 5 then
-                    -- Nur hoch fliegen, Vorwärts stoppen
-                    targetPositionWithDodge = Vector3.new(currentPos.X, targetPositionWithDodge.Y, currentPos.Z)
+                -- Smooth Vertikale Geschwindigkeit
+                local yDiff = targetY - currentPos.Y
+                local yVelocity = 0
+                if math.abs(yDiff) > 1 then
+                    local maxYVel = isSkyRoute and 300 or 60
+                    yVelocity = math.clamp(yDiff * 5, -maxYVel, 40) -- Kletter-Geschwindigkeit auf 40 limitiert
                 end
-
-                local moveDir = (targetPositionWithDodge - currentPos)
-                if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
                 
-                bg.cframe = CFrame.lookAt(currentPos, currentPos + moveDir)
-                bv.velocity = moveDir * currentSpeed
+                -- Physik Anwenden
+                local finalVelocity = (moveDir * currentSpeed)
+                bv.velocity = Vector3.new(finalVelocity.X, yVelocity, finalVelocity.Z)
+                bg.cframe = CFrame.lookAt(currentPos, currentPos + Vector3.new(moveDir.X, 0, moveDir.Z))
                 
                 platform.CFrame = CFrame.new(currentPos.X, currentPos.Y - floorOffset, currentPos.Z)
                 
@@ -1010,33 +1001,27 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             bv:Destroy()
             hum.PlatformStand = false
             
-            if not clipped and not arrivedEarly then
+            if not arrivedEarly then
                 local finalDist = (root.Position - tPos).Magnitude
                 if finalDist > 20 and finalDist <= 100 then
                     root.CFrame = CFrame.new(tPos)
                 end
-            elseif arrivedEarly then
-                RyuNotify:Send("Island TP", "Sicher gelandet (AC-Bypass).", 2)
             else
-                RyuNotify:Send("Island TP", "Noclip erkannt! Ziel erfolgreich erreicht.", 2)
+                RyuNotify:Send("Island TP", "Sicher gelandet (AC-Bypass).", 2)
             end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
             
-            return clipped or arrivedEarly
+            return arrivedEarly
         end
         
         local safeY = 1500
         RyuNotify:Send("Island TP", "Reise nach " .. targetIslandName .. " (Sky-Route)...", 3)
         
-        local clipped = IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed, true)
-        if not clipped then
-            clipped = IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed, true)
-        end
-        if not clipped then
-            IslandLerp(targetPos, RyuConfig.IslandSpeed, false)
-        end
+        PhysicsFlyTo(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed, true)
+        PhysicsFlyTo(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed, true)
+        PhysicsFlyTo(targetPos, RyuConfig.IslandSpeed, false)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -1172,8 +1157,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             end
         end
         
-        --// NEUES PHYSIK-BASIERTES FLUG-SYSTEM FÜR AUTO-TRANSPORT
-        local function IslandLerp(tPos, currentSpeed, isSkyRoute)
+        local function PhysicsFlyTo(tPos, currentSpeed, isSkyRoute)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
             
@@ -1199,13 +1183,10 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
-            local clipped = false
             local arrivedEarly = false
-            local currentDodge = Vector3.new(0, 0, 0)
-            
-            local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
-            local lastFootstep = tick()
             local lastACCheckPos = root.Position
+            local lastFootstep = tick()
+            local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
 
             while true do
                 local dt = RunService.Heartbeat:Wait()
@@ -1223,11 +1204,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                         RyuNotify:Send("Anti-Cheat", "Blockade! Pausiere 0.7s...", 2)
                         bv.velocity = Vector3.new(0, 0, 0)
                         task.wait(0.7)
-                        
-                        local rightVec = Vector3.new(0, 1, 0):Cross((tPos - currentPos).Unit).Unit
-                        local dodgeDir = (math.random() > 0.5) and rightVec or -rightVec
-                        currentDodge = currentDodge + (dodgeDir * 30)
-                        
                         lastACCheckPos = root.Position
                         continue
                     end
@@ -1236,9 +1212,9 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 local flatMyPos = Vector3.new(currentPos.X, 0, currentPos.Z)
                 local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
                 local distFromStart = (flatMyPos - startFlatPos).Magnitude
-                local toTargetDir = (flatTarget - flatMyPos).Magnitude > 0 and (flatTarget - flatMyPos).Unit or root.CFrame.LookVector
                 
-                local islandAvoidance = Vector3.new(0, 0, 0)
+                local toTargetDir = (flatTarget - flatMyPos).Magnitude > 0 and (flatTarget - flatMyPos).Unit or root.CFrame.LookVector
+                local avoidanceVec = Vector3.new(0, 0, 0)
                 
                 if distFromStart > 300 and (flatTarget - flatMyPos).Magnitude > 0 then
                     for _, flatObs in ipairs(obstacleIslands) do
@@ -1254,22 +1230,23 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                                 local dodgeDir = (dot > 0) and rightVec or -rightVec
                                 
                                 local strength = ((safeRadius - dist) / safeRadius)
-                                islandAvoidance = islandAvoidance + (dodgeDir * strength * 900)
+                                avoidanceVec = avoidanceVec + (dodgeDir * strength * 2.5)
                             end
                         end
                     end
                 end
                 
-                currentDodge = currentDodge:Lerp(islandAvoidance, dt * 2)
+                local moveDir = (toTargetDir + avoidanceVec)
+                if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
                 
-                local targetY = isSkyRoute and tPos.Y or (floorOffset + 1)
+                local targetY = isSkyRoute and tPos.Y or (floorOffset + 5)
                 
                 if not isSkyRoute then
                     local rayParamsDown = RaycastParams.new()
                     rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                     rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
                     
-                    local topDownStart = Vector3.new(currentPos.X + currentDodge.X, currentPos.Y + 500, currentPos.Z + currentDodge.Z)
+                    local topDownStart = Vector3.new(currentPos.X, currentPos.Y + 500, currentPos.Z)
                     local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -1000, 0), rayParamsDown)
                     
                     if tempGroundHit and tempGroundHit.Position.Y >= -1 then
@@ -1279,17 +1256,16 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 
                 targetY = math.max(targetY, 1)
                 
-                local targetPositionWithDodge = Vector3.new(tPos.X, targetY, tPos.Z) + currentDodge
-                
-                if targetPositionWithDodge.Y > currentPos.Y + 5 then
-                    targetPositionWithDodge = Vector3.new(currentPos.X, targetPositionWithDodge.Y, currentPos.Z)
+                local yDiff = targetY - currentPos.Y
+                local yVelocity = 0
+                if math.abs(yDiff) > 1 then
+                    local maxYVel = isSkyRoute and 300 or 60
+                    yVelocity = math.clamp(yDiff * 5, -maxYVel, 40)
                 end
-
-                local moveDir = (targetPositionWithDodge - currentPos)
-                if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
                 
-                bg.cframe = CFrame.lookAt(currentPos, currentPos + moveDir)
-                bv.velocity = moveDir * currentSpeed
+                local finalVelocity = (moveDir * currentSpeed)
+                bv.velocity = Vector3.new(finalVelocity.X, yVelocity, finalVelocity.Z)
+                bg.cframe = CFrame.lookAt(currentPos, currentPos + Vector3.new(moveDir.X, 0, moveDir.Z))
                 
                 platform.CFrame = CFrame.new(currentPos.X, currentPos.Y - floorOffset, currentPos.Z)
                 
@@ -1307,25 +1283,23 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             bv:Destroy()
             hum.PlatformStand = false
             
-            if not clipped and not arrivedEarly then
+            if not arrivedEarly then
                 local finalDist = (root.Position - tPos).Magnitude
                 if finalDist > 20 and finalDist <= 100 then
                     root.CFrame = CFrame.new(tPos)
                 end
-            elseif arrivedEarly then
-                RyuNotify:Send("Island TP", "Sicher gelandet (AC-Bypass).", 2)
             else
-                RyuNotify:Send("Island TP", "Noclip erkannt! Ziel erfolgreich erreicht.", 2)
+                RyuNotify:Send("Island TP", "Sicher gelandet (AC-Bypass).", 2)
             end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
             
-            return clipped or arrivedEarly
+            return arrivedEarly
         end
         
         RyuNotify:Send("Island TP", "Gleite direkt nach " .. targetIslandName .. "...", 3)
-        IslandLerp(rawPos, RyuConfig.IslandSpeed, false)
+        PhysicsFlyTo(rawPos, RyuConfig.IslandSpeed, false)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -1660,4 +1634,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Physics-BodyMover Fly Engine Loaded!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Physics Fly Engine Fully Cleaned!", 4)
