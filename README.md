@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PURE SKY FLY TP 25-35 SPEED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (MANUAL FLY TOGGLE & MAX 10 SPEED)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -53,7 +53,7 @@ local RyuConfig = {
     ElevatorSpeed = 85,
     
     TargetIsland = IslandList[1],
-    IslandSpeed = 30, -- Standard Speed auf 30 geändert
+    IslandSpeed = 10, -- Neues Maximum und Standardwert auf 10
     
     AutoStrength = false,
     AutoStamina = false,
@@ -733,18 +733,82 @@ CreateToggle(SecAutoStats, "Auto Gun Mastery", RyuConfig.AutoGun, function(state
     RyuConfig.AutoGun = state 
 end)
 
---// MOBILITY TAB -> TRANSPORTATION & AUTO BUY
+--// FLY TP -> TRANSPORTATION & AUTO BUY
 local TabMobility = CreateMainTab("Mobility")
 local SubTransport = CreateSubTab(TabMobility, "Fly TP")
 local SubAutoBuy = CreateSubTab(TabMobility, "Auto Buy")
 
 local SecIslandTP = CreateSection(SubTransport, "Island Teleportation")
 CreateDropdown(SecIslandTP, "Fly Auswahl", IslandList, "TargetIsland")
-CreateSlider(SecIslandTP, "Travel Speed", 25, 35, RyuConfig.IslandSpeed, function(val)
+-- FIX: Slider Maximum auf 10 gesetzt!
+CreateSlider(SecIslandTP, "Travel Speed", 1, 10, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
 
---// NEUES PHYSIK-BASIERTES FLUG-SYSTEM FÜR SKY TP
+-- FIX: Eigenständiger Toggle für manuelles Fliegen (WASD)
+local ManualFlyLoop = nil
+CreateToggle(SecIslandTP, "Manual Fly (WASD)", false, function(state)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    
+    if not char or not root or not hum then return end
+
+    if state then
+        if root:FindFirstChild("ManualFlyGyro") then root.ManualFlyGyro:Destroy() end
+        if root:FindFirstChild("ManualFlyVelocity") then root.ManualFlyVelocity:Destroy() end
+
+        local bg = Instance.new("BodyGyro")
+        bg.Name = "ManualFlyGyro"
+        bg.P = 9e4
+        bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+        bg.cframe = root.CFrame
+        bg.Parent = root
+
+        local bv = Instance.new("BodyVelocity")
+        bv.Name = "ManualFlyVelocity"
+        bv.velocity = Vector3.new(0, 0, 0)
+        bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+        bv.Parent = root
+
+        hum.PlatformStand = true
+
+        ManualFlyLoop = RunService.RenderStepped:Connect(function()
+            if not LocalPlayer.Character or not LocalPlayer.Character:FindFirstChild("HumanoidRootPart") or not LocalPlayer.Character:FindFirstChildOfClass("Humanoid") then 
+                if ManualFlyLoop then ManualFlyLoop:Disconnect() ManualFlyLoop = nil end
+                return 
+            end
+            
+            hum.PlatformStand = true
+            bg.cframe = camera.CFrame
+            
+            local moveDir = Vector3.new()
+            
+            if UserInputService:IsKeyDown(Enum.KeyCode.W) then moveDir = moveDir + camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.S) then moveDir = moveDir - camera.CFrame.LookVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.A) then moveDir = moveDir - camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.D) then moveDir = moveDir + camera.CFrame.RightVector end
+            if UserInputService:IsKeyDown(Enum.KeyCode.Space) then moveDir = moveDir + Vector3.new(0, 1, 0) end
+            if UserInputService:IsKeyDown(Enum.KeyCode.LeftShift) then moveDir = moveDir - Vector3.new(0, 1, 0) end
+            
+            if moveDir.Magnitude > 0 then 
+                moveDir = moveDir.Unit 
+            end
+            
+            bv.velocity = moveDir * RyuConfig.IslandSpeed
+        end)
+    else
+        if ManualFlyLoop then 
+            ManualFlyLoop:Disconnect()
+            ManualFlyLoop = nil 
+        end
+        if root:FindFirstChild("ManualFlyGyro") then root.ManualFlyGyro:Destroy() end
+        if root:FindFirstChild("ManualFlyVelocity") then root.ManualFlyVelocity:Destroy() end
+        if hum then hum.PlatformStand = false end
+    end
+end)
+
+--// NEUES PHYSIK-BASIERTES FLUG-SYSTEM FÜR SKY TP (Purer Himmel)
 local function FlyToTarget(tPos)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -1236,4 +1300,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Pure Sky Fly TP Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Manual Fly & Max Speed 10 Active!", 4)
