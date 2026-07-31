@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE PURE HOVER ROUTE)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART PORTAL RETRY SYSTEM)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -346,8 +346,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         ToggleHover(true)
         
-        -- FIX: CustomLerp hat jetzt isHoverMode für schwebende Routen
-        local function CustomLerp(tPos, currentSpeed, isHoverMode)
+        local function CustomLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / currentSpeed
             if t < 0.1 then return end
@@ -368,8 +367,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                -- Drop nur ausführen, wenn wir NICHT im HoverMode sind
-                if (root.Position - intermediatePos).Magnitude > 20 or (not isHoverMode and tick() - lastDrop >= 2.5) then
+                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
                     local isDrop = (tick() - lastDrop >= 2.5)
                     
                     ToggleHover(false)
@@ -404,71 +402,59 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             _G.soruDashing = nil
         end
         
-        local prePortalRoute = {
-            Vector3.new(1774, -4, -12104),
-            Vector3.new(1777, 64, -12190),
-            Vector3.new(1839, 70, -12212),
-            Vector3.new(1791, 60, -12290),
-            Vector3.new(1794, 47, -12309)
-        }
-        
         local safeY = 1500
-        local startWp = prePortalRoute[1]
-        
-        -- Gehe zur Start-Koordinate ganz normal
-        CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed, false)
-        CustomLerp(Vector3.new(startWp.X, safeY, startWp.Z), RyuConfig.FishmanSpeed, false)
-        CustomLerp(startWp, RyuConfig.ElevatorSpeed, false)
-        
-        -- SCHWEBE-MODUS FÜR DIE RESTLICHE PRE-PORTAL ROUTE!
-        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route (Schwebend)...", 3)
-        for i = 2, #prePortalRoute do
-            local wp = prePortalRoute[i]
-            -- isHoverMode = true, Speed = 25 (langsames, sanftes Schweben)
-            CustomLerp(wp, 25, true) 
-        end
+        CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed)
+        CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.FishmanSpeed)
+        CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.ElevatorSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
-        
-        RyuNotify:Send("Smart TP", "Warte 4 Sekunden vor Portal-TP...", 4)
-        task.wait(4)
         
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
             local portal = areaTp.FirstSea.Fishman.Part
             
-            ToggleHover(false)
-            task.wait(0.5)
-            
-            root.CFrame = portal.CFrame
-            root.Velocity = Vector3.new(0, 0, 0)
-            
-            task.wait(0.1)
-            root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
-            
-            local startBlack = tick()
+            local tpSuccess = false
             local isBlack = false
-            RyuNotify:Send("Smart TP", "Warte auf Ladebildschirm...", 3)
             
-            while tick() - startBlack < 10 do
-                local foundBlack = false
-                local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                if pg then
-                    for _, v in pairs(pg:GetDescendants()) do
-                        if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                            if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                foundBlack = true
-                                break
+            -- SMART RETRY LOOP FÜR DEN PORTAL-TELEPORT
+            while not tpSuccess do
+                ToggleHover(false)
+                root.Velocity = Vector3.new(0, 0, 0)
+                root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
+                
+                RyuNotify:Send("Smart TP", "Versuche Portal-Teleport...", 3)
+                
+                local checkStart = tick()
+                isBlack = false
+                
+                while tick() - checkStart < 4 do
+                    if char and root and portal and (root.Position - portal.Position).Magnitude > 1000 then
+                        tpSuccess = true
+                        break
+                    end
+                    
+                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                    if pg then
+                        for _, v in pairs(pg:GetDescendants()) do
+                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
+                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
+                                    isBlack = true
+                                    tpSuccess = true
+                                    break
+                                end
                             end
                         end
                     end
+                    
+                    if tpSuccess then break end
+                    task.wait(0.1)
                 end
-                if foundBlack then
-                    isBlack = true
-                    break
+                
+                if not tpSuccess then
+                    RyuNotify:Send("Smart TP", "Teleport verzögert! Versuche es in 3 Sek. nochmal...", 3)
+                    task.wait(3)
                 end
-                task.wait(0.1)
             end
             
             if isBlack then
@@ -490,9 +476,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     if not foundBlack then break end
                     task.wait(0.1)
                 end
-                task.wait(1) 
+                task.wait(1)
             else
-                task.wait(4)
+                task.wait(2)
             end
             
             ToggleHover(true)
@@ -505,9 +491,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 Vector3.new(7775, -2177, -17174)
             }
             
-            -- Hier wieder normales schnelles Tweenen in der Cave (HoverMode = false)
             for _, wp in ipairs(caveRoute) do
-                CustomLerp(wp, RyuConfig.FishmanSpeed, false)
+                CustomLerp(wp, RyuConfig.FishmanSpeed)
             end
             
             RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
@@ -545,7 +530,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         ToggleHover(true)
         
-        local function CustomLerp(tPos, currentSpeed, isHoverMode)
+        local function CustomLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / currentSpeed
             if t < 0.1 then return end
@@ -566,7 +551,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 or (not isHoverMode and tick() - lastDrop >= 2.5) then
+                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
                     local isDrop = (tick() - lastDrop >= 2.5)
                     
                     ToggleHover(false)
@@ -601,64 +586,56 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             _G.soruDashing = nil
         end
         
-        local prePortalRoute = {
-            Vector3.new(1774, -4, -12104),
-            Vector3.new(1777, 64, -12190),
-            Vector3.new(1839, 70, -12212),
-            Vector3.new(1791, 60, -12290),
-            Vector3.new(1794, 47, -12309)
-        }
-        
-        local startWp = prePortalRoute[1]
-        CustomLerp(startWp, RyuConfig.FishmanSpeed, false)
-        
-        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route (Schwebend)...", 3)
-        for i = 2, #prePortalRoute do
-            local wp = prePortalRoute[i]
-            CustomLerp(wp, 25, true) 
-        end
+        CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
-        
-        RyuNotify:Send("Smart TP", "Warte 4 Sekunden für Portal-TP...", 4)
-        task.wait(4)
         
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
             local portal = areaTp.FirstSea.Fishman.Part
             
-            ToggleHover(false)
-            task.wait(0.5)
-            
-            root.CFrame = portal.CFrame
-            root.Velocity = Vector3.new(0, 0, 0)
-            
-            task.wait(0.1)
-            root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
-            
-            local startBlack = tick()
+            local tpSuccess = false
             local isBlack = false
-            RyuNotify:Send("Smart TP", "Warte auf Ladebildschirm...", 3)
             
-            while tick() - startBlack < 10 do
-                local foundBlack = false
-                local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                if pg then
-                    for _, v in pairs(pg:GetDescendants()) do
-                        if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                            if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                foundBlack = true
-                                break
+            -- SMART RETRY LOOP FÜR DEN PORTAL-TELEPORT
+            while not tpSuccess do
+                ToggleHover(false)
+                root.Velocity = Vector3.new(0, 0, 0)
+                root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
+                
+                RyuNotify:Send("Smart TP", "Versuche Portal-Teleport...", 3)
+                
+                local checkStart = tick()
+                isBlack = false
+                
+                while tick() - checkStart < 4 do
+                    if char and root and portal and (root.Position - portal.Position).Magnitude > 1000 then
+                        tpSuccess = true
+                        break
+                    end
+                    
+                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                    if pg then
+                        for _, v in pairs(pg:GetDescendants()) do
+                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
+                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
+                                    isBlack = true
+                                    tpSuccess = true
+                                    break
+                                end
                             end
                         end
                     end
+                    
+                    if tpSuccess then break end
+                    task.wait(0.1)
                 end
-                if foundBlack then
-                    isBlack = true
-                    break
+                
+                if not tpSuccess then
+                    RyuNotify:Send("Smart TP", "Teleport verzögert! Versuche es in 3 Sek. nochmal...", 3)
+                    task.wait(3)
                 end
-                task.wait(0.1)
             end
             
             if isBlack then
@@ -680,9 +657,9 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     if not foundBlack then break end
                     task.wait(0.1)
                 end
-                task.wait(1) 
+                task.wait(1)
             else
-                task.wait(4)
+                task.wait(2)
             end
             
             ToggleHover(true)
@@ -696,7 +673,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             }
             
             for _, wp in ipairs(caveRoute) do
-                CustomLerp(wp, RyuConfig.FishmanSpeed, false)
+                CustomLerp(wp, RyuConfig.FishmanSpeed)
             end
             
             RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
@@ -1507,4 +1484,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Hover-Mode in Cave Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Smart Portal Retry System Active!", 4)
