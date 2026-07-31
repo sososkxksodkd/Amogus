@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (DYNAMIC CAVE TP & SMART RETRY)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PORTAL WALK-SIMULATION & MAX SPEED 60)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -422,11 +422,12 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             local tpSuccess = false
             local isBlack = false
             
-            -- FIX: Smart Retry Loop
+            -- FIX: Smart Retry Loop & WALK SIMULATION
             while not tpSuccess do
                 ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
-                root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
+                -- Teleportiere direkt AUF das Portal (mit leichtem Y-Abstand)
+                root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
                 
                 RyuNotify:Send("Smart TP", "Versuche Portal-Teleport...", 3)
                 
@@ -437,6 +438,13 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     if char and root and portal and (root.Position - portal.Position).Magnitude > 1000 then
                         tpSuccess = true
                         break
+                    end
+                    
+                    -- PORTAL WALK-SIMULATION: Charakter läuft im Kreis, um das Portal zu triggern
+                    if hum and root and portal and (root.Position - portal.Position).Magnitude < 50 then
+                        hum:Move(Vector3.new(math.sin(tick() * 10), 0, math.cos(tick() * 10)))
+                        local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
+                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                     
                     local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -452,11 +460,15 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                         end
                     end
                     
-                    if tpSuccess then break end
+                    if tpSuccess then 
+                        if hum then hum:Move(Vector3.new(0,0,0)) end
+                        break 
+                    end
                     task.wait(0.1)
                 end
                 
                 if not tpSuccess then
+                    if hum then hum:Move(Vector3.new(0,0,0)) end
                     RyuNotify:Send("Smart TP", "Teleport verzögert! Versuche es in 3 Sek. nochmal...", 3)
                     task.wait(3)
                 end
@@ -595,11 +607,12 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             local tpSuccess = false
             local isBlack = false
             
-            -- FIX: Smart Retry Loop
+            -- FIX: Smart Retry Loop & WALK SIMULATION
             while not tpSuccess do
                 ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
-                root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
+                -- Teleportiere direkt AUF das Portal
+                root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
                 
                 RyuNotify:Send("Smart TP", "Versuche Portal-Teleport...", 3)
                 
@@ -610,6 +623,13 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     if char and root and portal and (root.Position - portal.Position).Magnitude > 1000 then
                         tpSuccess = true
                         break
+                    end
+                    
+                    -- PORTAL WALK-SIMULATION
+                    if hum and root and portal and (root.Position - portal.Position).Magnitude < 50 then
+                        hum:Move(Vector3.new(math.sin(tick() * 10), 0, math.cos(tick() * 10)))
+                        local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
+                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                     
                     local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -625,11 +645,15 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         end
                     end
                     
-                    if tpSuccess then break end
+                    if tpSuccess then 
+                        if hum then hum:Move(Vector3.new(0,0,0)) end
+                        break 
+                    end
                     task.wait(0.1)
                 end
                 
                 if not tpSuccess then
+                    if hum then hum:Move(Vector3.new(0,0,0)) end
                     RyuNotify:Send("Smart TP", "Teleport verzögert! Versuche es in 3 Sek. nochmal...", 3)
                     task.wait(3)
                 end
@@ -1396,4 +1420,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Fishman Cave TP Simplified!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Portal Walk-Sim Active!", 4)
