@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART ROUTE & CLASSIC SMOOTH GLIDER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART EVADER & STOP-TO-CLIMB)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -837,6 +837,39 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
+        -- FIX: SMART ISLAND AVOIDANCE SCANNER
+        local obstacleIslands = {}
+        local startFlatPos = Vector3.new(root.Position.X, 0, root.Position.Z)
+        
+        for _, name in ipairs(IslandList) do
+            if string.lower(name) ~= string.lower(targetIslandName) then
+                local isl = Workspace:FindFirstChild(name)
+                if not isl then
+                    for _, v in pairs(Workspace:GetDescendants()) do
+                        if string.lower(v.Name) == string.lower(name) then
+                            isl = v break
+                        end
+                    end
+                end
+                if isl then
+                    local pos
+                    if isl:IsA("Model") then pos = isl:GetPivot().Position
+                    elseif isl:IsA("BasePart") then pos = isl.Position
+                    else
+                        local tpPart = isl:FindFirstChildWhichIsA("BasePart", true)
+                        if tpPart then pos = tpPart.Position end
+                    end
+                    if pos then 
+                        local flatObs = Vector3.new(pos.X, 0, pos.Z)
+                        -- Start-Insel (im Radius von 1500) ignorieren!
+                        if (flatObs - startFlatPos).Magnitude > 1500 then
+                            table.insert(obstacleIslands, flatObs) 
+                        end
+                    end
+                end
+            end
+        end
+        
         local function IslandLerp(tPos, currentSpeed, isSkyRoute)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
@@ -846,55 +879,43 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             if t < 0.1 then return true end
             
             local startPos = root.Position
-            local startFlatPos = Vector3.new(startPos.X, 0, startPos.Z)
             local elapsedTime = 0
             local currentY = root.Position.Y
+            local lastClipCheck = tick()
+            local clipped = false
+            
             local currentDodge = Vector3.new(0, 0, 0)
-            local lastFootstep = tick()
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
+            local lastFootstep = tick()
             
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
 
-            -- HINDERNIS-INSELN SAMMELN (Ignoriert Start-Insel)
-            local obstacleIslands = {}
-            for _, name in ipairs(IslandList) do
-                if string.lower(name) ~= string.lower(targetIslandName) then
-                    local isl
-                    local found = Workspace:FindFirstChild(name)
-                    if not found then
-                        for _, v in pairs(Workspace:GetDescendants()) do
-                            if string.lower(v.Name) == string.lower(name) then
-                                found = v break
-                            end
-                        end
-                    end
-                    if found then
-                        local pos
-                        if found:IsA("Model") then pos = found:GetPivot().Position
-                        elseif found:IsA("BasePart") then pos = found.Position
-                        else
-                            local tpPart = found:FindFirstChildWhichIsA("BasePart", true)
-                            if tpPart then pos = tpPart.Position end
-                        end
-                        if pos then
-                            local flatObs = Vector3.new(pos.X, 0, pos.Z)
-                            if (flatObs - startFlatPos).Magnitude > 1500 then
-                                table.insert(obstacleIslands, flatObs)
-                            end
-                        end
-                    end
-                end
-            end
-
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
+                
+                if tick() - lastClipCheck > 0.1 then
+                    lastClipCheck = tick()
+                    pcall(function()
+                        local op = OverlapParams.new()
+                        op.FilterDescendantsInstances = {island}
+                        op.FilterType = Enum.RaycastFilterType.Include
+                        local hits = Workspace:GetPartsInPart(root, op)
+                        for _, hitPart in ipairs(hits) do
+                            if hitPart:IsA("BasePart") and hitPart.CanCollide then
+                                clipped = true
+                                break
+                            end
+                        end
+                    end)
+                    if clipped then break end
+                end
                 
                 local flatMyPos = Vector3.new(root.Position.X, 0, root.Position.Z)
                 local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
@@ -903,21 +924,23 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 local islandAvoidance = Vector3.new(0, 0, 0)
                 
                 if (flatTarget - flatMyPos).Magnitude > 0 then
+                    -- MACRO AVOIDANCE: Fliegt geschmeidig in einem riesigen Bogen um fremde Inseln!
                     for _, flatObs in ipairs(obstacleIslands) do
                         local dist = (flatMyPos - flatObs).Magnitude
-                        local safeRadius = 2000
+                        local safeRadius = 2500
                         
+                        -- Insel muss nah sein (Startinsel wurde oben schon rausgefiltert)
                         if dist < safeRadius then
                             local toObsDir = (flatObs - flatMyPos).Unit
-                            -- Prüfen, ob Insel VOR uns liegt
-                            if toObsDir:Dot(toTargetDir) > 0.2 then
+                            -- Nur ausweichen, wenn die Insel vor uns ist
+                            if toObsDir:Dot(toTargetDir) > 0.3 then
                                 local pushDir = (flatMyPos - flatObs).Unit
                                 local rightVec = Vector3.new(0, 1, 0):Cross(pushDir).Unit
                                 local dot = rightVec:Dot(toTargetDir)
                                 local dodgeDir = (dot > 0) and rightVec or -rightVec
                                 
                                 local strength = ((safeRadius - dist) / safeRadius)
-                                islandAvoidance = islandAvoidance + (dodgeDir * strength * 1000)
+                                islandAvoidance = islandAvoidance + (dodgeDir * strength * 1200)
                             end
                         end
                     end
@@ -941,21 +964,24 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                         targetY = floorOffset + 1
                     end
                 end
-                
-                -- Y IMMER IM PLUS
                 targetY = math.max(targetY, 1)
 
-                -- Klettern Smooth
-                local climbRate = 20 
+                local climbRate = 17 
                 local fallRate = isSkyRoute and 300 or 60
                 
-                if targetY > currentY then
-                    currentY = math.min(currentY + (climbRate * dt), targetY)
-                elseif targetY < currentY then
-                    currentY = math.max(currentY - (fallRate * dt), targetY)
+                -- STEHEN BLEIBEN UND KLETTERN
+                if targetY > currentY + 0.5 then
+                    currentY = currentY + (climbRate * dt)
+                    if currentY > targetY then currentY = targetY end
+                    -- elapsedTime bleibt gleich = 0 Vorwärtsbewegung!
+                elseif targetY < currentY - 5 then
+                    currentY = currentY - (fallRate * dt)
+                    if currentY < targetY then currentY = targetY end
+                    elapsedTime = elapsedTime + dt
+                else
+                    currentY = targetY
+                    elapsedTime = elapsedTime + dt
                 end
-                
-                elapsedTime = elapsedTime + dt
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
@@ -979,23 +1005,31 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 end
             end
             
-            local finalDist = (root.Position - tPos).Magnitude
-            if finalDist > 20 then
-                root.CFrame = CFrame.new(tPos)
+            if not clipped then
+                local finalDist = (root.Position - tPos).Magnitude
+                if finalDist > 20 then
+                    root.CFrame = CFrame.new(tPos)
+                end
+            else
+                RyuNotify:Send("Island TP", "Noclip erkannt! Ziel erfolgreich erreicht.", 2)
             end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
             
-            return false
+            return clipped
         end
         
         local safeY = 1500
         RyuNotify:Send("Island TP", "Reise nach " .. targetIslandName .. " (Sky-Route)...", 3)
         
-        IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed, true)
-        IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed, true)
-        IslandLerp(targetPos, RyuConfig.IslandSpeed, false)
+        local clipped = IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed, true)
+        if not clipped then
+            clipped = IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed, true)
+        end
+        if not clipped then
+            IslandLerp(targetPos, RyuConfig.IslandSpeed, false)
+        end
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -1100,6 +1134,39 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         ToggleHover(true)
         
+        -- FIX: SMART ISLAND AVOIDANCE SCANNER
+        local obstacleIslands = {}
+        local startFlatPos = Vector3.new(root.Position.X, 0, root.Position.Z)
+        
+        for _, name in ipairs(IslandList) do
+            if string.lower(name) ~= string.lower(targetIslandName) then
+                local isl = Workspace:FindFirstChild(name)
+                if not isl then
+                    for _, v in pairs(Workspace:GetDescendants()) do
+                        if string.lower(v.Name) == string.lower(name) then
+                            isl = v break
+                        end
+                    end
+                end
+                if isl then
+                    local pos
+                    if isl:IsA("Model") then pos = isl:GetPivot().Position
+                    elseif isl:IsA("BasePart") then pos = isl.Position
+                    else
+                        local tpPart = isl:FindFirstChildWhichIsA("BasePart", true)
+                        if tpPart then pos = tpPart.Position end
+                    end
+                    if pos then 
+                        local flatObs = Vector3.new(pos.X, 0, pos.Z)
+                        -- Start-Insel (im Radius von 1500) ignorieren!
+                        if (flatObs - startFlatPos).Magnitude > 1500 then
+                            table.insert(obstacleIslands, flatObs) 
+                        end
+                    end
+                end
+            end
+        end
+        
         local function IslandLerp(tPos, currentSpeed, isSkyRoute)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
@@ -1109,53 +1176,43 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             if t < 0.1 then return true end
             
             local startPos = root.Position
-            local startFlatPos = Vector3.new(startPos.X, 0, startPos.Z)
             local elapsedTime = 0
             local currentY = root.Position.Y
+            local lastClipCheck = tick()
+            local clipped = false
+            
             local currentDodge = Vector3.new(0, 0, 0)
-            local lastFootstep = tick()
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
+            local lastFootstep = tick()
             
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
 
-            -- BERECHNE HINDERNIS-INSELN (Ignoriere Start-Insel)
-            local obstacleIslands = {}
-            for _, name in ipairs(IslandList) do
-                if string.lower(name) ~= string.lower(targetIslandName) then
-                    local isl
-                    local found = Workspace:FindFirstChild(name)
-                    if not found then
-                        for _, v in pairs(Workspace:GetDescendants()) do
-                            if string.lower(v.Name) == string.lower(name) then isl = v break end
-                        end
-                    end
-                    if found then
-                        local pos
-                        if found:IsA("Model") then pos = found:GetPivot().Position
-                        elseif found:IsA("BasePart") then pos = found.Position
-                        else
-                            local tpPart = found:FindFirstChildWhichIsA("BasePart", true)
-                            if tpPart then pos = tpPart.Position end
-                        end
-                        if pos then 
-                            local flatObs = Vector3.new(pos.X, 0, pos.Z)
-                            if (flatObs - startFlatPos).Magnitude > 1500 then
-                                table.insert(obstacleIslands, flatObs) 
-                            end
-                        end
-                    end
-                end
-            end
-
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
+                
+                if tick() - lastClipCheck > 0.1 then
+                    lastClipCheck = tick()
+                    pcall(function()
+                        local op = OverlapParams.new()
+                        op.FilterDescendantsInstances = {island}
+                        op.FilterType = Enum.RaycastFilterType.Include
+                        local hits = Workspace:GetPartsInPart(root, op)
+                        for _, hitPart in ipairs(hits) do
+                            if hitPart:IsA("BasePart") and hitPart.CanCollide then
+                                clipped = true
+                                break
+                            end
+                        end
+                    end)
+                    if clipped then break end
+                end
                 
                 local flatMyPos = Vector3.new(root.Position.X, 0, root.Position.Z)
                 local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
@@ -1164,20 +1221,23 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 local islandAvoidance = Vector3.new(0, 0, 0)
                 
                 if (flatTarget - flatMyPos).Magnitude > 0 then
+                    -- MACRO AVOIDANCE: Fliegt geschmeidig in einem riesigen Bogen um fremde Inseln!
                     for _, flatObs in ipairs(obstacleIslands) do
                         local dist = (flatMyPos - flatObs).Magnitude
-                        local safeRadius = 2000
+                        local safeRadius = 2500
                         
+                        -- Insel muss nah sein
                         if dist < safeRadius then
                             local toObsDir = (flatObs - flatMyPos).Unit
-                            if toObsDir:Dot(toTargetDir) > 0.2 then
+                            -- Nur ausweichen, wenn die Insel vor uns ist
+                            if toObsDir:Dot(toTargetDir) > 0.3 then
                                 local pushDir = (flatMyPos - flatObs).Unit
                                 local rightVec = Vector3.new(0, 1, 0):Cross(pushDir).Unit
                                 local dot = rightVec:Dot(toTargetDir)
                                 local dodgeDir = (dot > 0) and rightVec or -rightVec
                                 
                                 local strength = ((safeRadius - dist) / safeRadius)
-                                islandAvoidance = islandAvoidance + (dodgeDir * strength * 1000)
+                                islandAvoidance = islandAvoidance + (dodgeDir * strength * 1200)
                             end
                         end
                     end
@@ -1198,22 +1258,27 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     if tempGroundHit and tempGroundHit.Position.Y >= -1 then
                         targetY = tempGroundHit.Position.Y + floorOffset + 5
                     else
-                        targetY = floorOffset + 1 
+                        targetY = floorOffset + 1
                     end
                 end
-                
-                targetY = math.max(targetY, 1) -- Y IMMER IM PLUS!
+                targetY = math.max(targetY, 1)
 
-                local climbRate = 20 
+                local climbRate = 17 
                 local fallRate = isSkyRoute and 300 or 60
                 
-                if targetY > currentY then
-                    currentY = math.min(currentY + (climbRate * dt), targetY)
-                elseif targetY < currentY then
-                    currentY = math.max(currentY - (fallRate * dt), targetY)
+                -- STEHEN BLEIBEN UND KLETTERN
+                if targetY > currentY + 0.5 then
+                    currentY = currentY + (climbRate * dt)
+                    if currentY > targetY then currentY = targetY end
+                    -- elapsedTime bleibt gleich = 0 Vorwärtsbewegung!
+                elseif targetY < currentY - 5 then
+                    currentY = currentY - (fallRate * dt)
+                    if currentY < targetY then currentY = targetY end
+                    elapsedTime = elapsedTime + dt
+                else
+                    currentY = targetY
+                    elapsedTime = elapsedTime + dt
                 end
-                
-                elapsedTime = elapsedTime + dt
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
@@ -1237,15 +1302,19 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 end
             end
             
-            local finalDist = (root.Position - tPos).Magnitude
-            if finalDist > 20 then
-                root.CFrame = CFrame.new(tPos)
+            if not clipped then
+                local finalDist = (root.Position - tPos).Magnitude
+                if finalDist > 20 then
+                    root.CFrame = CFrame.new(tPos)
+                end
+            else
+                RyuNotify:Send("Island TP", "Noclip erkannt! Ziel erfolgreich erreicht.", 2)
             end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
             
-            return false
+            return clipped
         end
         
         RyuNotify:Send("Island TP", "Gleite direkt nach " .. targetIslandName .. "...", 3)
@@ -1584,4 +1653,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Old Smooth Tween + Smart Routing Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Perfect Island-Bypass Active!", 4)
