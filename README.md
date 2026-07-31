@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (MANUAL FLY TOGGLE & MAX 10 SPEED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (CHILL CLIMB & 10-60 SPEED)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -53,7 +53,7 @@ local RyuConfig = {
     ElevatorSpeed = 85,
     
     TargetIsland = IslandList[1],
-    IslandSpeed = 10, -- Neues Maximum und Standardwert auf 10
+    IslandSpeed = 35, -- Standard Speed auf sichere 35 gesetzt
     
     AutoStrength = false,
     AutoStamina = false,
@@ -740,12 +740,13 @@ local SubAutoBuy = CreateSubTab(TabMobility, "Auto Buy")
 
 local SecIslandTP = CreateSection(SubTransport, "Island Teleportation")
 CreateDropdown(SecIslandTP, "Fly Auswahl", IslandList, "TargetIsland")
--- FIX: Slider Maximum auf 10 gesetzt!
-CreateSlider(SecIslandTP, "Travel Speed", 1, 10, RyuConfig.IslandSpeed, function(val)
+
+-- FIX: Slider geht von 10 bis 60
+CreateSlider(SecIslandTP, "Travel Speed", 10, 60, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
 
--- FIX: Eigenständiger Toggle für manuelles Fliegen (WASD)
+-- Eigenständiger Toggle für manuelles Fliegen (WASD)
 local ManualFlyLoop = nil
 CreateToggle(SecIslandTP, "Manual Fly (WASD)", false, function(state)
     local char = LocalPlayer.Character
@@ -809,11 +810,18 @@ CreateToggle(SecIslandTP, "Manual Fly (WASD)", false, function(state)
 end)
 
 --// NEUES PHYSIK-BASIERTES FLUG-SYSTEM FÜR SKY TP (Purer Himmel)
-local function FlyToTarget(tPos)
+-- FIX: Akzeptiert jetzt ein optionales maxSpeed Limit für vertikale Phasen
+local function FlyToTarget(tPos, maxSpeed)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not root or not hum then return false end
+    
+    -- Ermittle die sichere Geschwindigkeit für diese Flug-Phase
+    local activeSpeed = RyuConfig.IslandSpeed
+    if maxSpeed and activeSpeed > maxSpeed then
+        activeSpeed = maxSpeed
+    end
     
     if root:FindFirstChild("StandaloneFlyGyro") then root.StandaloneFlyGyro:Destroy() end
     if root:FindFirstChild("StandaloneFlyVelocity") then root.StandaloneFlyVelocity:Destroy() end
@@ -863,7 +871,8 @@ local function FlyToTarget(tPos)
         
         local rawMoveDir = (tPos - currentPos).Unit
         
-        bv.velocity = rawMoveDir * RyuConfig.IslandSpeed
+        -- Fliegt chillig mit der erlaubten Geschwindigkeit
+        bv.velocity = rawMoveDir * activeSpeed
         bg.cframe = CFrame.lookAt(currentPos, currentPos + rawMoveDir)
         
         if tick() - lastFootstep > 0.1 then
@@ -887,7 +896,7 @@ local function FlyToTarget(tPos)
     return arrivedEarly
 end
 
-CreateButton(SecIslandTP, "Fly TP to Island", function()
+CreateButton(SecIslandTP, "Sky Fly TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
     
@@ -961,12 +970,12 @@ CreateButton(SecIslandTP, "Fly TP to Island", function()
         local safeY = root.Position.Y + 550
         RyuNotify:Send("Fly TP", "Reise nach " .. targetIslandName .. " (Sky-Route)...", 3)
         
-        -- 1. Direkt nach oben fliegen
-        FlyToTarget(Vector3.new(root.Position.X, safeY, root.Position.Z))
-        -- 2. Auf Ziel-X/Z fliegen
+        -- 1. Chillig nach oben fliegen (Anti-Cheat Bypass, Max Speed 35)
+        FlyToTarget(Vector3.new(root.Position.X, safeY, root.Position.Z), 35)
+        -- 2. Auf Ziel-X/Z fliegen (Volle Geschwindigkeit, bis zu 60)
         FlyToTarget(Vector3.new(targetPos.X, safeY, targetPos.Z))
-        -- 3. Nach unten zum Ziel fliegen
-        FlyToTarget(targetPos)
+        -- 3. Nach unten zum Ziel fliegen (Wieder chillig nach unten, Max Speed 35)
+        FlyToTarget(targetPos, 35)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -1300,4 +1309,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Manual Fly & Max Speed 10 Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Physics Fly TP (Chill Climb) Active!", 4)
