@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PRE-PORTAL ROUTE & BLACKSCREEN SCAN)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE PURE HOVER ROUTE)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -321,6 +321,10 @@ end)
 
 CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
     task.spawn(function()
+        local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
+        if not cave then return end
+        
+        local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
@@ -342,7 +346,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         
         ToggleHover(true)
         
-        local function CustomLerp(tPos, currentSpeed)
+        -- FIX: CustomLerp hat jetzt isHoverMode für schwebende Routen
+        local function CustomLerp(tPos, currentSpeed, isHoverMode)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / currentSpeed
             if t < 0.1 then return end
@@ -363,7 +368,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
+                -- Drop nur ausführen, wenn wir NICHT im HoverMode sind
+                if (root.Position - intermediatePos).Magnitude > 20 or (not isHoverMode and tick() - lastDrop >= 2.5) then
                     local isDrop = (tick() - lastDrop >= 2.5)
                     
                     ToggleHover(false)
@@ -398,7 +404,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             _G.soruDashing = nil
         end
         
-        -- FIX: Die neue Pre-Portal Route
         local prePortalRoute = {
             Vector3.new(1774, -4, -12104),
             Vector3.new(1777, 64, -12190),
@@ -410,19 +415,22 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local safeY = 1500
         local startWp = prePortalRoute[1]
         
-        CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed)
-        CustomLerp(Vector3.new(startWp.X, safeY, startWp.Z), RyuConfig.FishmanSpeed)
-        CustomLerp(startWp, RyuConfig.ElevatorSpeed)
+        -- Gehe zur Start-Koordinate ganz normal
+        CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed, false)
+        CustomLerp(Vector3.new(startWp.X, safeY, startWp.Z), RyuConfig.FishmanSpeed, false)
+        CustomLerp(startWp, RyuConfig.ElevatorSpeed, false)
         
-        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route...", 3)
-        for _, wp in ipairs(prePortalRoute) do
-            CustomLerp(wp, RyuConfig.FishmanSpeed)
+        -- SCHWEBE-MODUS FÜR DIE RESTLICHE PRE-PORTAL ROUTE!
+        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route (Schwebend)...", 3)
+        for i = 2, #prePortalRoute do
+            local wp = prePortalRoute[i]
+            -- isHoverMode = true, Speed = 25 (langsames, sanftes Schweben)
+            CustomLerp(wp, 25, true) 
         end
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        -- FIX: Exakt 4 Sekunden warten
         RyuNotify:Send("Smart TP", "Warte 4 Sekunden vor Portal-TP...", 4)
         task.wait(4)
         
@@ -439,7 +447,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             task.wait(0.1)
             root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
             
-            -- FIX: Black-Screen Scanner
             local startBlack = tick()
             local isBlack = false
             RyuNotify:Send("Smart TP", "Warte auf Ladebildschirm...", 3)
@@ -498,8 +505,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 Vector3.new(7775, -2177, -17174)
             }
             
+            -- Hier wieder normales schnelles Tweenen in der Cave (HoverMode = false)
             for _, wp in ipairs(caveRoute) do
-                CustomLerp(wp, RyuConfig.FishmanSpeed)
+                CustomLerp(wp, RyuConfig.FishmanSpeed, false)
             end
             
             RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
@@ -512,6 +520,10 @@ end)
 
 CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
     task.spawn(function()
+        local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
+        if not cave then return end
+        
+        local targetPos = cave:IsA("Model") and cave:GetPivot().Position or cave.CFrame.Position
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
@@ -533,7 +545,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         
         ToggleHover(true)
         
-        local function CustomLerp(tPos, currentSpeed)
+        local function CustomLerp(tPos, currentSpeed, isHoverMode)
             local totalDist = (root.Position - tPos).Magnitude
             local t = totalDist / currentSpeed
             if t < 0.1 then return end
@@ -554,7 +566,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     lookPos = intermediatePos + root.CFrame.LookVector 
                 end
                 
-                if (root.Position - intermediatePos).Magnitude > 20 or (tick() - lastDrop >= 2.5) then
+                if (root.Position - intermediatePos).Magnitude > 20 or (not isHoverMode and tick() - lastDrop >= 2.5) then
                     local isDrop = (tick() - lastDrop >= 2.5)
                     
                     ToggleHover(false)
@@ -589,7 +601,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             _G.soruDashing = nil
         end
         
-        -- FIX: Die neue Pre-Portal Route
         local prePortalRoute = {
             Vector3.new(1774, -4, -12104),
             Vector3.new(1777, 64, -12190),
@@ -599,17 +610,17 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         }
         
         local startWp = prePortalRoute[1]
-        CustomLerp(startWp, RyuConfig.FishmanSpeed)
+        CustomLerp(startWp, RyuConfig.FishmanSpeed, false)
         
-        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route...", 3)
-        for _, wp in ipairs(prePortalRoute) do
-            CustomLerp(wp, RyuConfig.FishmanSpeed)
+        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route (Schwebend)...", 3)
+        for i = 2, #prePortalRoute do
+            local wp = prePortalRoute[i]
+            CustomLerp(wp, 25, true) 
         end
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        -- FIX: Exakt 4 Sekunden warten
         RyuNotify:Send("Smart TP", "Warte 4 Sekunden für Portal-TP...", 4)
         task.wait(4)
         
@@ -626,7 +637,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             task.wait(0.1)
             root.CFrame = portal.CFrame * CFrame.new(0, 1, 0)
             
-            -- FIX: Black-Screen Scanner
             local startBlack = tick()
             local isBlack = false
             RyuNotify:Send("Smart TP", "Warte auf Ladebildschirm...", 3)
@@ -686,7 +696,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             }
             
             for _, wp in ipairs(caveRoute) do
-                CustomLerp(wp, RyuConfig.FishmanSpeed)
+                CustomLerp(wp, RyuConfig.FishmanSpeed, false)
             end
             
             RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
@@ -715,7 +725,7 @@ CreateToggle(SecAutoStats, "Auto Gun Mastery", RyuConfig.AutoGun, function(state
     RyuConfig.AutoGun = state 
 end)
 
---// NEU: MOBILITY TAB -> TRANSPORTATION & AUTO BUY
+--// MOBILITY TAB -> TRANSPORTATION & AUTO BUY
 local TabMobility = CreateMainTab("Mobility")
 local SubTransport = CreateSubTab(TabMobility, "Transportation")
 local SubAutoBuy = CreateSubTab(TabMobility, "Auto Buy")
@@ -1497,4 +1507,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Pre-Portal & Blackscreen Logic Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Hover-Mode in Cave Active!", 4)
