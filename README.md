@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (NO CLIMBING / CONTINUOUS GLIDE)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PHYSICS BODYMOVER FLY ENGINE)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -837,6 +837,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
+        -- FIX: SMART ISLAND AVOIDANCE SCANNER
         local obstacleIslands = {}
         local startFlatPos = Vector3.new(root.Position.X, 0, root.Position.Z)
         
@@ -868,63 +869,77 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             end
         end
         
+        --// NEUES PHYSIK-BASIERTES FLUG-SYSTEM FÜR AUTO-TRANSPORT
         local function IslandLerp(tPos, currentSpeed, isSkyRoute)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
             
             currentSpeed = currentSpeed > 0 and currentSpeed or RyuConfig.IslandSpeed
-            local t = totalDist / currentSpeed
-            if t < 0.1 then return true end
             
-            local startPos = root.Position
-            local elapsedTime = 0
-            local currentY = root.Position.Y
-            local lastClipCheck = tick()
-            local clipped = false
-            local arrivedEarly = false
+            if root:FindFirstChild("RyuFlyGyro") then root.RyuFlyGyro:Destroy() end
+            if root:FindFirstChild("RyuFlyVelocity") then root.RyuFlyVelocity:Destroy() end
+
+            local bg = Instance.new("BodyGyro")
+            bg.Name = "RyuFlyGyro"
+            bg.P = 9e4
+            bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+            bg.cframe = root.CFrame
+            bg.Parent = root
+
+            local bv = Instance.new("BodyVelocity")
+            bv.Name = "RyuFlyVelocity"
+            bv.velocity = Vector3.new(0, 0, 0)
+            bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+            bv.Parent = root
             
-            local currentDodge = Vector3.new(0, 0, 0)
-            
+            hum.PlatformStand = true
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
+            local clipped = false
+            local arrivedEarly = false
+            local currentDodge = Vector3.new(0, 0, 0)
+            
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             local lastFootstep = tick()
-            
-            local rayParamsDown = RaycastParams.new()
-            rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-            rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+            local lastACCheckPos = root.Position
 
-            while elapsedTime < t do
+            while true do
                 local dt = RunService.Heartbeat:Wait()
-                dt = math.clamp(dt, 0.001, 0.05)
+                local currentPos = root.Position
                 
-                if tick() - lastClipCheck > 0.1 then
-                    lastClipCheck = tick()
-                    pcall(function()
-                        local op = OverlapParams.new()
-                        op.FilterDescendantsInstances = {island}
-                        op.FilterType = Enum.RaycastFilterType.Include
-                        local hits = Workspace:GetPartsInPart(root, op)
-                        for _, hitPart in ipairs(hits) do
-                            if hitPart:IsA("BasePart") and hitPart.CanCollide then
-                                clipped = true
-                                break
-                            end
-                        end
-                    end)
-                    if clipped then break end
+                local distToTarget = (currentPos - tPos).Magnitude
+                if distToTarget <= 20 then break end
+                
+                -- Anti-Cheat Check (Rubberband-Detection mit Physik)
+                if (currentPos - lastACCheckPos).Magnitude > 15 and dt < 0.1 then 
+                    if distToTarget < 300 then
+                        RyuNotify:Send("Island TP", "Zielinsel erreicht (Noclip-Stop)!", 3)
+                        arrivedEarly = true
+                        break
+                    else
+                        RyuNotify:Send("Anti-Cheat", "Blockade! Pausiere 0.7s...", 2)
+                        bv.velocity = Vector3.new(0, 0, 0)
+                        task.wait(0.7)
+                        
+                        local rightVec = Vector3.new(0, 1, 0):Cross((tPos - currentPos).Unit).Unit
+                        local dodgeDir = (math.random() > 0.5) and rightVec or -rightVec
+                        currentDodge = currentDodge + (dodgeDir * 30)
+                        
+                        lastACCheckPos = root.Position
+                        continue
+                    end
                 end
                 
-                local flatMyPos = Vector3.new(root.Position.X, 0, root.Position.Z)
+                local flatMyPos = Vector3.new(currentPos.X, 0, currentPos.Z)
+                local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
                 local distFromStart = (flatMyPos - startFlatPos).Magnitude
+                local toTargetDir = (flatTarget - flatMyPos).Magnitude > 0 and (flatTarget - flatMyPos).Unit or root.CFrame.LookVector
                 
                 local islandAvoidance = Vector3.new(0, 0, 0)
-                local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
                 
+                -- Smart Route Scanner
                 if distFromStart > 300 and (flatTarget - flatMyPos).Magnitude > 0 then
-                    local toTargetDir = (flatTarget - flatMyPos).Unit
-                    
                     for _, flatObs in ipairs(obstacleIslands) do
                         local dist = (flatMyPos - flatObs).Magnitude
                         local safeRadius = 2200
@@ -946,51 +961,40 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 
                 currentDodge = currentDodge:Lerp(islandAvoidance, dt * 2)
                 
-                local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
-                local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
-
-                local targetY
-                if isSkyRoute then
-                    targetY = tPos.Y 
-                else
-                    local topDownStart = Vector3.new(nextIntermediatePos.X, currentY + 500, nextIntermediatePos.Z)
+                -- Y-Level ermitteln (mit Kletter-Sicherheit)
+                local targetY = isSkyRoute and tPos.Y or (floorOffset + 1)
+                
+                if not isSkyRoute then
+                    local rayParamsDown = RaycastParams.new()
+                    rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                    rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+                    
+                    local topDownStart = Vector3.new(currentPos.X + currentDodge.X, currentPos.Y + 500, currentPos.Z + currentDodge.Z)
                     local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -1000, 0), rayParamsDown)
                     
                     if tempGroundHit and tempGroundHit.Position.Y >= -1 then
                         targetY = tempGroundHit.Position.Y + floorOffset + 5
-                    else
-                        targetY = floorOffset + 1
                     end
                 end
                 
                 targetY = math.max(targetY, 1) -- Y IMMER IM PLUS
-
-                -- FIX: Klettern entfernt! Charakter passt die Höhe nahtlos während dem Vorwärtsflug an.
-                local yAdjustSpeed = isSkyRoute and 300 or 150
                 
-                if targetY > currentY then
-                    currentY = math.min(currentY + (yAdjustSpeed * dt), targetY)
-                elseif targetY < currentY then
-                    currentY = math.max(currentY - (yAdjustSpeed * dt), targetY)
-                else
-                    currentY = targetY
+                -- Physikalisches Steuern direkt zum Ziel-CFrame
+                local targetPositionWithDodge = Vector3.new(tPos.X, targetY, tPos.Z) + currentDodge
+                
+                -- Wenn Objekt direkt vor uns (Sicherheits-Klettern, falls Route versagt)
+                if targetPositionWithDodge.Y > currentPos.Y + 5 then
+                    -- Nur hoch fliegen, Vorwärts stoppen
+                    targetPositionWithDodge = Vector3.new(currentPos.X, targetPositionWithDodge.Y, currentPos.Z)
                 end
-                
-                elapsedTime = elapsedTime + dt
 
-                local alpha = math.clamp(elapsedTime / t, 0, 1)
-                local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
-                local finalPos = Vector3.new(intermediatePos.X, currentY, intermediatePos.Z)
+                local moveDir = (targetPositionWithDodge - currentPos)
+                if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
                 
-                local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
-                if (lookPos - finalPos).Magnitude > 0.1 then 
-                    root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                else
-                    root.CFrame = CFrame.new(finalPos)
-                end
+                bg.cframe = CFrame.lookAt(currentPos, currentPos + moveDir)
+                bv.velocity = moveDir * currentSpeed
                 
-                root.Velocity = Vector3.new(0, 0, 0)
-                platform.CFrame = CFrame.new(finalPos.X, finalPos.Y - floorOffset, finalPos.Z)
+                platform.CFrame = CFrame.new(currentPos.X, currentPos.Y - floorOffset, currentPos.Z)
                 
                 if tick() - lastFootstep > 0.1 then
                     lastFootstep = tick()
@@ -998,26 +1002,17 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                         pcall(function() footstepEvent:FireServer() end)
                     end
                 end
-
-                local actualPos = root.Position
-                if (actualPos - finalPos).Magnitude > 15 then
-                    if (actualPos - tPos).Magnitude < 300 then
-                        RyuNotify:Send("Island TP", "Zielinsel erreicht (Noclip-Stop)!", 3)
-                        arrivedEarly = true
-                        break
-                    else
-                        RyuNotify:Send("Anti-Cheat", "Blockade! Pausiere 0.7s...", 2)
-                        task.wait(0.7)
-                        currentY = root.Position.Y
-                        startPos = root.Position - currentDodge
-                        lastClipCheck = tick()
-                    end
-                end
+                
+                lastACCheckPos = currentPos
             end
+            
+            bg:Destroy()
+            bv:Destroy()
+            hum.PlatformStand = false
             
             if not clipped and not arrivedEarly then
                 local finalDist = (root.Position - tPos).Magnitude
-                if finalDist > 20 then
+                if finalDist > 20 and finalDist <= 100 then
                     root.CFrame = CFrame.new(tPos)
                 end
             elseif arrivedEarly then
@@ -1177,63 +1172,75 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             end
         end
         
+        --// NEUES PHYSIK-BASIERTES FLUG-SYSTEM FÜR AUTO-TRANSPORT
         local function IslandLerp(tPos, currentSpeed, isSkyRoute)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
             
             currentSpeed = currentSpeed > 0 and currentSpeed or RyuConfig.IslandSpeed
-            local t = totalDist / currentSpeed
-            if t < 0.1 then return true end
             
-            local startPos = root.Position
-            local elapsedTime = 0
-            local currentY = root.Position.Y
-            local lastClipCheck = tick()
-            local clipped = false
-            local arrivedEarly = false
+            if root:FindFirstChild("RyuFlyGyro") then root.RyuFlyGyro:Destroy() end
+            if root:FindFirstChild("RyuFlyVelocity") then root.RyuFlyVelocity:Destroy() end
+
+            local bg = Instance.new("BodyGyro")
+            bg.Name = "RyuFlyGyro"
+            bg.P = 9e4
+            bg.maxTorque = Vector3.new(9e9, 9e9, 9e9)
+            bg.cframe = root.CFrame
+            bg.Parent = root
+
+            local bv = Instance.new("BodyVelocity")
+            bv.Name = "RyuFlyVelocity"
+            bv.velocity = Vector3.new(0, 0, 0)
+            bv.maxForce = Vector3.new(9e9, 9e9, 9e9)
+            bv.Parent = root
             
-            local currentDodge = Vector3.new(0, 0, 0)
-            
+            hum.PlatformStand = true
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
+            local clipped = false
+            local arrivedEarly = false
+            local currentDodge = Vector3.new(0, 0, 0)
+            
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             local lastFootstep = tick()
-            
-            local rayParamsDown = RaycastParams.new()
-            rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-            rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+            local lastACCheckPos = root.Position
 
-            while elapsedTime < t do
+            while true do
                 local dt = RunService.Heartbeat:Wait()
-                dt = math.clamp(dt, 0.001, 0.05)
+                local currentPos = root.Position
                 
-                if tick() - lastClipCheck > 0.1 then
-                    lastClipCheck = tick()
-                    pcall(function()
-                        local op = OverlapParams.new()
-                        op.FilterDescendantsInstances = {island}
-                        op.FilterType = Enum.RaycastFilterType.Include
-                        local hits = Workspace:GetPartsInPart(root, op)
-                        for _, hitPart in ipairs(hits) do
-                            if hitPart:IsA("BasePart") and hitPart.CanCollide then
-                                clipped = true
-                                break
-                            end
-                        end
-                    end)
-                    if clipped then break end
+                local distToTarget = (currentPos - tPos).Magnitude
+                if distToTarget <= 20 then break end
+                
+                if (currentPos - lastACCheckPos).Magnitude > 15 and dt < 0.1 then 
+                    if distToTarget < 300 then
+                        RyuNotify:Send("Island TP", "Zielinsel erreicht (Noclip-Stop)!", 3)
+                        arrivedEarly = true
+                        break
+                    else
+                        RyuNotify:Send("Anti-Cheat", "Blockade! Pausiere 0.7s...", 2)
+                        bv.velocity = Vector3.new(0, 0, 0)
+                        task.wait(0.7)
+                        
+                        local rightVec = Vector3.new(0, 1, 0):Cross((tPos - currentPos).Unit).Unit
+                        local dodgeDir = (math.random() > 0.5) and rightVec or -rightVec
+                        currentDodge = currentDodge + (dodgeDir * 30)
+                        
+                        lastACCheckPos = root.Position
+                        continue
+                    end
                 end
                 
-                local flatMyPos = Vector3.new(root.Position.X, 0, root.Position.Z)
+                local flatMyPos = Vector3.new(currentPos.X, 0, currentPos.Z)
+                local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
                 local distFromStart = (flatMyPos - startFlatPos).Magnitude
+                local toTargetDir = (flatTarget - flatMyPos).Magnitude > 0 and (flatTarget - flatMyPos).Unit or root.CFrame.LookVector
                 
                 local islandAvoidance = Vector3.new(0, 0, 0)
-                local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
                 
                 if distFromStart > 300 and (flatTarget - flatMyPos).Magnitude > 0 then
-                    local toTargetDir = (flatTarget - flatMyPos).Unit
-                    
                     for _, flatObs in ipairs(obstacleIslands) do
                         local dist = (flatMyPos - flatObs).Magnitude
                         local safeRadius = 2200
@@ -1255,51 +1262,36 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 
                 currentDodge = currentDodge:Lerp(islandAvoidance, dt * 2)
                 
-                local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
-                local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
-
-                local targetY
-                if isSkyRoute then
-                    targetY = tPos.Y 
-                else
-                    local topDownStart = Vector3.new(nextIntermediatePos.X, currentY + 500, nextIntermediatePos.Z)
+                local targetY = isSkyRoute and tPos.Y or (floorOffset + 1)
+                
+                if not isSkyRoute then
+                    local rayParamsDown = RaycastParams.new()
+                    rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                    rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+                    
+                    local topDownStart = Vector3.new(currentPos.X + currentDodge.X, currentPos.Y + 500, currentPos.Z + currentDodge.Z)
                     local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -1000, 0), rayParamsDown)
                     
                     if tempGroundHit and tempGroundHit.Position.Y >= -1 then
                         targetY = tempGroundHit.Position.Y + floorOffset + 5
-                    else
-                        targetY = floorOffset + 1
                     end
                 end
                 
-                targetY = math.max(targetY, 1) -- Y IMMER IM PLUS
-
-                -- FIX: Klettern entfernt! Charakter passt die Höhe nahtlos während dem Vorwärtsflug an.
-                local yAdjustSpeed = isSkyRoute and 300 or 150
+                targetY = math.max(targetY, 1)
                 
-                if targetY > currentY then
-                    currentY = math.min(currentY + (yAdjustSpeed * dt), targetY)
-                elseif targetY < currentY then
-                    currentY = math.max(currentY - (yAdjustSpeed * dt), targetY)
-                else
-                    currentY = targetY
+                local targetPositionWithDodge = Vector3.new(tPos.X, targetY, tPos.Z) + currentDodge
+                
+                if targetPositionWithDodge.Y > currentPos.Y + 5 then
+                    targetPositionWithDodge = Vector3.new(currentPos.X, targetPositionWithDodge.Y, currentPos.Z)
                 end
-                
-                elapsedTime = elapsedTime + dt
 
-                local alpha = math.clamp(elapsedTime / t, 0, 1)
-                local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
-                local finalPos = Vector3.new(intermediatePos.X, currentY, intermediatePos.Z)
+                local moveDir = (targetPositionWithDodge - currentPos)
+                if moveDir.Magnitude > 0 then moveDir = moveDir.Unit end
                 
-                local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
-                if (lookPos - finalPos).Magnitude > 0.1 then 
-                    root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                else
-                    root.CFrame = CFrame.new(finalPos)
-                end
+                bg.cframe = CFrame.lookAt(currentPos, currentPos + moveDir)
+                bv.velocity = moveDir * currentSpeed
                 
-                root.Velocity = Vector3.new(0, 0, 0)
-                platform.CFrame = CFrame.new(finalPos.X, finalPos.Y - floorOffset, finalPos.Z)
+                platform.CFrame = CFrame.new(currentPos.X, currentPos.Y - floorOffset, currentPos.Z)
                 
                 if tick() - lastFootstep > 0.1 then
                     lastFootstep = tick()
@@ -1307,26 +1299,17 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                         pcall(function() footstepEvent:FireServer() end)
                     end
                 end
-
-                local actualPos = root.Position
-                if (actualPos - finalPos).Magnitude > 15 then
-                    if (actualPos - tPos).Magnitude < 300 then
-                        RyuNotify:Send("Island TP", "Zielinsel erreicht (Noclip-Stop)!", 3)
-                        arrivedEarly = true
-                        break
-                    else
-                        RyuNotify:Send("Anti-Cheat", "Blockade! Pausiere 0.7s...", 2)
-                        task.wait(0.7)
-                        currentY = root.Position.Y
-                        startPos = root.Position - currentDodge
-                        lastClipCheck = tick()
-                    end
-                end
+                
+                lastACCheckPos = currentPos
             end
+            
+            bg:Destroy()
+            bv:Destroy()
+            hum.PlatformStand = false
             
             if not clipped and not arrivedEarly then
                 local finalDist = (root.Position - tPos).Magnitude
-                if finalDist > 20 then
+                if finalDist > 20 and finalDist <= 100 then
                     root.CFrame = CFrame.new(tPos)
                 end
             elseif arrivedEarly then
@@ -1677,4 +1660,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Continuous Flight Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Physics-BodyMover Fly Engine Loaded!", 4)
