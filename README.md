@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (17 SPD CLIMB, SMART SCANNER & FIXES)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART TREE-DODGER & 17 SPD CLIMB)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -618,7 +618,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             _G.soruDashing = nil
         end
         
-        -- FIX: Direktes Tween zur Höhle statt Koordinaten
         CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed, false)
         
         if hum then hum.Jump = true end
@@ -882,14 +881,16 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     if clipped then break end
                 end
                 
-                -- Smart Scanner: Hindernisse ausweichen
+                -- FIX: Smart Scanner für Bäume & Wände
                 local forwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Unit
                 if forwardDir.Magnitude == 0 then forwardDir = root.CFrame.LookVector end
                 
-                local dodgeHit = Workspace:Raycast(root.Position, forwardDir * 30, rayParamsDown)
+                local isBlocked = false
+                local dodgeHit = Workspace:Raycast(root.Position, forwardDir * 35, rayParamsDown)
                 if dodgeHit and dodgeHit.Instance and dodgeHit.Instance.CanCollide then
+                    isBlocked = true
                     local rightVec = Vector3.new(0, 1, 0):Cross(forwardDir).Unit
-                    currentDodge = currentDodge:Lerp(rightVec * 25, dt * 3)
+                    currentDodge = currentDodge:Lerp(rightVec * 45, dt * 4) -- Aggressiv ausweichen
                 else
                     currentDodge = currentDodge:Lerp(Vector3.new(0, 0, 0), dt * 3)
                 end
@@ -897,13 +898,16 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
                 local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
 
-                local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, 2500, nextIntermediatePos.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                
-                local targetY
-                if tempGroundHit and tempGroundHit.Position.Y >= -1 then
-                    targetY = tempGroundHit.Position.Y + floorOffset + 5
-                else
-                    targetY = floorOffset + 1
+                local targetY = currentY
+                if not isBlocked then
+                    -- FIX: Raycast startet knapp über dem Spieler (ignoriert Baumkronen hoch oben)
+                    local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, currentY + 45, nextIntermediatePos.Z), Vector3.new(0, -150, 0), rayParamsDown)
+                    
+                    if tempGroundHit and tempGroundHit.Position.Y >= -1 then
+                        targetY = tempGroundHit.Position.Y + floorOffset + 5
+                    else
+                        targetY = floorOffset + 1
+                    end
                 end
                 targetY = math.max(targetY, 1)
 
@@ -914,11 +918,11 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     currentY = currentY + (climbRate * dt)
                 elseif targetY < currentY - (fallRate * dt) then
                     currentY = currentY - (fallRate * dt)
-                    elapsedTime = elapsedTime + (dt * 0.5)
                 else
                     currentY = targetY
-                    elapsedTime = elapsedTime + dt
                 end
+                
+                elapsedTime = elapsedTime + dt
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
@@ -1104,14 +1108,16 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     if clipped then break end
                 end
                 
-                -- Smart Scanner: Hindernisse ausweichen
+                -- FIX: Smart Scanner für Bäume & Wände
                 local forwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Unit
                 if forwardDir.Magnitude == 0 then forwardDir = root.CFrame.LookVector end
                 
-                local dodgeHit = Workspace:Raycast(root.Position, forwardDir * 30, rayParamsDown)
+                local isBlocked = false
+                local dodgeHit = Workspace:Raycast(root.Position, forwardDir * 35, rayParamsDown)
                 if dodgeHit and dodgeHit.Instance and dodgeHit.Instance.CanCollide then
+                    isBlocked = true
                     local rightVec = Vector3.new(0, 1, 0):Cross(forwardDir).Unit
-                    currentDodge = currentDodge:Lerp(rightVec * 25, dt * 3)
+                    currentDodge = currentDodge:Lerp(rightVec * 45, dt * 4) -- Aggressiv ausweichen
                 else
                     currentDodge = currentDodge:Lerp(Vector3.new(0, 0, 0), dt * 3)
                 end
@@ -1119,16 +1125,18 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
                 local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
 
-                local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, 2500, nextIntermediatePos.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                
-                local targetY
-                if tempGroundHit and tempGroundHit.Position.Y >= -1 then
-                    targetY = tempGroundHit.Position.Y + floorOffset + 5
-                else
-                    targetY = floorOffset + 1 
+                local targetY = currentY
+                if not isBlocked then
+                    -- FIX: Raycast startet knapp über dem Spieler (ignoriert Baumkronen hoch oben)
+                    local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, currentY + 45, nextIntermediatePos.Z), Vector3.new(0, -150, 0), rayParamsDown)
+                    
+                    if tempGroundHit and tempGroundHit.Position.Y >= -1 then
+                        targetY = tempGroundHit.Position.Y + floorOffset + 5
+                    else
+                        targetY = floorOffset + 1
+                    end
                 end
-                
-                finalY = math.max(targetY, 1)
+                targetY = math.max(targetY, 1)
 
                 local climbRate = 17 -- FIX: Perfektes Klettern auf 17 Studs
                 local fallRate = 60
@@ -1137,11 +1145,11 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     currentY = currentY + (climbRate * dt)
                 elseif targetY < currentY - (fallRate * dt) then
                     currentY = currentY - (fallRate * dt)
-                    elapsedTime = elapsedTime + (dt * 0.5)
                 else
                     currentY = targetY
-                    elapsedTime = elapsedTime + dt
                 end
+                
+                elapsedTime = elapsedTime + dt
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
@@ -1513,4 +1521,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Smart Dodge Scanner Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Smart Canopy-Bypass & Dodge Active!", 4)
