@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (20 SPD CLIMB GLIDER & RYUHUB PLATFORM)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (LAG-PROOF GLIDER & RYUHUB PLATFORM)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -853,6 +853,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
+                dt = math.clamp(dt, 0.001, 0.05) -- SICHERHEITS-LIMIT FÜR ANTI-CHEAT (Verhindert TP Kicks bei Lag-Spikes)
                 
                 if tick() - lastClipCheck > 0.1 then
                     lastClipCheck = tick()
@@ -1057,6 +1058,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
+                dt = math.clamp(dt, 0.001, 0.05) -- SICHERHEITS-LIMIT FÜR ANTI-CHEAT (Verhindert TP Kicks bei Lag-Spikes)
                 
                 if tick() - lastClipCheck > 0.1 then
                     lastClipCheck = tick()
@@ -1124,6 +1126,8 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 if footstepEvent then
                     pcall(function() footstepEvent:FireServer() end)
                 end
+                
+                RunService.Heartbeat:Wait()
             end
             
             if not clipped then
@@ -1476,4 +1480,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Climb Speed adjusted to 20!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Lag-Proof Glider & 20 Climb Active!", 4)
