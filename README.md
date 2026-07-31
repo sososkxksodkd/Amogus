@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (150/80 STUD TELEPORT FINISH)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NOCLIP STOP & PERFECT LANDING)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -693,63 +693,44 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
+        -- FIX: NOCLIP ABBRUCH-SYSTEM INTEGRIERT
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
-            if totalDist < 5 then return end
+            if totalDist < 5 then return true end 
             
             currentSpeed = currentSpeed > 0 and currentSpeed or 85
             local t = totalDist / currentSpeed
-            if t < 0.1 then return end
+            if t < 0.1 then return true end
             
             local startPos = root.Position
             local startTime = tick()
             local lastDrop = tick()
-            
-            local tp150Triggered = false
-            local tp80Triggered = false
+            local lastClipCheck = tick()
+            local clipped = false
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
             while tick() - startTime < t do
-                local currentDist = (root.Position - tPos).Magnitude
                 
-                -- NEU: 150-Stud Teleport Finish
-                if currentDist <= 150 and not tp150Triggered then
-                    tp150Triggered = true
-                    ToggleHover(false)
-                    root.CFrame = CFrame.new(tPos)
-                    task.wait(0.3) -- Check für Anti-Cheat Rollback
-                    if (root.Position - tPos).Magnitude <= 20 then
-                        ToggleHover(true)
-                        break 
-                    else
-                        ToggleHover(true)
-                        startPos = root.Position
-                        totalDist = (startPos - tPos).Magnitude
-                        t = totalDist / currentSpeed
-                        startTime = tick()
-                    end
+                -- Noclip Checker: Wenn der Spieler in die Insel "noclippt", brich den Tween sofort ab!
+                if tick() - lastClipCheck > 0.1 then
+                    lastClipCheck = tick()
+                    pcall(function()
+                        local op = OverlapParams.new()
+                        op.FilterDescendantsInstances = {island}
+                        op.FilterType = Enum.RaycastFilterType.Include
+                        local hits = Workspace:GetPartsInPart(root, op)
+                        for _, hitPart in ipairs(hits) do
+                            if hitPart:IsA("BasePart") and hitPart.CanCollide then
+                                clipped = true
+                                break
+                            end
+                        end
+                    end)
+                    if clipped then break end
                 end
                 
-                -- NEU: 80-Stud Teleport Fallback
-                if currentDist <= 80 and tp150Triggered and not tp80Triggered then
-                    tp80Triggered = true
-                    ToggleHover(false)
-                    root.CFrame = CFrame.new(tPos)
-                    task.wait(0.3)
-                    if (root.Position - tPos).Magnitude <= 20 then
-                        ToggleHover(true)
-                        break
-                    else
-                        ToggleHover(true)
-                        startPos = root.Position
-                        totalDist = (startPos - tPos).Magnitude
-                        t = totalDist / currentSpeed
-                        startTime = tick()
-                    end
-                end
-
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
@@ -816,21 +797,31 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 RunService.Heartbeat:Wait()
             end
             
-            local finalDist = (root.Position - tPos).Magnitude
-            if finalDist > 20 then
-                root.CFrame = CFrame.new(tPos)
+            if not clipped then
+                local finalDist = (root.Position - tPos).Magnitude
+                if finalDist > 20 then
+                    root.CFrame = CFrame.new(tPos)
+                end
+            else
+                RyuNotify:Send("Island TP", "Noclip erkannt! Ziel erfolgreich erreicht.", 2)
             end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
+            
+            return clipped
         end
         
         local safeY = 1500
         RyuNotify:Send("Island TP", "Reise nach " .. targetIslandName .. "...", 3)
         
-        IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed)
-        IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed)
-        IslandLerp(targetPos, RyuConfig.IslandSpeed)
+        local clipped = IslandLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.IslandSpeed)
+        if not clipped then
+            clipped = IslandLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.IslandSpeed)
+        end
+        if not clipped then
+            IslandLerp(targetPos, RyuConfig.IslandSpeed)
+        end
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -921,61 +912,40 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
-            if totalDist < 5 then return end
+            if totalDist < 5 then return true end 
             
             currentSpeed = currentSpeed > 0 and currentSpeed or 85
             local t = totalDist / currentSpeed
-            if t < 0.1 then return end
+            if t < 0.1 then return true end
             
             local startPos = root.Position
             local startTime = tick()
             local lastDrop = tick()
-            
-            local tp150Triggered = false
-            local tp80Triggered = false
+            local lastClipCheck = tick()
+            local clipped = false
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
             while tick() - startTime < t do
-                local currentDist = (root.Position - tPos).Magnitude
                 
-                -- NEU: 150-Stud Teleport Finish
-                if currentDist <= 150 and not tp150Triggered then
-                    tp150Triggered = true
-                    ToggleHover(false)
-                    root.CFrame = CFrame.new(tPos)
-                    task.wait(0.3)
-                    if (root.Position - tPos).Magnitude <= 20 then
-                        ToggleHover(true)
-                        break 
-                    else
-                        ToggleHover(true)
-                        startPos = root.Position
-                        totalDist = (startPos - tPos).Magnitude
-                        t = totalDist / currentSpeed
-                        startTime = tick()
-                    end
+                if tick() - lastClipCheck > 0.1 then
+                    lastClipCheck = tick()
+                    pcall(function()
+                        local op = OverlapParams.new()
+                        op.FilterDescendantsInstances = {island}
+                        op.FilterType = Enum.RaycastFilterType.Include
+                        local hits = Workspace:GetPartsInPart(root, op)
+                        for _, hitPart in ipairs(hits) do
+                            if hitPart:IsA("BasePart") and hitPart.CanCollide then
+                                clipped = true
+                                break
+                            end
+                        end
+                    end)
+                    if clipped then break end
                 end
                 
-                -- NEU: 80-Stud Teleport Fallback
-                if currentDist <= 80 and tp150Triggered and not tp80Triggered then
-                    tp80Triggered = true
-                    ToggleHover(false)
-                    root.CFrame = CFrame.new(tPos)
-                    task.wait(0.3)
-                    if (root.Position - tPos).Magnitude <= 20 then
-                        ToggleHover(true)
-                        break
-                    else
-                        ToggleHover(true)
-                        startPos = root.Position
-                        totalDist = (startPos - tPos).Magnitude
-                        t = totalDist / currentSpeed
-                        startTime = tick()
-                    end
-                end
-
                 local alpha = (tick() - startTime) / t
                 local intermediatePos = startPos:Lerp(tPos, alpha)
                 
@@ -1042,13 +1012,19 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 RunService.Heartbeat:Wait()
             end
             
-            local finalDist = (root.Position - tPos).Magnitude
-            if finalDist > 20 then
-                root.CFrame = CFrame.new(tPos)
+            if not clipped then
+                local finalDist = (root.Position - tPos).Magnitude
+                if finalDist > 20 then
+                    root.CFrame = CFrame.new(tPos)
+                end
+            else
+                RyuNotify:Send("Island TP", "Noclip erkannt! Ziel erfolgreich erreicht.", 2)
             end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
+            
+            return clipped
         end
         
         local params = RaycastParams.new()
@@ -1057,6 +1033,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
 
         local maxAttempts = 5
         local attempts = 0
+        local targetReached = false
 
         while attempts < maxAttempts do
             local currentPos = root.Position
@@ -1072,15 +1049,18 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 local detourPos = rayHit.Position + (rightVector * 1500)
                 detourPos = Vector3.new(detourPos.X, currentPos.Y, detourPos.Z)
                 
-                IslandLerp(detourPos, RyuConfig.IslandSpeed)
+                local clipped = IslandLerp(detourPos, RyuConfig.IslandSpeed)
+                if clipped then targetReached = true; break end
                 attempts = attempts + 1
             else
                 break 
             end
         end
         
-        RyuNotify:Send("Island TP", "Reise direkt nach " .. targetIslandName .. "...", 3)
-        IslandLerp(targetPos, RyuConfig.IslandSpeed)
+        if not targetReached then
+            RyuNotify:Send("Island TP", "Reise direkt nach " .. targetIslandName .. "...", 3)
+            IslandLerp(targetPos, RyuConfig.IslandSpeed)
+        end
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -1391,4 +1371,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Smart 150/80 Stud Finish Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Perfect Landing System Active!", 4)
