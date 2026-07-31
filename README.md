@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (WATER/ISLAND GLIDER & MAX SPEED 60)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (DYNAMIC CAVE TP & SMART RETRY)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -402,29 +402,18 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             _G.soruDashing = nil
         end
         
-        local prePortalRoute = {
-            Vector3.new(1774, -4, -12104),
-            Vector3.new(1777, 64, -12190),
-            Vector3.new(1839, 70, -12212),
-            Vector3.new(1791, 60, -12290),
-            Vector3.new(1794, 47, -12309)
-        }
-        
         local safeY = 1500
-        local startWp = prePortalRoute[1]
-        
+        -- FIX: Direktes Tween zur Höhle statt Koordinaten
         CustomLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed, false)
-        CustomLerp(Vector3.new(startWp.X, safeY, startWp.Z), RyuConfig.FishmanSpeed, false)
-        CustomLerp(startWp, RyuConfig.ElevatorSpeed, false)
-        
-        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route (Schwebend)...", 3)
-        for i = 2, #prePortalRoute do
-            local wp = prePortalRoute[i]
-            CustomLerp(wp, 25, true) 
-        end
+        CustomLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.FishmanSpeed, false)
+        CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.ElevatorSpeed, false)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
+        
+        -- FIX: Exakt 5 Sekunden warten vor dem Teleport
+        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
+        task.wait(5)
         
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
@@ -433,6 +422,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             local tpSuccess = false
             local isBlack = false
             
+            -- FIX: Smart Retry Loop
             while not tpSuccess do
                 ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
@@ -497,20 +487,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             end
             
             ToggleHover(true)
-            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
-            
-            local caveRoute = {
-                Vector3.new(8004, -2154, -17130),
-                Vector3.new(7960, -2154, -17156),
-                Vector3.new(7862, -2154, -17159),
-                Vector3.new(7775, -2177, -17174)
-            }
-            
-            for _, wp in ipairs(caveRoute) do
-                CustomLerp(wp, RyuConfig.FishmanSpeed, false)
-            end
-            
-            RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
+            RyuNotify:Send("Smart TP", "Erfolgreich in Fishman Cave angekommen!", 3)
         end
         
         platform:Destroy()
@@ -601,28 +578,15 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             _G.soruDashing = nil
         end
         
-        local prePortalRoute = {
-            Vector3.new(1774, -4, -12104),
-            Vector3.new(1777, 64, -12190),
-            Vector3.new(1839, 70, -12212),
-            Vector3.new(1791, 60, -12290),
-            Vector3.new(1794, 47, -12309)
-        }
-        
-        local startWp = prePortalRoute[1]
-        CustomLerp(startWp, RyuConfig.FishmanSpeed, false)
-        
-        RyuNotify:Send("Smart TP", "Fliege Pre-Portal Route (Schwebend)...", 3)
-        for i = 2, #prePortalRoute do
-            local wp = prePortalRoute[i]
-            CustomLerp(wp, 25, true) 
-        end
+        -- FIX: Direktes Tween zur Höhle statt Koordinaten
+        CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed, false)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        RyuNotify:Send("Smart TP", "Warte 4 Sekunden für Portal-TP...", 4)
-        task.wait(4)
+        -- FIX: Exakt 5 Sekunden warten vor dem Teleport
+        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
+        task.wait(5)
         
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
@@ -631,6 +595,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             local tpSuccess = false
             local isBlack = false
             
+            -- FIX: Smart Retry Loop
             while not tpSuccess do
                 ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
@@ -695,20 +660,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             end
             
             ToggleHover(true)
-            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
-            
-            local caveRoute = {
-                Vector3.new(8004, -2154, -17130),
-                Vector3.new(7960, -2154, -17156),
-                Vector3.new(7862, -2154, -17159),
-                Vector3.new(7775, -2177, -17174)
-            }
-            
-            for _, wp in ipairs(caveRoute) do
-                CustomLerp(wp, RyuConfig.FishmanSpeed, false)
-            end
-            
-            RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
+            RyuNotify:Send("Smart TP", "Erfolgreich in Fishman Cave angekommen!", 3)
         end
         
         platform:Destroy()
@@ -1064,13 +1016,16 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 
                 local finalY
                 if tempGroundHit and tempGroundHit.Position.Y >= -1 then
+                    -- Auf einer Insel (Boden ist über oder nah am Meeresspiegel)
                     finalY = tempGroundHit.Position.Y + floorOffset + 5
                 else
-                    finalY = floorOffset + 1 
+                    -- Im Meer (Boden ist tief im Minusbereich)
+                    finalY = floorOffset + 1 -- Gleitet exakt auf Wasserhöhe (knapp über Y=0)
                 end
                 
-                finalY = math.max(finalY, 1)
+                finalY = math.max(finalY, 1) -- Sicherheitsnetz: Niemals ins Minus!
 
+                -- EXAKT 5 STUDS ÜBER DEM BODEN KLEBEN (Oder über dem Wasser)
                 local finalPos = Vector3.new(intermediatePos.X, finalY, intermediatePos.Z)
                 
                 local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
@@ -1441,4 +1396,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Speed Limit 60 Configured!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Fishman Cave TP Simplified!", 4)
