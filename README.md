@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (TRUE EARLY-ARRIVAL AC-STOP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NO CLIMBING / CONTINUOUS GLIDE)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -837,7 +837,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
-        -- FIX: SMART ISLAND AVOIDANCE SCANNER
         local obstacleIslands = {}
         local startFlatPos = Vector3.new(root.Position.X, 0, root.Position.Z)
         
@@ -923,7 +922,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 local islandAvoidance = Vector3.new(0, 0, 0)
                 local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
                 
-                -- FIX: ERST NACH 300 STUDS FLUGWEG AUSWEICHEN (Sanfter Start ohne Ruckeln!)
                 if distFromStart > 300 and (flatTarget - flatMyPos).Magnitude > 0 then
                     local toTargetDir = (flatTarget - flatMyPos).Unit
                     
@@ -933,7 +931,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                         
                         if dist < safeRadius then
                             local toObsDir = (flatObs - flatMyPos).Unit
-                            -- Nur ausweichen, wenn die Insel genau vor uns liegt
                             if toObsDir:Dot(toTargetDir) > 0.25 then
                                 local pushDir = (flatMyPos - flatObs).Unit
                                 local rightVec = Vector3.new(0, 1, 0):Cross(pushDir).Unit
@@ -968,21 +965,18 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 
                 targetY = math.max(targetY, 1) -- Y IMMER IM PLUS
 
-                local climbRate = 17 
-                local fallRate = isSkyRoute and 300 or 60
+                -- FIX: Klettern entfernt! Charakter passt die Höhe nahtlos während dem Vorwärtsflug an.
+                local yAdjustSpeed = isSkyRoute and 300 or 150
                 
-                -- STEHEN BLEIBEN BEIM KLETTERN (0 Vorwärtsbewegung)
-                if targetY > currentY + 0.5 then
-                    currentY = currentY + (climbRate * dt)
-                    if currentY > targetY then currentY = targetY end
-                elseif targetY < currentY - 5 then
-                    currentY = currentY - (fallRate * dt)
-                    if currentY < targetY then currentY = targetY end
-                    elapsedTime = elapsedTime + dt
+                if targetY > currentY then
+                    currentY = math.min(currentY + (yAdjustSpeed * dt), targetY)
+                elseif targetY < currentY then
+                    currentY = math.max(currentY - (yAdjustSpeed * dt), targetY)
                 else
                     currentY = targetY
-                    elapsedTime = elapsedTime + dt
                 end
+                
+                elapsedTime = elapsedTime + dt
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
@@ -1005,7 +999,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     end
                 end
 
-                -- FIX: TRUE EARLY-ARRIVAL AC-STOP
                 local actualPos = root.Position
                 if (actualPos - finalPos).Magnitude > 15 then
                     if (actualPos - tPos).Magnitude < 300 then
@@ -1028,7 +1021,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     root.CFrame = CFrame.new(tPos)
                 end
             elseif arrivedEarly then
-                -- Kein finaler Teleport, um AC-Kick zu verhindern!
                 RyuNotify:Send("Island TP", "Sicher gelandet (AC-Bypass).", 2)
             else
                 RyuNotify:Send("Island TP", "Noclip erkannt! Ziel erfolgreich erreicht.", 2)
@@ -1154,7 +1146,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         ToggleHover(true)
         
-        -- FIX: SMART ISLAND AVOIDANCE SCANNER
         local obstacleIslands = {}
         local startFlatPos = Vector3.new(root.Position.X, 0, root.Position.Z)
         
@@ -1283,21 +1274,18 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 
                 targetY = math.max(targetY, 1) -- Y IMMER IM PLUS
 
-                local climbRate = 17 
-                local fallRate = isSkyRoute and 300 or 60
+                -- FIX: Klettern entfernt! Charakter passt die Höhe nahtlos während dem Vorwärtsflug an.
+                local yAdjustSpeed = isSkyRoute and 300 or 150
                 
-                -- STEHEN BLEIBEN BEIM KLETTERN (0 Vorwärtsbewegung)
-                if targetY > currentY + 0.5 then
-                    currentY = currentY + (climbRate * dt)
-                    if currentY > targetY then currentY = targetY end
-                elseif targetY < currentY - 5 then
-                    currentY = currentY - (fallRate * dt)
-                    if currentY < targetY then currentY = targetY end
-                    elapsedTime = elapsedTime + dt
+                if targetY > currentY then
+                    currentY = math.min(currentY + (yAdjustSpeed * dt), targetY)
+                elseif targetY < currentY then
+                    currentY = math.max(currentY - (yAdjustSpeed * dt), targetY)
                 else
                     currentY = targetY
-                    elapsedTime = elapsedTime + dt
                 end
+                
+                elapsedTime = elapsedTime + dt
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
@@ -1320,7 +1308,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     end
                 end
 
-                -- FIX: TRUE EARLY-ARRIVAL AC-STOP
                 local actualPos = root.Position
                 if (actualPos - finalPos).Magnitude > 15 then
                     if (actualPos - tPos).Magnitude < 300 then
@@ -1343,7 +1330,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     root.CFrame = CFrame.new(tPos)
                 end
             elseif arrivedEarly then
-                -- Kein finaler Teleport, um AC-Kick zu verhindern!
                 RyuNotify:Send("Island TP", "Sicher gelandet (AC-Bypass).", 2)
             else
                 RyuNotify:Send("Island TP", "Noclip erkannt! Ziel erfolgreich erreicht.", 2)
@@ -1691,4 +1677,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: True Early-Arrival Stop Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Continuous Flight Active!", 4)
