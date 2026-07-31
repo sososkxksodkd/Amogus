@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART-CLIMB GLIDER & RYUHUB PLATFORM)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (ANTI-NOCLIP VERTICAL CLIMB & MAX SPEED 60)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -504,7 +504,20 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             end
             
             ToggleHover(true)
-            RyuNotify:Send("Smart TP", "Erfolgreich in Fishman Cave angekommen!", 3)
+            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
+            
+            local caveRoute = {
+                Vector3.new(8004, -2154, -17130),
+                Vector3.new(7960, -2154, -17156),
+                Vector3.new(7862, -2154, -17159),
+                Vector3.new(7775, -2177, -17174)
+            }
+            
+            for _, wp in ipairs(caveRoute) do
+                CustomLerp(wp, RyuConfig.FishmanSpeed, false)
+            end
+            
+            RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
         end
         
         platform:Destroy()
@@ -858,7 +871,6 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     if clipped then break end
                 end
                 
-                -- Vorausschauende Kletter-Kontrolle (Anti-Cheat Bypass)
                 local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
                 local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha)
                 
@@ -876,16 +888,16 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 end
                 targetY = math.max(targetY, 1)
 
-                -- SMART CLIMB SYSTEM: Limitiert vertikale Sprünge & verlangsamt horizontal
+                -- SMART CLIMB SYSTEM: Verhindert AC-Kicks und Noclipping
                 local climbRate = 25 
                 local fallRate = 60
                 
                 if targetY > currentY + (climbRate * dt) then
                     currentY = currentY + (climbRate * dt)
-                    elapsedTime = elapsedTime + (dt * 0.15) -- Sehr langsam horizontal klettern
+                    -- elapsedTime bleibt gleich = 0 horizontale Geschwindigkeit! (Nur Klettern)
                 elseif targetY < currentY - (fallRate * dt) then
                     currentY = currentY - (fallRate * dt)
-                    elapsedTime = elapsedTime + (dt * 0.5) -- Sicher nach unten gleiten
+                    elapsedTime = elapsedTime + (dt * 0.5)
                 else
                     currentY = targetY
                     elapsedTime = elapsedTime + dt
@@ -1025,7 +1037,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         ToggleHover(true)
         
-        -- FIX: CLEAN TERRAIN-FOLLOWER & FOOTSTEP SPAM!
         local function IslandLerp(tPos, currentSpeed)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
@@ -1065,7 +1076,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     if clipped then break end
                 end
                 
-                -- Vorausschauende Kletter-Kontrolle (Anti-Cheat Bypass)
                 local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
                 local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha)
                 
@@ -1083,13 +1093,13 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 end
                 targetY = math.max(targetY, 1) 
 
-                -- SMART CLIMB SYSTEM: Verhindert AC-Kicks
+                -- SMART CLIMB SYSTEM: Verhindert AC-Kicks und Noclipping
                 local climbRate = 25 
                 local fallRate = 60
                 
                 if targetY > currentY + (climbRate * dt) then
                     currentY = currentY + (climbRate * dt)
-                    elapsedTime = elapsedTime + (dt * 0.15) -- Horizontale Geschwindigkeit stark drosseln!
+                    -- elapsedTime bleibt gleich = 0 horizontale Geschwindigkeit! (Nur Klettern)
                 elseif targetY < currentY - (fallRate * dt) then
                     currentY = currentY - (fallRate * dt)
                     elapsedTime = elapsedTime + (dt * 0.5)
@@ -1467,4 +1477,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Smart-Climb AC Bypass Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Perfect Vertical Anti-Noclip Glide Active!", 4)
