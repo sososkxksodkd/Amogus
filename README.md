@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART GROUND SCANNER & PERFECT DROP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PERFECT GROUND LANDING & SMART ROUTE)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -604,6 +604,7 @@ CreateToggle(SecAutoStats, "Auto Gun Mastery", RyuConfig.AutoGun, function(state
     RyuConfig.AutoGun = state 
 end)
 
+
 --// BUY TAB -> TRANSPORTATION
 local TabBuy = CreateMainTab("Buy")
 local SubTransport = CreateSubTab(TabBuy, "Transportation")
@@ -635,30 +636,28 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         end
         
         if not island then 
-            RyuNotify:Send("Error", "Insel '" .. targetIslandName .. "' nicht gefunden!", 3)
+            RyuNotify:Send("Error", "Insel '" .. targetIslandName .. "' nicht in der Map gefunden!", 3)
             return 
         end
         
-        local targetPos
+        local rawPos
         pcall(function()
             if island:IsA("Model") then
-                targetPos = island:GetPivot().Position
+                rawPos = island:GetPivot().Position
             elseif island:IsA("BasePart") then
-                targetPos = island.Position
+                rawPos = island.Position
             else
                 local tpPart = island:FindFirstChildWhichIsA("BasePart", true)
                 if tpPart then
-                    targetPos = tpPart.Position
+                    rawPos = tpPart.Position
                 end
             end
         end)
         
-        if not targetPos then
+        if not rawPos then
             RyuNotify:Send("Error", "Konnte Zielkoordinaten nicht finden!", 3)
             return
         end
-        
-        targetPos = targetPos + Vector3.new(0, 100, 0) 
         
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -667,6 +666,22 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         local hum = char:FindFirstChildOfClass("Humanoid")
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
+        
+        -- FIX: Dynamischer Boden-Scanner (Sucht den echten Boden der Insel)
+        local targetPos = rawPos
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {island, Workspace:FindFirstChild("Terrain")}
+        rayParams.FilterType = Enum.RaycastFilterType.Include
+        
+        local groundHit = Workspace:Raycast(rawPos + Vector3.new(0, 1000, 0), Vector3.new(0, -2000, 0), rayParams)
+        
+        if groundHit then
+            -- Wenn Boden gefunden, landet er butterweich exakt auf den Füßen!
+            targetPos = groundHit.Position + Vector3.new(0, hipHeight + 2, 0)
+        else
+            -- Notfall Fallback (kein +100 Studs Fehler mehr!)
+            targetPos = rawPos + Vector3.new(0, hipHeight + 5, 0)
+        end
         
         local platform = Instance.new("Part")
         platform.Name = "Part" 
@@ -809,26 +824,24 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             return 
         end
         
-        local targetPos
+        local rawPos
         pcall(function()
             if island:IsA("Model") then
-                targetPos = island:GetPivot().Position
+                rawPos = island:GetPivot().Position
             elseif island:IsA("BasePart") then
-                targetPos = island.Position
+                rawPos = island.Position
             else
                 local tpPart = island:FindFirstChildWhichIsA("BasePart", true)
                 if tpPart then
-                    targetPos = tpPart.Position
+                    rawPos = tpPart.Position
                 end
             end
         end)
         
-        if not targetPos then
+        if not rawPos then
             RyuNotify:Send("Error", "Konnte Zielkoordinaten nicht finden!", 3)
             return
         end
-        
-        targetPos = targetPos + Vector3.new(0, 100, 0) 
         
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -837,6 +850,20 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         local hum = char:FindFirstChildOfClass("Humanoid")
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
+        
+        -- FIX: Dynamischer Boden-Scanner (Verhindert das Fliegen am Ende)
+        local targetPos = rawPos
+        local rayParams = RaycastParams.new()
+        rayParams.FilterDescendantsInstances = {island, Workspace:FindFirstChild("Terrain")}
+        rayParams.FilterType = Enum.RaycastFilterType.Include
+        
+        local groundHit = Workspace:Raycast(rawPos + Vector3.new(0, 1000, 0), Vector3.new(0, -2000, 0), rayParams)
+        
+        if groundHit then
+            targetPos = groundHit.Position + Vector3.new(0, hipHeight + 2, 0)
+        else
+            targetPos = rawPos + Vector3.new(0, hipHeight + 5, 0)
+        end
         
         local platform = Instance.new("Part")
         platform.Name = "Part" 
@@ -938,7 +965,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             _G.soruDashing = nil
         end
         
-        -- FIX: SMART SCANNER FÜR BODEN-TP (Boden-Routen-Findung statt Sky-Routen)
         local params = RaycastParams.new()
         params.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), platform}
         params.FilterType = Enum.RaycastFilterType.Exclude
@@ -954,18 +980,16 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             if rayHit and rayHit.Instance and rayHit.Instance.CanCollide then
                 RyuNotify:Send("Smart Scanner", "Hindernis! Weiche auf dem Boden aus...", 3)
                 
-                -- Berechne eine Position rechts vom Hindernis (Horizontaler Detour)
                 local flatDir = Vector3.new(rayDir.X, 0, rayDir.Z).Unit
                 local rightVector = Vector3.new(0, 1, 0):Cross(flatDir).Unit
                 
-                -- 1500 Studs zur Seite ausweichen, um die Insel zu umfahren
                 local detourPos = rayHit.Position + (rightVector * 1500)
-                detourPos = Vector3.new(detourPos.X, currentPos.Y, detourPos.Z) -- Höhe beibehalten!
+                detourPos = Vector3.new(detourPos.X, currentPos.Y, detourPos.Z)
                 
                 IslandLerp(detourPos, RyuConfig.IslandSpeed)
                 attempts = attempts + 1
             else
-                break -- Weg ist frei!
+                break 
             end
         end
         
@@ -1281,4 +1305,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Smart Scanner (Ground Route) Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Perfect Final Landing Fixed!", 4)
