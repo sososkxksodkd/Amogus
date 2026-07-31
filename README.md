@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (LAG-PROOF GLIDER & RYUHUB PLATFORM)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (17 SPD CLIMB, SMART SCANNER & FIXES)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -618,6 +618,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             _G.soruDashing = nil
         end
         
+        -- FIX: Direktes Tween zur Höhle statt Koordinaten
         CustomLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed, false)
         
         if hum then hum.Jump = true end
@@ -745,6 +746,9 @@ CreateSlider(SecIslandTP, "Travel Speed", 50, 60, RyuConfig.IslandSpeed, functio
 end)
 
 CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
+    if _G.RyuIsTweening then return end
+    _G.RyuIsTweening = true
+    
     task.spawn(function()
         local targetIslandName = RyuConfig.TargetIsland
         
@@ -766,6 +770,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         if not island then 
             RyuNotify:Send("Error", "Insel '" .. targetIslandName .. "' nicht in der Map gefunden!", 3)
+            _G.RyuIsTweening = false
             return 
         end
         
@@ -785,12 +790,13 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         if not rawPos then
             RyuNotify:Send("Error", "Konnte Zielkoordinaten nicht finden!", 3)
+            _G.RyuIsTweening = false
             return
         end
         
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
+        if not root then _G.RyuIsTweening = false return end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         local hipHeight = hum and hum.HipHeight or 2.15
@@ -845,15 +851,19 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             local currentY = root.Position.Y
             local lastClipCheck = tick()
             local clipped = false
+            local currentDodge = Vector3.new(0, 0, 0)
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
+            local rayParamsDown = RaycastParams.new()
+            rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+            rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
-                dt = math.clamp(dt, 0.001, 0.05) -- SICHERHEITS-LIMIT FÜR ANTI-CHEAT (Verhindert TP Kicks bei Lag-Spikes)
                 
                 if tick() - lastClipCheck > 0.1 then
                     lastClipCheck = tick()
@@ -872,12 +882,20 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                     if clipped then break end
                 end
                 
-                local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
-                local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha)
+                -- Smart Scanner: Hindernisse ausweichen
+                local forwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Unit
+                if forwardDir.Magnitude == 0 then forwardDir = root.CFrame.LookVector end
                 
-                local rayParamsDown = RaycastParams.new()
-                rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-                rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+                local dodgeHit = Workspace:Raycast(root.Position, forwardDir * 30, rayParamsDown)
+                if dodgeHit and dodgeHit.Instance and dodgeHit.Instance.CanCollide then
+                    local rightVec = Vector3.new(0, 1, 0):Cross(forwardDir).Unit
+                    currentDodge = currentDodge:Lerp(rightVec * 25, dt * 3)
+                else
+                    currentDodge = currentDodge:Lerp(Vector3.new(0, 0, 0), dt * 3)
+                end
+                
+                local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
+                local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
 
                 local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, 2500, nextIntermediatePos.Z), Vector3.new(0, -3000, 0), rayParamsDown)
                 
@@ -889,12 +907,11 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 end
                 targetY = math.max(targetY, 1)
 
-                local climbRate = 20 -- FIX: Klettern auf 20 geändert
+                local climbRate = 17 -- FIX: Perfektes Klettern auf 17 Studs
                 local fallRate = 60
                 
                 if targetY > currentY + (climbRate * dt) then
                     currentY = currentY + (climbRate * dt)
-                    -- elapsedTime bleibt gleich = 0 horizontale Geschwindigkeit! (Nur Klettern)
                 elseif targetY < currentY - (fallRate * dt) then
                     currentY = currentY - (fallRate * dt)
                     elapsedTime = elapsedTime + (dt * 0.5)
@@ -904,7 +921,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                 end
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
-                local intermediatePos = startPos:Lerp(tPos, alpha)
+                local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
                 local finalPos = Vector3.new(intermediatePos.X, currentY, intermediatePos.Z)
                 
                 local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
@@ -946,10 +963,14 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         platform:Destroy()
         ToggleHover(false)
         RyuNotify:Send("Island TP", "Ziel erreicht!", 3)
+        _G.RyuIsTweening = false
     end)
 end)
 
 CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
+    if _G.RyuIsTweening then return end
+    _G.RyuIsTweening = true
+    
     task.spawn(function()
         local targetIslandName = RyuConfig.TargetIsland
         
@@ -971,6 +992,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         if not island then 
             RyuNotify:Send("Error", "Insel '" .. targetIslandName .. "' nicht in der Map gefunden!", 3)
+            _G.RyuIsTweening = false
             return 
         end
         
@@ -990,12 +1012,13 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         if not rawPos then
             RyuNotify:Send("Error", "Konnte Zielkoordinaten nicht finden!", 3)
+            _G.RyuIsTweening = false
             return
         end
         
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then return end
+        if not root then _G.RyuIsTweening = false return end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         local hipHeight = hum and hum.HipHeight or 2.15
@@ -1050,15 +1073,19 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             local currentY = root.Position.Y
             local lastClipCheck = tick()
             local clipped = false
+            local currentDodge = Vector3.new(0, 0, 0)
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
             
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
+            local rayParamsDown = RaycastParams.new()
+            rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+            rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
-                dt = math.clamp(dt, 0.001, 0.05) -- SICHERHEITS-LIMIT FÜR ANTI-CHEAT (Verhindert TP Kicks bei Lag-Spikes)
                 
                 if tick() - lastClipCheck > 0.1 then
                     lastClipCheck = tick()
@@ -1077,12 +1104,20 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                     if clipped then break end
                 end
                 
-                local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
-                local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha)
+                -- Smart Scanner: Hindernisse ausweichen
+                local forwardDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(root.Position.X, 0, root.Position.Z)).Unit
+                if forwardDir.Magnitude == 0 then forwardDir = root.CFrame.LookVector end
                 
-                local rayParamsDown = RaycastParams.new()
-                rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-                rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+                local dodgeHit = Workspace:Raycast(root.Position, forwardDir * 30, rayParamsDown)
+                if dodgeHit and dodgeHit.Instance and dodgeHit.Instance.CanCollide then
+                    local rightVec = Vector3.new(0, 1, 0):Cross(forwardDir).Unit
+                    currentDodge = currentDodge:Lerp(rightVec * 25, dt * 3)
+                else
+                    currentDodge = currentDodge:Lerp(Vector3.new(0, 0, 0), dt * 3)
+                end
+                
+                local nextAlpha = math.clamp((elapsedTime + dt) / t, 0, 1)
+                local nextIntermediatePos = startPos:Lerp(tPos, nextAlpha) + currentDodge
 
                 local tempGroundHit = Workspace:Raycast(Vector3.new(nextIntermediatePos.X, 2500, nextIntermediatePos.Z), Vector3.new(0, -3000, 0), rayParamsDown)
                 
@@ -1095,12 +1130,11 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 
                 finalY = math.max(targetY, 1)
 
-                local climbRate = 20 -- FIX: Klettern auf 20 geändert
+                local climbRate = 17 -- FIX: Perfektes Klettern auf 17 Studs
                 local fallRate = 60
                 
                 if targetY > currentY + (climbRate * dt) then
                     currentY = currentY + (climbRate * dt)
-                    -- elapsedTime bleibt gleich = 0 horizontale Geschwindigkeit! (Nur Klettern)
                 elseif targetY < currentY - (fallRate * dt) then
                     currentY = currentY - (fallRate * dt)
                     elapsedTime = elapsedTime + (dt * 0.5)
@@ -1110,7 +1144,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 end
 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
-                local intermediatePos = startPos:Lerp(tPos, alpha)
+                local intermediatePos = startPos:Lerp(tPos, alpha) + currentDodge
                 local finalPos = Vector3.new(intermediatePos.X, currentY, intermediatePos.Z)
                 
                 local lookPos = Vector3.new(tPos.X, finalPos.Y, tPos.Z)
@@ -1126,8 +1160,6 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                 if footstepEvent then
                     pcall(function() footstepEvent:FireServer() end)
                 end
-                
-                RunService.Heartbeat:Wait()
             end
             
             if not clipped then
@@ -1154,6 +1186,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         platform:Destroy()
         ToggleHover(false)
         RyuNotify:Send("Island TP", "Ziel erreicht!", 3)
+        _G.RyuIsTweening = false
     end)
 end)
 
@@ -1480,4 +1513,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Lag-Proof Glider & 20 Climb Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Smart Dodge Scanner Active!", 4)
