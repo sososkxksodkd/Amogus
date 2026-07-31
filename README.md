@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (NO CLIMBING / CONTINUOUS GLIDE)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NO CLIMBING / CONTINUOUS GLIDE / WALL-STOP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -837,6 +837,37 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
         
         ToggleHover(true)
         
+        local obstacleIslands = {}
+        local startFlatPos = Vector3.new(root.Position.X, 0, root.Position.Z)
+        
+        for _, name in ipairs(IslandList) do
+            if string.lower(name) ~= string.lower(targetIslandName) then
+                local isl = Workspace:FindFirstChild(name)
+                if not isl then
+                    for _, v in pairs(Workspace:GetDescendants()) do
+                        if string.lower(v.Name) == string.lower(name) then
+                            isl = v break
+                        end
+                    end
+                end
+                if isl then
+                    local pos
+                    if isl:IsA("Model") then pos = isl:GetPivot().Position
+                    elseif isl:IsA("BasePart") then pos = isl.Position
+                    else
+                        local tpPart = isl:FindFirstChildWhichIsA("BasePart", true)
+                        if tpPart then pos = tpPart.Position end
+                    end
+                    if pos then 
+                        local flatObs = Vector3.new(pos.X, 0, pos.Z)
+                        if (flatObs - startFlatPos).Magnitude > 800 then
+                            table.insert(obstacleIslands, flatObs) 
+                        end
+                    end
+                end
+            end
+        end
+        
         local function IslandLerp(tPos, currentSpeed, isSkyRoute, finalDestination)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
@@ -851,6 +882,9 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             local lastClipCheck = tick()
             local clipped = false
             local arrivedEarly = false
+            local blocked = false
+            
+            local currentDodge = Vector3.new(0, 0, 0)
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -948,22 +982,22 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
                         arrivedEarly = true
                         break
                     else
-                        RyuNotify:Send("Anti-Cheat", "Blockade! Pausiere 0.7s...", 2)
-                        task.wait(0.7)
-                        currentY = root.Position.Y
-                        startPos = root.Position
-                        lastClipCheck = tick()
+                        RyuNotify:Send("Island TP", "Wand getroffen! Tween abgebrochen.", 3)
+                        blocked = true
+                        break
                     end
                 end
             end
             
-            if not clipped and not arrivedEarly then
+            if not clipped and not arrivedEarly and not blocked then
                 local finalDist = (root.Position - tPos).Magnitude
                 if finalDist > 20 then
                     root.CFrame = CFrame.new(tPos)
                 end
             elseif arrivedEarly then
                 RyuNotify:Send("Island TP", "Sicher gelandet.", 2)
+            elseif blocked then
+                -- Tween einfach beenden ohne weiteren Teleport
             else
                 RyuNotify:Send("Island TP", "Noclip erkannt! Ziel erfolgreich erreicht.", 2)
             end
@@ -971,7 +1005,7 @@ CreateButton(SecIslandTP, "Smart Sky-TP to Island", function()
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
             
-            return clipped or arrivedEarly
+            return clipped or arrivedEarly or blocked
         end
         
         local safeY = 1500
@@ -1088,6 +1122,37 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
         
         ToggleHover(true)
         
+        local obstacleIslands = {}
+        local startFlatPos = Vector3.new(root.Position.X, 0, root.Position.Z)
+        
+        for _, name in ipairs(IslandList) do
+            if string.lower(name) ~= string.lower(targetIslandName) then
+                local isl = Workspace:FindFirstChild(name)
+                if not isl then
+                    for _, v in pairs(Workspace:GetDescendants()) do
+                        if string.lower(v.Name) == string.lower(name) then
+                            isl = v break
+                        end
+                    end
+                end
+                if isl then
+                    local pos
+                    if isl:IsA("Model") then pos = isl:GetPivot().Position
+                    elseif isl:IsA("BasePart") then pos = isl.Position
+                    else
+                        local tpPart = isl:FindFirstChildWhichIsA("BasePart", true)
+                        if tpPart then pos = tpPart.Position end
+                    end
+                    if pos then 
+                        local flatObs = Vector3.new(pos.X, 0, pos.Z)
+                        if (flatObs - startFlatPos).Magnitude > 800 then
+                            table.insert(obstacleIslands, flatObs) 
+                        end
+                    end
+                end
+            end
+        end
+        
         local function IslandLerp(tPos, currentSpeed, isSkyRoute, finalDestination)
             local totalDist = (root.Position - tPos).Magnitude
             if totalDist < 5 then return true end 
@@ -1102,6 +1167,9 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             local lastClipCheck = tick()
             local clipped = false
             local arrivedEarly = false
+            local blocked = false
+            
+            local currentDodge = Vector3.new(0, 0, 0)
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -1199,22 +1267,22 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
                         arrivedEarly = true
                         break
                     else
-                        RyuNotify:Send("Anti-Cheat", "Blockade! Pausiere 0.7s...", 2)
-                        task.wait(0.7)
-                        currentY = root.Position.Y
-                        startPos = root.Position
-                        lastClipCheck = tick()
+                        RyuNotify:Send("Island TP", "Wand getroffen! Tween abgebrochen.", 3)
+                        blocked = true
+                        break
                     end
                 end
             end
             
-            if not clipped and not arrivedEarly then
+            if not clipped and not arrivedEarly and not blocked then
                 local finalDist = (root.Position - tPos).Magnitude
                 if finalDist > 20 then
                     root.CFrame = CFrame.new(tPos)
                 end
             elseif arrivedEarly then
                 RyuNotify:Send("Island TP", "Sicher gelandet.", 2)
+            elseif blocked then
+                -- Tween einfach beenden ohne weiteren Teleport
             else
                 RyuNotify:Send("Island TP", "Noclip erkannt! Ziel erfolgreich erreicht.", 2)
             end
@@ -1222,7 +1290,7 @@ CreateButton(SecIslandTP, "Boden-TP to Island (Direkt)", function()
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
             
-            return clipped or arrivedEarly
+            return clipped or arrivedEarly or blocked
         end
         
         RyuNotify:Send("Island TP", "Gleite direkt nach " .. targetIslandName .. "...", 3)
@@ -1561,4 +1629,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "PC Edition: Original Skript + 230 Studs Stop Active!", 4)
+RyuNotify:Send("RYU HUB", "PC Edition: Original + Wall Stop Active!", 4)
