@@ -43,7 +43,7 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (FÜR SEA 1, SEA 2 & ISLANDS)
+--// DYNAMISCHER WORKSPACE SCANNER (QUESTS VS ENEMIES & ISLANDS)
 local function GetDynamicLists()
     local mobs = {}
     local quests = {}
@@ -52,37 +52,30 @@ local function GetDynamicLists()
     
     local mDict, qDict, iDict, wDict = {}, {}, {}, {Combat=true, Melee=true, Sword=true, Katana=true}
     
-    -- Scanne NPCs
+    -- Scanne NPCs (Mit präziser Unterscheidung Regen vs QuestMark)
     if Workspace:FindFirstChild("NPCs") then
         for _, v in pairs(Workspace.NPCs:GetChildren()) do
             if v:IsA("Model") then
-                local hum = v:FindFirstChildOfClass("Humanoid")
-                local root = v:FindFirstChild("HumanoidRootPart")
-                if hum and root then
-                    -- Feinde haben meistens mehr als 0 oder Standard-Health
+                if v:FindFirstChild("Regen") then
+                    -- Feind gefunden
                     if not mDict[v.Name] then
                         table.insert(mobs, v.Name)
                         mDict[v.Name] = true
                     end
-                else
-                    -- Quest NPCs haben in GPO oft eine andere Struktur oder Chat-Boxen
+                elseif v:FindFirstChild("QuestMark") then
+                    -- Quest Geber gefunden
                     if not qDict[v.Name] then
                         table.insert(quests, v.Name)
                         qDict[v.Name] = true
                     end
                 end
-                -- Zur Sicherheit auch in Quest eintragen, da GPO machmal trickst
-                if not qDict[v.Name] then
-                    table.insert(quests, v.Name)
-                    qDict[v.Name] = true
-                end
             end
         end
     end
     
-    -- Scanne Inseln
+    -- Scanne Inseln direkt aus Workspace (Alles was ein Model ist und kein Core-Ordner)
     for _, v in pairs(Workspace:GetChildren()) do
-        if v.Name:match("Island") or v.Name:match("Town") or v.Name:match("Cave") or v.Name:match("Fort") or v.Name:match("Park") or v.Name:match("Colosseum") then
+        if v:IsA("Model") and v.Name ~= "NPCs" and v.Name ~= "PlayerCharacters" and v.Name ~= "Jails" and v.Name ~= "Projectiles" and v.Name ~= "Effects" then
             if not iDict[v.Name] then
                 table.insert(islands, v.Name)
                 iDict[v.Name] = true
@@ -98,10 +91,10 @@ local function GetDynamicLists()
         end
     end
     
-    -- Fallbacks falls der Scanner noch lädt
+    -- Fallbacks falls leer
     if #mobs == 0 then mobs = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"} end
     if #quests == 0 then quests = {"Becky", "Daph", "Tyson", "Helen"} end
-    if #islands == 0 then islands = {"???? Shrine", "Coco Island", "Colosseum", "Fishman Cave", "Gravito's Fort", "Island Of Zou", "Logue Town"} end
+    if #islands == 0 then islands = {"???? Shrine", "Coco Island", "Colosseum", "Fishman Cave", "Gravito's Fort"} end
     
     return mobs, quests, islands, weapons
 end
@@ -126,7 +119,6 @@ local RyuConfig = {
     TargetIsland = InitIslands[1] or "Fishman Cave",
     IslandSpeed = 60, 
     
-    -- STATS & LIMITER CONFIG
     AutoStrength = false, StrengthCap = 1500,
     AutoStamina = false,  StaminaCap = 1500,
     AutoDefense = false,  DefenseCap = 1500,
@@ -299,7 +291,7 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
--- Verbessertes Dropdown mit Refresh-Funktion für Sea 1 / Sea 2 Switch
+-- Verbessertes Dropdown mit Refresh-Funktion für Live Scanning
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -368,9 +360,10 @@ local function ToggleHover(state)
     end
 end
 
---// UI AUFBAU: FARM & CONFIG
+--// UI AUFBAU: FARM & CONFIG (NEU)
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
+local SubConfig = CreateSubTab(TabFarm, "Config") -- NEUE FOLIE
 local SubStats = CreateSubTab(TabFarm, "Stats") 
 
 local SecAutoFarmMain = CreateSection(SubLeveling, "Auto Farm")
@@ -383,20 +376,6 @@ CreateToggle(SecAutoFarmMain, "Auto Quest Link", RyuConfig.AutoQuest, function(s
 end)
 CreateSlider(SecAutoFarmMain, "Quest Interval (Secs)", 10, 100, RyuConfig.QuestInterval, function(val) 
     RyuConfig.QuestInterval = val 
-end)
-
--- NEUE FARM CONFIG FOLIE MIT LIVE SCANNER
-local SecFarmConfig = CreateSection(SubLeveling, "Farm Config")
-local DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
-local DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
-local DropWep = CreateDropdown(SecFarmConfig, "Select Weapon", InitWeapons, "TargetWeapon")
-
-CreateButton(SecFarmConfig, "Refresh Lists (Sea Switch)", function()
-    local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
-    DropMob:Refresh(newMobs)
-    DropNPC:Refresh(newQuests)
-    DropWep:Refresh(newWeaps)
-    RyuNotify:Send("Lists Refreshed", "NPCs, Quests & Weapons wurden aktualisiert!", 3)
 end)
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
@@ -521,7 +500,24 @@ CreateButton(SecMovement, "Fishman Cave tp", function()
     end)
 end)
 
---// AUTO STATS UI (MIT NEUEM INTELLIGENTEN LIMITER)
+--// NEUE CONFIG FOLIE
+local DropMob, DropNPC, DropWep, DropIsland
+
+local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
+DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
+DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
+DropWep = CreateDropdown(SecFarmConfig, "Select Weapon", InitWeapons, "TargetWeapon")
+
+CreateButton(SecFarmConfig, "Refresh All Lists", function()
+    local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
+    if DropMob then DropMob:Refresh(newMobs) end
+    if DropNPC then DropNPC:Refresh(newQuests) end
+    if DropWep then DropWep:Refresh(newWeaps) end
+    if DropIsland then DropIsland:Refresh(newIslands) end
+    RyuNotify:Send("Lists Refreshed", "NPCs, Quests, Waffen & Inseln aktualisiert!", 3)
+end)
+
+--// AUTO STATS UI
 local SecAutoStats = CreateSection(SubStats, "Auto Stats System")
 
 CreateToggle(SecAutoStats, "Auto Strength", RyuConfig.AutoStrength, function(state) RyuConfig.AutoStrength = state end)
@@ -545,7 +541,7 @@ local SubTransport = CreateSubTab(TabMobility, "Spider TP")
 local SubAutoBuy = CreateSubTab(TabMobility, "Auto Buy")
 
 local SecIslandTP = CreateSection(SubTransport, "Spider Teleportation")
-CreateDropdown(SecIslandTP, "Select Island", InitIslands, "TargetIsland")
+DropIsland = CreateDropdown(SecIslandTP, "Select Island", InitIslands, "TargetIsland")
 CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
@@ -908,8 +904,8 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        -- Fest auf den 0.5s Sweet Spot eingestellt
-        if now - lastSwing >= 0.5 then
+        -- Exakt auf feste 0.55 Sekunden Delay limitiert
+        if now - lastSwing >= 0.55 then
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
@@ -927,12 +923,13 @@ local function PerformMeleeAttack(targets)
                 local animName = "Punch" .. currentComboIndex
                 if currentComboIndex == 1 then animName = "Dash" end
                 if currentComboIndex == 4 then animName = "GroundPunch4" end
-                -- 5. Schlag bleibt entfernt wegen Knockback
+                -- Schlag 5 komplett entfernt, da er Knockback verursacht!
                 
                 local animObj = ReplicatedStorage:FindFirstChild("CombatAnimations") 
                     and ReplicatedStorage.CombatAnimations:FindFirstChild("Melee")
                     and ReplicatedStorage.CombatAnimations.Melee:FindFirstChild(animName)
                 
+                -- 1. SCHRITT: Sende die Animation an den Server
                 if animObj then
                     local argsAnim = {
                         "swingsfx",
@@ -947,6 +944,7 @@ local function PerformMeleeAttack(targets)
                     ReplicatedStorage.Events.CombatRegister:InvokeServer(argsAnim)
                 end
                 
+                -- 2. SCHRITT: Sende sofort danach den Schaden an den Server
                 if #hitParts > 0 then
                     local argsDamage = {
                         "damage",
@@ -961,6 +959,7 @@ local function PerformMeleeAttack(targets)
                 end
                 
                 currentComboIndex = currentComboIndex + 1
+                -- Nach dem 4. Schlag direkt wieder bei 1 anfangen
                 if currentComboIndex > 4 then currentComboIndex = 1 end
             end)
         end
@@ -1233,9 +1232,20 @@ task.spawn(function()
                     end
                     
                     local anyAlive = true
+                    local lastDamageTime = tick()
+                    local lastTotalHealth = 0
+                    
+                    -- Initial HP Kalkulation für den Fail-Safe
+                    for _, npc in ipairs(targetMobs) do
+                        local mHum = npc:FindFirstChildOfClass("Humanoid")
+                        if mHum then lastTotalHealth = lastTotalHealth + mHum.Health end
+                    end
+                    
                     while RyuConfig.AutoFarm and anyAlive do
                         if not CheckQuestActive() then break end
                         anyAlive = false
+                        
+                        local currentTotalHealth = 0
                         
                         for _, npc in ipairs(targetMobs) do
                             local mHum = npc:FindFirstChildOfClass("Humanoid")
@@ -1244,6 +1254,7 @@ task.spawn(function()
                             
                             if mHum and mRoot and mHum.Health > 0 then
                                 anyAlive = true
+                                currentTotalHealth = currentTotalHealth + mHum.Health
                                 
                                 for _, part in pairs(npc:GetChildren()) do
                                     if part:IsA("BasePart") then
@@ -1262,6 +1273,18 @@ task.spawn(function()
                                     mRoot.RotVelocity = Vector3.new(0, 0, 0)
                                 end
                             end
+                        end
+                        
+                        -- SMARTER FAIL SAFE (15 Sekunden Timeout ohne Schaden)
+                        if currentTotalHealth < lastTotalHealth then
+                            lastTotalHealth = currentTotalHealth
+                            lastDamageTime = tick()
+                        end
+                        
+                        if tick() - lastDamageTime > 15 then
+                            -- Wenn 15s kein Schaden verursacht wurde (stuck, bugged etc.), repull!
+                            RyuNotify:Send("Fail Safe", "15s kein Schaden. Repositioniere Gegner...", 2)
+                            break 
                         end
                         
                         if anyAlive then
