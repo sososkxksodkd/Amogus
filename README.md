@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (Y=0 LOCK, NO LAUNCH & SMOOTH LEDGE)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (CLEAN BASELINE + CENTER ISLAND STOP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift & Errors)
+--// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift)
 task.spawn(function()
     local pg = LocalPlayer:WaitForChild("PlayerGui", 10)
     if pg then
@@ -33,7 +33,6 @@ task.spawn(function()
                 task.delay(0.01, function()
                     if descendant.Parent and descendant.Text then
                         local txt = descendant.Text:lower()
-                        -- "error" hinzugefügt, um generische GPO-Fehlermeldungen zu blockieren
                         if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") then
                             descendant.Visible = false
                             descendant:Destroy()
@@ -70,11 +69,11 @@ local RyuConfig = {
     
     TweenSpeed = 50, 
     KillHeight = 7, 
-    FishmanSpeed = 65, -- Limit auf 65
-    ElevatorSpeed = 65, -- Limit auf 65
+    FishmanSpeed = 65, 
+    ElevatorSpeed = 65, 
     
     TargetIsland = IslandList[1],
-    IslandSpeed = 60, -- Max Speed auf 65
+    IslandSpeed = 60, 
     
     AutoStrength = false,
     AutoStamina = false,
@@ -354,7 +353,28 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
-        ToggleHover(false)
+        local platform = Instance.new("Part")
+        platform.Name = "Part" 
+        platform.Size = Vector3.new(40, 3, 40) 
+        platform.Anchored = true
+        platform.CanCollide = true
+        platform.Transparency = 0.5
+        platform.Material = Enum.Material.ForceField
+        platform.Color = Color3.fromRGB(0, 255, 255)
+        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, floorOffset, 0))
+        platform.Parent = Workspace
+        
+        local pGui = Instance.new("SurfaceGui", platform)
+        pGui.Face = Enum.NormalId.Top
+        local pTxt = Instance.new("TextLabel", pGui)
+        pTxt.Size = UDim2.new(1, 0, 1, 0)
+        pTxt.BackgroundTransparency = 1
+        pTxt.Text = "RYUHUB"
+        pTxt.TextColor3 = Color3.fromRGB(255, 255, 255)
+        pTxt.TextScaled = true
+        pTxt.Font = Enum.Font.GothamBlack
+        
+        ToggleHover(true)
         
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
@@ -376,14 +396,14 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
+            local nextRoboCheck = tick()
             local lastClimbFire = 0
-            local climbPart = nil
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
 
             local rayParamsDown = RaycastParams.new()
-            rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+            rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
 
             if hum then hum.PlatformStand = false end
@@ -393,10 +413,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 dt = math.clamp(dt, 0.001, 0.05)
                 
                 local currentPos = root.Position
-                local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
-                local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
-                
-                if (flatCurrent - flatTargetLoop).Magnitude <= 15 then break end
+                if (currentPos - tPos).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
@@ -405,61 +422,52 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local y1Hit = Workspace:Raycast(Vector3.new(currentX, 2500, currentZ), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y1 = y1Hit and y1Hit.Position.Y or 0
+                local samplePos1 = Vector3.new(currentX, 0, currentZ)
+                local samplePos2 = samplePos1 + (flatMoveDir * 6)
                 
-                local aheadHit = Workspace:Raycast(Vector3.new(currentX + flatMoveDir.X * 6, 2500, currentZ + flatMoveDir.Z * 6), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y2 = aheadHit and aheadHit.Position.Y or 0
+                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                local y1 = hit1 and hit1.Position.Y or 0
                 
-                local smoothPos = Vector3.new(currentX, currentY + 1, currentZ)
-                local wallCheckHit = Workspace:Raycast(smoothPos, flatMoveDir * 5.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 5
+                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                local y2 = hit2 and hit2.Position.Y or 0
+                
+                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
+                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
                 
                 local targetY = y1
-                
-                if isWallBlocking then
+                if forwardHit then
                     targetY = math.max(y1, y2)
                 else
-                    -- LEDGE FIX: Verhindert Pull-Down, wenn man oben über die Kante tritt
-                    if y2 > y1 and math.abs(y2 - currentY) < 15 then
-                        targetY = math.max(y1, y2)
+                    if math.abs(y2 - currentY) < 6 then
+                        targetY = y2
                     end
                 end
                 
-                -- Y Terrain Intelligenz (Wasser auf 0, Land auf Y+3)
-                if targetY <= 1 then
-                    targetY = 0
-                else
-                    targetY = targetY + 3
-                end
+                targetY = math.max(targetY, 1) 
                 
                 local finalY = targetY + floorOffset
                 local yVelocity = 0
                 local addTime = dt
+                
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
                         isClimbing = true
+                    end
+                    
+                    if tick() - lastClimbFire > 0.3 then
+                        lastClimbFire = tick()
                         task.spawn(function()
                             if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                         end)
-                        if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
-                    local climbRate = currentSpeed * 1.3 
+                    local climbRate = currentSpeed * 0.8
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
-                    
-                    if not climbPart then
-                        climbPart = Instance.new("Part")
-                        climbPart.Name = "RyuClimbPart"
-                        climbPart.Size = Vector3.new(4, 3, 4)
-                        climbPart.Anchored = true
-                        climbPart.Transparency = 1
-                        climbPart.CanCollide = true
-                        climbPart.Parent = Workspace
-                    end
-                    climbPart.CFrame = CFrame.new(currentX, currentY - 1.5, currentZ)
                     
                     if isWallBlocking then
                         addTime = 0 
@@ -475,13 +483,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                         if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
                     end
                     
-                    if climbPart then
-                        climbPart:Destroy()
-                        climbPart = nil
-                    end
-                    
                     if finalY < currentY then
-                        local fallRate = 120 -- Angenehmerer, weicher Drop
+                        local fallRate = 150
                         currentY = math.max(currentY - (fallRate * dt), finalY)
                         yVelocity = -fallRate
                     else
@@ -489,7 +492,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     end
                 end
                 
-                currentY = math.max(currentY, 0)
+                currentY = math.max(currentY, 1)
                 
                 elapsedTime = elapsedTime + addTime
                 
@@ -505,14 +508,12 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     root.CFrame = CFrame.new(finalPos)
                 end
                 
-                if hum:GetState() ~= Enum.HumanoidStateType.Running and not isClimbing then
-                    hum:ChangeState(Enum.HumanoidStateType.Running)
-                end
                 if hum then hum:Move(moveDir, false) end
                 
-                -- LAUNCH FIX: Velocity ist 0, wenn wir blockiert / am Klettern sind!
-                local activeSpeed = (isWallBlocking or isClimbing) and 0 or currentSpeed
-                root.Velocity = Vector3.new(moveDir.X * activeSpeed, yVelocity, moveDir.Z * activeSpeed)
+                root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+                
+                local bp = root:FindFirstChild("RyuHover")
+                if bp then bp.Position = finalPos end
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -521,13 +522,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                 end
-                
-                if (root.Position - finalPos).Magnitude > 15 then
-                    break
-                end
             end
             
-            if climbPart then climbPart:Destroy() end
             if hum then hum:Move(Vector3.new(0,0,0), false) end
             if isClimbing then
                 task.spawn(function()
@@ -630,6 +626,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 task.wait(2)
             end
             
+            ToggleHover(true)
+            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
+            
             local caveRoute = {
                 Vector3.new(8004, -2154, -17130),
                 Vector3.new(7960, -2154, -17156),
@@ -643,6 +642,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             
             RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
         end
+        
+        platform:Destroy()
+        ToggleHover(false)
     end)
 end)
 
@@ -660,7 +662,28 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
-        ToggleHover(false)
+        local platform = Instance.new("Part")
+        platform.Name = "Part"
+        platform.Size = Vector3.new(40, 3, 40) 
+        platform.Anchored = true
+        platform.CanCollide = true
+        platform.Transparency = 0.5
+        platform.Material = Enum.Material.ForceField
+        platform.Color = Color3.fromRGB(0, 255, 255)
+        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, floorOffset, 0))
+        platform.Parent = Workspace
+        
+        local pGui = Instance.new("SurfaceGui", platform)
+        pGui.Face = Enum.NormalId.Top
+        local pTxt = Instance.new("TextLabel", pGui)
+        pTxt.Size = UDim2.new(1, 0, 1, 0)
+        pTxt.BackgroundTransparency = 1
+        pTxt.Text = "RYUHUB"
+        pTxt.TextColor3 = Color3.fromRGB(255, 255, 255)
+        pTxt.TextScaled = true
+        pTxt.Font = Enum.Font.GothamBlack
+        
+        ToggleHover(true)
         
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
@@ -682,14 +705,14 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
+            local nextRoboCheck = tick()
             local lastClimbFire = 0
-            local climbPart = nil
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
 
             local rayParamsDown = RaycastParams.new()
-            rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+            rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
 
             if hum then hum.PlatformStand = false end
@@ -699,10 +722,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 dt = math.clamp(dt, 0.001, 0.05)
                 
                 local currentPos = root.Position
-                local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
-                local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
-                
-                if (flatCurrent - flatTargetLoop).Magnitude <= 15 then break end
+                if (currentPos - tPos).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
@@ -711,61 +731,52 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local y1Hit = Workspace:Raycast(Vector3.new(currentX, 2500, currentZ), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y1 = y1Hit and y1Hit.Position.Y or 0
+                local samplePos1 = Vector3.new(currentX, 0, currentZ)
+                local samplePos2 = samplePos1 + (flatMoveDir * 6)
                 
-                local aheadHit = Workspace:Raycast(Vector3.new(currentX + flatMoveDir.X * 6, 2500, currentZ + flatMoveDir.Z * 6), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y2 = aheadHit and aheadHit.Position.Y or 0
+                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                local y1 = hit1 and hit1.Position.Y or 0
                 
-                local smoothPos = Vector3.new(currentX, currentY + 1, currentZ)
-                local wallCheckHit = Workspace:Raycast(smoothPos, flatMoveDir * 6.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 5
+                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                local y2 = hit2 and hit2.Position.Y or 0
+                
+                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
+                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
                 
                 local targetY = y1
-                
-                if isWallBlocking then
+                if forwardHit then
                     targetY = math.max(y1, y2)
                 else
-                    -- LEDGE FIX
-                    if y2 > y1 and math.abs(y2 - currentY) < 15 then
-                        targetY = math.max(y1, y2)
+                    if math.abs(y2 - currentY) < 6 then
+                        targetY = y2
                     end
                 end
                 
-                -- Y Terrain Intelligenz
-                if targetY <= 1 then
-                    targetY = 0
-                else
-                    targetY = targetY + 3
-                end
+                targetY = math.max(targetY, 1) 
                 
                 local finalY = targetY + floorOffset
                 local yVelocity = 0
                 local addTime = dt
+                
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
                         isClimbing = true
+                    end
+                    
+                    if tick() - lastClimbFire > 0.3 then
+                        lastClimbFire = tick()
                         task.spawn(function()
                             if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                         end)
-                        if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
-                    local climbRate = currentSpeed * 1.3 
+                    local climbRate = currentSpeed * 0.8
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
-                    
-                    if not climbPart then
-                        climbPart = Instance.new("Part")
-                        climbPart.Name = "RyuClimbPart"
-                        climbPart.Size = Vector3.new(4, 3, 4)
-                        climbPart.Anchored = true
-                        climbPart.Transparency = 1
-                        climbPart.CanCollide = true
-                        climbPart.Parent = Workspace
-                    end
-                    climbPart.CFrame = CFrame.new(currentX, currentY - 1.5, currentZ)
                     
                     if isWallBlocking then
                         addTime = 0 
@@ -781,13 +792,8 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
                     end
                     
-                    if climbPart then
-                        climbPart:Destroy()
-                        climbPart = nil
-                    end
-                    
                     if finalY < currentY then
-                        local fallRate = 120 -- Angenehmer Drop
+                        local fallRate = 150
                         currentY = math.max(currentY - (fallRate * dt), finalY)
                         yVelocity = -fallRate
                     else
@@ -795,7 +801,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     end
                 end
                 
-                currentY = math.max(currentY, 0)
+                currentY = math.max(currentY, 1)
                 
                 elapsedTime = elapsedTime + addTime
                 
@@ -811,14 +817,12 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     root.CFrame = CFrame.new(finalPos)
                 end
                 
-                if hum:GetState() ~= Enum.HumanoidStateType.Running and not isClimbing then
-                    hum:ChangeState(Enum.HumanoidStateType.Running)
-                end
                 if hum then hum:Move(moveDir, false) end
                 
-                -- LAUNCH FIX: Velocity ist 0, wenn blockiert
-                local activeSpeed = (isWallBlocking or isClimbing) and 0 or currentSpeed
-                root.Velocity = Vector3.new(moveDir.X * activeSpeed, yVelocity, moveDir.Z * activeSpeed)
+                root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+                
+                local bp = root:FindFirstChild("RyuHover")
+                if bp then bp.Position = finalPos end
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -827,13 +831,8 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                 end
-                
-                if (root.Position - finalPos).Magnitude > 15 then
-                    break
-                end
             end
             
-            if climbPart then climbPart:Destroy() end
             if hum then hum:Move(Vector3.new(0,0,0), false) end
             if isClimbing then
                 task.spawn(function()
@@ -854,6 +853,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
+        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
         task.wait(5)
         
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
@@ -864,8 +864,11 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             local isBlack = false
             
             while not tpSuccess do
+                ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
                 root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
+                
+                RyuNotify:Send("Smart TP", "Versuche Portal-Teleport...", 3)
                 
                 local checkStart = tick()
                 isBlack = false
@@ -904,11 +907,13 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 
                 if not tpSuccess then
                     if hum then hum:Move(Vector3.new(0,0,0)) end
+                    RyuNotify:Send("Smart TP", "Teleport verzögert! Versuche es in 3 Sek. nochmal...", 3)
                     task.wait(3)
                 end
             end
             
             if isBlack then
+                RyuNotify:Send("Smart TP", "Ladebildschirm erkannt! Warte auf Map...", 3)
                 local startClear = tick()
                 while tick() - startClear < 15 do
                     local foundBlack = false
@@ -931,17 +936,12 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 task.wait(2)
             end
             
-            local caveRoute = {
-                Vector3.new(8004, -2154, -17130),
-                Vector3.new(7960, -2154, -17156),
-                Vector3.new(7862, -2154, -17159),
-                Vector3.new(7775, -2177, -17174)
-            }
-            
-            for _, wp in ipairs(caveRoute) do
-                SpiderLerp(wp, RyuConfig.FishmanSpeed)
-            end
+            ToggleHover(true)
+            RyuNotify:Send("Smart TP", "Erfolgreich in Fishman Cave angekommen!", 3)
         end
+        
+        platform:Destroy()
+        ToggleHover(false)
     end)
 end)
 
@@ -1031,7 +1031,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
-        ToggleHover(false)
+        ToggleHover(true)
         
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
@@ -1053,8 +1053,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
+            local nextRoboCheck = tick()
             local lastClimbFire = 0
-            local climbPart = nil
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -1073,7 +1073,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
                 local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
                 
-                if (flatCurrent - flatTargetLoop).Magnitude <= 5 then break end
+                -- SANFTER STOPP IN DER INSEL-MITTE (Kein Durchdrücken)
+                if (flatCurrent - flatTargetLoop).Magnitude <= 10 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
@@ -1082,61 +1083,52 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local y1Hit = Workspace:Raycast(Vector3.new(currentX, 2500, currentZ), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y1 = y1Hit and y1Hit.Position.Y or 0
+                local samplePos1 = Vector3.new(currentX, 0, currentZ)
+                local samplePos2 = samplePos1 + (flatMoveDir * 6)
                 
-                local aheadHit = Workspace:Raycast(Vector3.new(currentX + flatMoveDir.X * 6, 2500, currentZ + flatMoveDir.Z * 6), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y2 = aheadHit and aheadHit.Position.Y or 0
+                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                local y1 = hit1 and hit1.Position.Y or 0
                 
-                local smoothPos = Vector3.new(currentX, currentY + 1, currentZ)
-                local wallCheckHit = Workspace:Raycast(smoothPos, flatMoveDir * 6.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 5
+                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                local y2 = hit2 and hit2.Position.Y or 0
+                
+                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
+                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
                 
                 local targetY = y1
-                
-                if isWallBlocking then
+                if forwardHit then
                     targetY = math.max(y1, y2)
                 else
-                    -- LEDGE FIX
-                    if y2 > y1 and math.abs(y2 - currentY) < 15 then
-                        targetY = math.max(y1, y2)
+                    if math.abs(y2 - currentY) < 6 then
+                        targetY = y2
                     end
                 end
                 
-                -- Y Terrain Intelligenz
-                if targetY <= 1 then
-                    targetY = 0
-                else
-                    targetY = targetY + 3
-                end
+                targetY = math.max(targetY, 1) 
                 
                 local finalY = targetY + floorOffset
                 local yVelocity = 0
                 local addTime = dt
+                
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
                         isClimbing = true
+                    end
+                    
+                    if tick() - lastClimbFire > 0.3 then
+                        lastClimbFire = tick()
                         task.spawn(function()
                             if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                         end)
-                        if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
-                    local climbRate = currentSpeed * 1.3 
+                    local climbRate = currentSpeed * 0.8
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
-                    
-                    if not climbPart then
-                        climbPart = Instance.new("Part")
-                        climbPart.Name = "RyuClimbPart"
-                        climbPart.Size = Vector3.new(4, 3, 4)
-                        climbPart.Anchored = true
-                        climbPart.Transparency = 1
-                        climbPart.CanCollide = true
-                        climbPart.Parent = Workspace
-                    end
-                    climbPart.CFrame = CFrame.new(currentX, currentY - 1.5, currentZ)
                     
                     if isWallBlocking then
                         addTime = 0 
@@ -1152,13 +1144,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
                     end
                     
-                    if climbPart then
-                        climbPart:Destroy()
-                        climbPart = nil
-                    end
-                    
                     if finalY < currentY then
-                        local fallRate = 120 -- Angenehmer Drop
+                        local fallRate = 150
                         currentY = math.max(currentY - (fallRate * dt), finalY)
                         yVelocity = -fallRate
                     else
@@ -1166,7 +1153,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
                 
-                currentY = math.max(currentY, 0)
+                currentY = math.max(currentY, 1)
                 
                 elapsedTime = elapsedTime + addTime
                 
@@ -1182,14 +1169,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     root.CFrame = CFrame.new(finalPos)
                 end
                 
-                if hum:GetState() ~= Enum.HumanoidStateType.Running and not isClimbing then
-                    hum:ChangeState(Enum.HumanoidStateType.Running)
-                end
                 if hum then hum:Move(moveDir, false) end
                 
-                -- LAUNCH FIX: Velocity ist 0, wenn blockiert
-                local activeSpeed = (isWallBlocking or isClimbing) and 0 or currentSpeed
-                root.Velocity = Vector3.new(moveDir.X * activeSpeed, yVelocity, moveDir.Z * activeSpeed)
+                root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+                
+                local bp = root:FindFirstChild("RyuHover")
+                if bp then bp.Position = finalPos end
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -1198,13 +1183,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                 end
-                
-                if (root.Position - finalPos).Magnitude > 15 then
-                    break
-                end
             end
             
-            if climbPart then climbPart:Destroy() end
             if hum then hum:Move(Vector3.new(0,0,0), false) end
             if isClimbing then
                 task.spawn(function()
@@ -1220,11 +1200,14 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             return true
         end
         
+        RyuNotify:Send("Spider TP", "Reise nach " .. targetIslandName .. "...", 3)
         SpiderLerp(targetPos, RyuConfig.IslandSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
+        ToggleHover(false)
+        RyuNotify:Send("Spider TP", "Ziel erreicht!", 3)
         _G.RyuIsTweening = false
     end)
 end)
@@ -1240,6 +1223,7 @@ CreateButton(SecAutoBuy, "Buy Geppo", function()
                 inter:InvokeServer("Geppo")
             end
         end
+        RyuNotify:Send("Auto Buy", "Kaufanfrage für Geppo gesendet!", 3)
     end)
 end)
 
@@ -1424,6 +1408,7 @@ task.spawn(function()
         task.wait(180) 
         if RyuConfig.AutoFarm and RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" then
             if not CheckQuestActive() then
+                RyuNotify:Send("Fail-Safe", "Quest-Sicherung greift ein!", 2)
                 FetchQuest()
             end
         end
