@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART SPIDER TWEEN + CLIMB HOLD & 2-STUD GAP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (TRUE SPIDER TWEEN + CLIMB HOLD FIX)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -793,42 +793,17 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             return
         end
         
-        -- Robo Target Logic - Ignoriere Robos der aktuellen Insel
+        -- Robo Target Logic - Absolute Map Search for Closest Robo to Target
         local targetPos = rawPos
-        local robo = island:FindFirstChild("Robo", true)
-        
         local closestRobo = nil
-        local closestDist = 1500 
+        local closestDist = 3500 
         
-        if robo and robo:FindFirstChild("HumanoidRootPart") then
-            local d = (robo.HumanoidRootPart.Position - rawPos).Magnitude
-            if d < closestDist then
-                closestDist = d
-                closestRobo = robo
-            end
-        end
-        
-        local npcsFolder = Workspace:FindFirstChild("NPCs")
-        if npcsFolder then
-            for _, v in pairs(npcsFolder:GetChildren()) do
-                if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-                    local dist = (v.HumanoidRootPart.Position - rawPos).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestRobo = v
-                    end
-                end
-            end
-        end
-        
-        if not closestRobo then
-            for _, v in pairs(Workspace:GetDescendants()) do
-                if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-                    local dist = (v.HumanoidRootPart.Position - rawPos).Magnitude
-                    if dist < closestDist then
-                        closestDist = dist
-                        closestRobo = v
-                    end
+        for _, v in pairs(Workspace:GetDescendants()) do
+            if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
+                local dist = (v.HumanoidRootPart.Position - rawPos).Magnitude
+                if dist < closestDist then
+                    closestDist = dist
+                    closestRobo = v
                 end
             end
         end
@@ -870,7 +845,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
-            local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -895,6 +869,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
+                -- Y never negative fix & Tunnel check
                 local samplePos1 = Vector3.new(currentX, 0, currentZ)
                 local samplePos2 = samplePos1 + (flatMoveDir * 6)
                 
@@ -916,36 +891,40 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
                 
+                targetY = math.max(targetY, 1) -- Absoluter Unterwasser Schutz
+                
                 local finalY = targetY + floorOffset
                 local yVelocity = 0
                 local addTime = dt
                 
-                local isWallBlocking = forwardHit and forwardHit.Distance < 2.5
+                -- 2-Stud Abstand Logik
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 3, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 2.5
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
                         isClimbing = true
+                        task.spawn(function()
+                            if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                        end)
+                        if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
-                    
-                    if tick() - lastClimbFire > 0.3 then
-                        lastClimbFire = tick()
-                        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-                    end
-                    if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
                     local climbRate = currentSpeed * 0.8
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
                     
                     if isWallBlocking then
-                        addTime = 0
+                        addTime = 0 -- Friert X/Z Bewegung exakt bei 2 Studs Wandabstand ein
                     elseif finalY - currentY > 5 then
                         addTime = dt * 0.3
                     end
                 else
                     if isClimbing then
                         isClimbing = false
-                        if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+                        task.spawn(function()
+                            if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+                        end)
                         if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
                     end
                     
@@ -957,6 +936,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         currentY = finalY
                     end
                 end
+                
+                currentY = math.max(currentY, 1) -- Absoluter Unterwasser Schutz Part 2
                 
                 elapsedTime = elapsedTime + addTime
                 
@@ -989,7 +970,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
-            if isClimbing and climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+            if isClimbing then
+                task.spawn(function()
+                    if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+                end)
+            end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
@@ -1335,4 +1320,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "Spider: Climb-Hold & 2-Stud Gap Active!", 4)
+RyuNotify:Send("RYU HUB", "Spider Master: Climb-Hold, 2-Stud Gap & Tunnel Fix!", 4)
