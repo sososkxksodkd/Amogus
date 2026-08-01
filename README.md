@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SPIDER TWEEN + 4 STUD GAP + SPEED 65)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NO DISTANCE LIMIT / NO ERRORS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -69,11 +69,11 @@ local RyuConfig = {
     
     TweenSpeed = 50, 
     KillHeight = 7, 
-    FishmanSpeed = 65, -- Limit auf 65 angepasst
-    ElevatorSpeed = 65, -- Limit auf 65 angepasst
+    FishmanSpeed = 65, -- Limit auf 65
+    ElevatorSpeed = 65, -- Limit auf 65
     
     TargetIsland = IslandList[1],
-    IslandSpeed = 60, -- Max Speed auf 65 im Menü
+    IslandSpeed = 60, -- Max Speed auf 65
     
     AutoStrength = false,
     AutoStamina = false,
@@ -380,7 +380,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
         local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
         
-        local function SpiderLerp(tPos, currentSpeed)
+        local function SpiderLerp(tPos, currentSpeed, isHoverMode)
             local startPos = root.Position
             local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
             local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
@@ -402,7 +402,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             _G.soruDashing = true
 
             local rayParamsDown = RaycastParams.new()
-            rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+            rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
 
             if hum then hum.PlatformStand = false end
@@ -418,51 +418,53 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
                 local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
                 
+                local isVertical = (math.abs(startPos.X - tPos.X) < 5 and math.abs(startPos.Z - tPos.Z) < 5)
+                local isUnderground = (tPos.Y < -100)
+                
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                -- Y never negative fix & Tunnel check
-                local samplePos1 = Vector3.new(currentX, 0, currentZ)
-                local samplePos2 = samplePos1 + (flatMoveDir * 6)
-                
-                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y1 = hit1 and hit1.Position.Y or 0
-                
-                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y2 = hit2 and hit2.Position.Y or 0
-                
-                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
-                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
-                
-                local targetY = y1
-                if forwardHit then
-                    targetY = math.max(y1, y2)
-                else
-                    if math.abs(y2 - currentY) < 6 then
-                        targetY = y2
-                    end
-                end
-                
-                targetY = math.max(targetY, 1) -- Absoluter Unterwasser Schutz
-                
-                local finalY = targetY + floorOffset
+                local targetY = startPos.Y + (tPos.Y - startPos.Y) * alpha
+                local isWallBlocking = false
                 local yVelocity = 0
                 local addTime = dt
                 
-                -- 4-Stud Abstand Logik
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
-
-                if finalY > currentY + 3 then 
-                    if not isClimbing then
-                        isClimbing = true
+                if not isVertical and not isUnderground and not isHoverMode then
+                    local samplePos1 = Vector3.new(currentX, 0, currentZ)
+                    local samplePos2 = samplePos1 + (flatMoveDir * 6)
+                    
+                    local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                    local y1 = hit1 and hit1.Position.Y or 0
+                    
+                    local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                    local y2 = hit2 and hit2.Position.Y or 0
+                    
+                    local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
+                    local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
+                    
+                    if forwardHit then
+                        targetY = math.max(y1, y2)
+                    else
+                        if math.abs(y2 - currentY) < 6 then
+                            targetY = y2
+                        else
+                            targetY = y1
+                        end
                     end
                     
+                    targetY = math.max(targetY, 1)
+                    local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 3, rayParamsDown)
+                    isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
+                    targetY = targetY + floorOffset
+                end
+
+                local finalY = targetY
+                
+                if finalY > currentY + 3 and not isVertical and not isUnderground and not isHoverMode then 
+                    if not isClimbing then isClimbing = true end
                     if tick() - lastClimbFire > 0.3 then
                         lastClimbFire = tick()
-                        task.spawn(function()
-                            if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-                        end)
+                        task.spawn(function() if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end end)
                     end
                     if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
@@ -471,20 +473,18 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     yVelocity = climbRate
                     
                     if isWallBlocking then
-                        addTime = 0 -- Friert X/Z Bewegung exakt bei 4 Studs Wandabstand ein
+                        addTime = 0 
                     elseif finalY - currentY > 5 then
                         addTime = dt * 0.3
                     end
                 else
                     if isClimbing then
                         isClimbing = false
-                        task.spawn(function()
-                            if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
-                        end)
+                        task.spawn(function() if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end end)
                         if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
                     end
                     
-                    if finalY < currentY then
+                    if finalY < currentY and not isVertical and not isUnderground and not isHoverMode then
                         local fallRate = 150
                         currentY = math.max(currentY - (fallRate * dt), finalY)
                         yVelocity = -fallRate
@@ -493,20 +493,20 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     end
                 end
                 
-                currentY = math.max(currentY, 1) -- Absoluter Unterwasser Schutz Part 2
+                if not isUnderground then currentY = math.max(currentY, 1) end
                 
                 elapsedTime = elapsedTime + addTime
-                
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
                 local moveDir = (lookPos - finalPos).Unit
                 if moveDir ~= moveDir then moveDir = root.CFrame.LookVector end
+                if isVertical then moveDir = root.CFrame.LookVector end
                 
-                if (lookPos - finalPos).Magnitude > 0.1 then 
+                if (lookPos - finalPos).Magnitude > 0.1 and not isVertical then 
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
                 else
-                    root.CFrame = CFrame.new(finalPos)
+                    root.CFrame = CFrame.new(finalPos) * root.CFrame.Rotation
                 end
                 
                 if hum then hum:Move(moveDir, false) end
@@ -523,35 +523,31 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                 end
+                
+                if (root.Position - finalPos).Magnitude > 15 and not isHoverMode then
+                    break
+                end
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
-            if isClimbing then
-                task.spawn(function()
-                    if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
-                end)
-            end
+            if isClimbing then task.spawn(function() if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end end) end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
-            
             root.Velocity = Vector3.new(0, 0, 0)
             root.CFrame = CFrame.new(tPos)
-            
             return true
         end
         
         local safeY = 1500
-        RyuNotify:Send("Spider TP", "Reise nach Fishman Cave...", 3)
-        SpiderLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed)
-        SpiderLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.FishmanSpeed)
-        SpiderLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.ElevatorSpeed)
+        SpiderLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed, true)
+        SpiderLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.FishmanSpeed, true)
+        SpiderLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.ElevatorSpeed, true)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        ToggleHover(false)
-        RyuNotify:Send("Spider TP", "Warte 5 Sekunden für Portal-TP...", 5)
+        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
         task.wait(5)
         
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
@@ -565,8 +561,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
                 root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
-                
-                RyuNotify:Send("Smart TP", "Versuche Portal-Teleport...", 3)
                 
                 local checkStart = tick()
                 isBlack = false
@@ -605,13 +599,11 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 
                 if not tpSuccess then
                     if hum then hum:Move(Vector3.new(0,0,0)) end
-                    RyuNotify:Send("Smart TP", "Teleport verzögert! Versuche es in 3 Sek. nochmal...", 3)
                     task.wait(3)
                 end
             end
             
             if isBlack then
-                RyuNotify:Send("Smart TP", "Ladebildschirm erkannt! Warte auf Map...", 3)
                 local startClear = tick()
                 while tick() - startClear < 15 do
                     local foundBlack = false
@@ -635,7 +627,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             end
             
             ToggleHover(true)
-            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
             
             local caveRoute = {
                 Vector3.new(8004, -2154, -17130),
@@ -645,10 +636,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             }
             
             for _, wp in ipairs(caveRoute) do
-                SpiderLerp(wp, RyuConfig.FishmanSpeed)
+                SpiderLerp(wp, RyuConfig.FishmanSpeed, false)
             end
-            
-            RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
         end
         
         platform:Destroy()
@@ -786,7 +775,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     yVelocity = climbRate
                     
                     if isWallBlocking then
-                        addTime = 0
+                        addTime = 0 
                     elseif finalY - currentY > 5 then
                         addTime = dt * 0.3
                     end
@@ -838,6 +827,10 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                 end
+                
+                if (root.Position - finalPos).Magnitude > 15 then
+                    break
+                end
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
@@ -851,7 +844,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             _G.soruDashing = nil
             
             root.Velocity = Vector3.new(0, 0, 0)
-            root.CFrame = CFrame.new(tPos)
             
             return true
         end
@@ -875,8 +867,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
                 root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
-                
-                RyuNotify:Send("Smart TP", "Versuche Portal-Teleport...", 3)
                 
                 local checkStart = tick()
                 isBlack = false
@@ -915,13 +905,11 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 
                 if not tpSuccess then
                     if hum then hum:Move(Vector3.new(0,0,0)) end
-                    RyuNotify:Send("Smart TP", "Teleport verzögert! Versuche es in 3 Sek. nochmal...", 3)
                     task.wait(3)
                 end
             end
             
             if isBlack then
-                RyuNotify:Send("Smart TP", "Ladebildschirm erkannt! Warte auf Map...", 3)
                 local startClear = tick()
                 while tick() - startClear < 15 do
                     local foundBlack = false
@@ -945,7 +933,20 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             end
             
             ToggleHover(true)
-            RyuNotify:Send("Smart TP", "Erfolgreich in Fishman Cave angekommen!", 3)
+            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
+            
+            local caveRoute = {
+                Vector3.new(8004, -2154, -17130),
+                Vector3.new(7960, -2154, -17156),
+                Vector3.new(7862, -2154, -17159),
+                Vector3.new(7775, -2177, -17174)
+            }
+            
+            for _, wp in ipairs(caveRoute) do
+                SpiderLerp(wp, RyuConfig.FishmanSpeed)
+            end
+            
+            RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
         end
         
         platform:Destroy()
@@ -1006,7 +1007,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         end
         
         if not island then 
-            RyuNotify:Send("Error", "Insel '" .. targetIslandName .. "' nicht in der Map gefunden!", 3)
             _G.RyuIsTweening = false
             return 
         end
@@ -1026,7 +1026,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         end)
         
         if not rawPos then
-            RyuNotify:Send("Error", "Konnte Zielkoordinaten nicht finden!", 3)
             _G.RyuIsTweening = false
             return
         end
@@ -1060,10 +1059,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         local isLookingForRobo = false
         if closestRobo and closestRobo:FindFirstChild("HumanoidRootPart") then
             targetPos = closestRobo.HumanoidRootPart.Position
-            RyuNotify:Send("Transport", "Ziel-Robo gefunden! Navigiere dorthin.", 3)
         else
             isLookingForRobo = true
-            RyuNotify:Send("Transport", "Ziel-Robo nicht geladen. Scanne während dem Flug...", 3)
         end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
@@ -1125,7 +1122,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                                     t = totalDist / currentSpeed
                                     elapsedTime = 0
                                     
-                                    RyuNotify:Send("Transport", "Ziel-Robo gespawnt! Passe Route an.", 3)
                                     break
                                 end
                             end
@@ -1245,8 +1241,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
                 
-                if (root.Position - targetPos).Magnitude <= 400 then
-                    RyuNotify:Send("Island TP", "400 Studs vor Ziel erreicht. Tween beendet!", 3)
+                if (root.Position - finalPos).Magnitude > 15 then
                     break
                 end
             end
@@ -1601,4 +1596,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "Spider Master: UI Hidden, 4-Stud Gap & Speed 65!", 4)
+RyuNotify:Send("RYU HUB", "Spider Master: Limit Removed & UI Cleaned!", 4)
