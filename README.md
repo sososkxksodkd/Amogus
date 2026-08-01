@@ -33,7 +33,6 @@ task.spawn(function()
                 task.delay(0.01, function()
                     if descendant.Parent and descendant.Text then
                         local txt = descendant.Text:lower()
-                        -- "error" hinzugefügt, um generische GPO-Fehlermeldungen zu blockieren
                         if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") then
                             descendant.Visible = false
                             descendant:Destroy()
@@ -69,7 +68,7 @@ local RyuConfig = {
     TargetWeapon = "Combat",           
     
     TweenSpeed = 50, 
-    KillHeight = 5, -- 5 Studs für Gegner und Quest 
+    KillHeight = 5, 
     FishmanSpeed = 65, 
     ElevatorSpeed = 65, 
     
@@ -441,7 +440,7 @@ CreateButton(SecMovement, "Fishman Cave tp", function()
                 task.wait(2)
             end
             
-            RyuNotify:Send("Fishman Cave TP", "Erfolgreich angekommen!", 4)
+            RyuNotify:Send("Fishman Cave TP", "Erfolgreich angekommen! Du hast die Kontrolle.", 4)
         else
             RyuNotify:Send("Error", "Portal nicht gefunden!", 3)
         end
@@ -753,7 +752,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             return true
         end
         
-        SpiderLerp(targetPos, RyuConfig.IslandSpeed)
+        SpiderLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -787,8 +786,17 @@ suggestLabel.TextSize = 11
 suggestLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT 
+--// MODULE HOOKING: PURE RAW COMBAT & COMBO SYSTEM
 --// ============================================================================
+local currentComboIndex = 1
+local comboSequence = {
+    {1, true, "Dash"},
+    {2, false, "Punch2"},
+    {3, false, "Punch3"},
+    {4, false, "GroundPunch4"},
+    {5, false, "GroundPunch5"}
+}
+
 local function EquipTargetWeapon()
     local char = LocalPlayer.Character
     local hum = char and char:FindFirstChildOfClass("Humanoid")
@@ -836,25 +844,39 @@ local function PerformMeleeAttack()
     
     task.spawn(function()
         pcall(function()
-            local argsAttack = {
-                {
-                    "swingsfx",
-                    "Melee",
-                    3,
-                    "Ground",
-                    false,
-                    ReplicatedStorage.CombatAnimations.Melee.Punch3,
-                    2,
-                    1.5
+            local comboData = comboSequence[currentComboIndex]
+            local animName = comboData[3]
+            
+            local animObj = ReplicatedStorage:FindFirstChild("CombatAnimations") 
+                and ReplicatedStorage.CombatAnimations:FindFirstChild("Melee")
+                and ReplicatedStorage.CombatAnimations.Melee:FindFirstChild(animName)
+            
+            if animObj then
+                local argsAttack = {
+                    {
+                        "swingsfx",
+                        "Melee",
+                        comboData[1],
+                        "Ground",
+                        comboData[2],
+                        animObj,
+                        2,
+                        1.5
+                    }
                 }
-            }
-            ReplicatedStorage.Events.CombatRegister:InvokeServer(unpack(argsAttack))
+                ReplicatedStorage.Events.CombatRegister:InvokeServer(unpack(argsAttack))
+            end
+            
+            currentComboIndex = currentComboIndex + 1
+            if currentComboIndex > 5 then
+                currentComboIndex = 1
+            end
         end)
     end)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (WITH FOOTSTEP REMOTE)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
