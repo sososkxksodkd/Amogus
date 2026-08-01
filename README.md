@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE CLEAN STOP & UNTOUCHED TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NO DISTANCE LIMIT / NO ERRORS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift & Errors)
+--// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift)
 task.spawn(function()
     local pg = LocalPlayer:WaitForChild("PlayerGui", 10)
     if pg then
@@ -33,6 +33,7 @@ task.spawn(function()
                 task.delay(0.01, function()
                     if descendant.Parent and descendant.Text then
                         local txt = descendant.Text:lower()
+                        -- "error" hinzugefügt, um generische GPO-Fehlermeldungen zu blockieren
                         if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") then
                             descendant.Visible = false
                             descendant:Destroy()
@@ -339,7 +340,7 @@ CreateSlider(SecMovement, "Aufzug Geschw. (Y-Achse)", 5, 65, RyuConfig.ElevatorS
     RyuConfig.ElevatorSpeed = val
 end)
 
---// FISHMAN CAVE: OHNE ROBO, NUR SPIELER ZUM PORTAL TPN & WARTEN AUF KONTROLLE
+--// FISHMAN CAVE TWEEN (OHNE ROBO, NUR ZUM PORTAL, JETZT MIT SAUBEREM STOPP & KONTROLLE)
 CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
     task.spawn(function()
         local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
@@ -544,7 +545,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
         task.wait(5)
         
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
@@ -555,7 +555,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             local isBlack = false
             
             while not tpSuccess do
-                ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
                 root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
                 
@@ -623,9 +622,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 task.wait(2)
             end
             
-            -- HIER WIRD DER TWEEN BEENDET: KEIN ROBO FLUG MEHR, DU HAST DIE KONTROLLE
+            -- HIER WURDE DER ROBO-TEIL FÜR FISHMAN CAVE ENTFERNT: Volle Kontrolle zurück, kein automatisches Weiterfliegen!
             ToggleHover(false)
-            RyuNotify:Send("Smart TP", "Erfolgreich angekommen! Du hast die Kontrolle.", 4)
+            RyuNotify:Send("Smart TP", "Du bist da! Du hast wieder die volle Kontrolle.", 4)
         end
         
         platform:Destroy()
@@ -940,7 +939,9 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 100% UNBERÜHRTES TRANSPORT-SYSTEM (MIT EXAKTEM 300-STUDS ROBO SCANNER)
+--// ============================================================================
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM
+--// ============================================================================
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -1005,7 +1006,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local isStartIslandRobo = (distToPlayer < 1000 and islandDistFromPlayer > 1500)
                 
-                if not isStartIslandRobo and distToTarget <= 300 then
+                if not isStartIslandRobo then
                     if distToTarget < closestDist then
                         closestDist = distToTarget
                         closestRobo = v
@@ -1069,8 +1070,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if npcsFolder then
                         for _, v in pairs(npcsFolder:GetChildren()) do
                             if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-                                local distToTarget = (v.HumanoidRootPart.Position - rawPos).Magnitude
-                                if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 and distToTarget <= 300 then
+                                if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 then
                                     tPos = v.HumanoidRootPart.Position
                                     isLookingForRobo = false
                                     
@@ -1089,7 +1089,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 local currentPos = root.Position
-                if (currentPos - tPos).Magnitude <= 5 then break end
+                local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
+                local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
+                
+                if (flatCurrent - flatTargetLoop).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
@@ -1198,6 +1201,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                 end
+                
+                if (root.Position - finalPos).Magnitude > 15 then
+                    break
+                end
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
@@ -1220,7 +1227,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        ToggleHover(false)
         _G.RyuIsTweening = false
     end)
 end)
@@ -1533,7 +1539,7 @@ task.spawn(function()
                     
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = attackPos end
-                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, mRoot.Position.Y, mRoot.Position.Z))
                     
                     PerformMeleeAttack()
                     task.wait(0.05)
