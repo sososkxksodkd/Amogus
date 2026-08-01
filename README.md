@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (CLEAN BASELINE + CENTER ISLAND STOP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FAST CLIMB & INSTANT GROUND SNAP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift)
+--// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift & Errors)
 task.spawn(function()
     local pg = LocalPlayer:WaitForChild("PlayerGui", 10)
     if pg then
@@ -396,7 +396,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
-            local nextRoboCheck = tick()
             local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
@@ -465,7 +464,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     end
                     if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
-                    local climbRate = currentSpeed * 0.8
+                    local climbRate = currentSpeed * 2.8 -- SUPER SCHNELLES KLETTERN
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
                     
@@ -484,7 +483,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     end
                     
                     if finalY < currentY then
-                        local fallRate = 150
+                        local fallRate = 400 -- AGGRESSIVER BODEN-SNAP (Holt dich sofort runter)
                         currentY = math.max(currentY - (fallRate * dt), finalY)
                         yVelocity = -fallRate
                     else
@@ -539,10 +538,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             return true
         end
         
-        local safeY = 1500
-        SpiderLerp(Vector3.new(root.Position.X, safeY, root.Position.Z), RyuConfig.ElevatorSpeed)
-        SpiderLerp(Vector3.new(targetPos.X, safeY, targetPos.Z), RyuConfig.FishmanSpeed)
-        SpiderLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.ElevatorSpeed)
+        SpiderLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -561,6 +557,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 ToggleHover(false)
                 root.Velocity = Vector3.new(0, 0, 0)
                 root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
+                
+                RyuNotify:Send("Smart TP", "Versuche Portal-Teleport...", 3)
                 
                 local checkStart = tick()
                 isBlack = false
@@ -599,11 +597,13 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 
                 if not tpSuccess then
                     if hum then hum:Move(Vector3.new(0,0,0)) end
+                    RyuNotify:Send("Smart TP", "Teleport verzögert! Versuche es in 3 Sek. nochmal...", 3)
                     task.wait(3)
                 end
             end
             
             if isBlack then
+                RyuNotify:Send("Smart TP", "Ladebildschirm erkannt! Warte auf Map...", 3)
                 local startClear = tick()
                 while tick() - startClear < 15 do
                     local foundBlack = false
@@ -621,26 +621,13 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     if not foundBlack then break end
                     task.wait(0.1)
                 end
-                task.wait(1) 
+                task.wait(1)
             else
                 task.wait(2)
             end
             
             ToggleHover(true)
-            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
-            
-            local caveRoute = {
-                Vector3.new(8004, -2154, -17130),
-                Vector3.new(7960, -2154, -17156),
-                Vector3.new(7862, -2154, -17159),
-                Vector3.new(7775, -2177, -17174)
-            }
-            
-            for _, wp in ipairs(caveRoute) do
-                SpiderLerp(wp, RyuConfig.FishmanSpeed)
-            end
-            
-            RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
+            RyuNotify:Send("Smart TP", "Erfolgreich in Fishman Cave angekommen!", 3)
         end
         
         platform:Destroy()
@@ -774,7 +761,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     end
                     if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
-                    local climbRate = currentSpeed * 0.8
+                    local climbRate = currentSpeed * 2.8 -- SUPER SCHNELLES KLETTERN
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
                     
@@ -793,7 +780,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     end
                     
                     if finalY < currentY then
-                        local fallRate = 150
+                        local fallRate = 400 -- AGGRESSIVER BODEN-SNAP
                         currentY = math.max(currentY - (fallRate * dt), finalY)
                         yVelocity = -fallRate
                     else
@@ -1031,7 +1018,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
-        ToggleHover(true)
+        ToggleHover(false)
         
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
@@ -1073,7 +1060,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
                 local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
                 
-                -- SANFTER STOPP IN DER INSEL-MITTE (Kein Durchdrücken)
                 if (flatCurrent - flatTargetLoop).Magnitude <= 10 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
@@ -1126,7 +1112,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                     if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
-                    local climbRate = currentSpeed * 0.8
+                    local climbRate = currentSpeed * 2.8 -- SUPER SCHNELLES KLETTERN
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
                     
@@ -1145,7 +1131,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                     
                     if finalY < currentY then
-                        local fallRate = 150
+                        local fallRate = 400 -- AGGRESSIVER BODEN-SNAP
                         currentY = math.max(currentY - (fallRate * dt), finalY)
                         yVelocity = -fallRate
                     else
