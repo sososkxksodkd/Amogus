@@ -9,6 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -23,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// ANTI-ANNOYING MESSAGE HIDER
+--// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift)
 task.spawn(function()
     local pg = LocalPlayer:WaitForChild("PlayerGui", 10)
     if pg then
@@ -299,22 +300,9 @@ local function ToggleHover(state)
             bp.Parent = root
         end
         bp.Position = root.Position
-        
-        local bg = root:FindFirstChild("RyuGyro")
-        if not bg then
-            bg = Instance.new("BodyGyro")
-            bg.Name = "RyuGyro"
-            bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            bg.P = 100000
-            bg.D = 500
-            bg.Parent = root
-        end
-        bg.CFrame = root.CFrame
     else
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp:Destroy() end
-        local bg = root:FindFirstChild("RyuGyro")
-        if bg then bg:Destroy() end
     end
 end
 
@@ -326,11 +314,7 @@ local SubStats = CreateSubTab(TabFarm, "Stats")
 local SecAutoFarmMain = CreateSection(SubLeveling, "FISHMAN CAVE FARM")
 CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state 
-    if not state then 
-        ToggleHover(false)
-        local root = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart")
-        if root then root.Anchored = false end
-    end 
+    if not state then ToggleHover(false) end 
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest Link", RyuConfig.AutoQuest, function(state) 
     RyuConfig.AutoQuest = state 
@@ -491,7 +475,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% UNANGETASTETES ORIGINAL-TRANSPORT-SYSTEM
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -800,7 +784,7 @@ suggestLabel.TextSize = 11
 suggestLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT (REMOTES ONLY - FIXED UNPACK)
+--// MODULE HOOKING: PURE RAW COMBAT (PERFEKTE DAMAGE REMOTES)
 --// ============================================================================
 local currentComboIndex = 1
 local lastSwing = 0
@@ -842,48 +826,42 @@ local function EquipTargetWeapon()
     return false
 end
 
-local function PerformMeleeAttack()
+local function PerformMeleeAttack(targets)
     pcall(function()
         local char = LocalPlayer.Character
-        local tool = char and char:FindFirstChildOfClass("Tool")
-        if tool then tool:Activate() end
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then return end
         
         local now = tick()
-        -- Exakt 1 Sekunde Cooldown
-        if now - lastSwing >= 1 then 
-            -- Wenn er zu lange nicht geschlagen hat (> 0.8s), bricht der GPO-Server die Combo ab. Wir MÜSSEN wieder bei 1 starten.
-            if now - lastSwing > 0.8 then
-                currentComboIndex = 1
-            end
-            
+        if now - lastSwing >= 0.35 then
             lastSwing = now
             task.spawn(function()
-                local wepName = tool and tool.Name or "Melee"
-                local animFolder = ReplicatedStorage:FindFirstChild("CombatAnimations") and (ReplicatedStorage.CombatAnimations:FindFirstChild(wepName) or ReplicatedStorage.CombatAnimations:FindFirstChild("Melee"))
+                local hitParts = {}
                 
-                if animFolder then
-                    local animName = "Punch" .. currentComboIndex
-                    if currentComboIndex == 1 then animName = "Dash" end
-                    if currentComboIndex == 4 then animName = "GroundPunch4" end
-                    if currentComboIndex == 5 then animName = "GroundPunch5" end
-                    
-                    local animObj = animFolder:FindFirstChild(animName)
-                    if animObj then
-                        -- EXAKT die Tabellen-Struktur aus deinem Spy-Decompile! (Tabelle IN einer Tabelle + unpack)
-                        local args = {
-                            {
-                                "swingsfx",
-                                animFolder.Name, -- Dynamisch: Entweder dein Tool-Name oder "Melee"
-                                currentComboIndex,
-                                "Ground",
-                                currentComboIndex == 1,
-                                animObj,
-                                2,
-                                1.5
-                            }
-                        }
-                        ReplicatedStorage.Events.CombatRegister:InvokeServer(unpack(args))
+                -- Sammle alle Hitboxen (HumanoidRootParts) der Gegner, die noch leben
+                if type(targets) == "table" then
+                    for _, npc in ipairs(targets) do
+                        local mRoot = npc:FindFirstChild("HumanoidRootPart")
+                        local mHum = npc:FindFirstChildOfClass("Humanoid")
+                        if mRoot and mHum and mHum.Health > 0 then
+                            table.insert(hitParts, mRoot)
+                        end
                     end
+                end
+                
+                if #hitParts > 0 then
+                    -- Das exakte "damage" Array aus deinem Remote Spy!
+                    local argsDamage = {
+                        "damage",
+                        hitParts,
+                        "Melee",
+                        {currentComboIndex, "Ground", "Melee"},
+                        true,
+                        root.CFrame
+                    }
+                    argsDamage.aircombo = "Ground"
+                    
+                    ReplicatedStorage.Events.CombatRegister:InvokeServer(argsDamage)
                 end
                 
                 currentComboIndex = currentComboIndex + 1
@@ -894,7 +872,7 @@ local function PerformMeleeAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT BODYGYRO GEGEN FLACKERN)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT VERTICAL LOOK)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -914,9 +892,6 @@ local function SafeTween(targetCFrame, customSpeed)
     end
 
     local startTime = tick()
-    -- Löst den Spieler vor dem Tweening, damit er sich bewegen kann
-    root.Anchored = false 
-
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm then break end
         
@@ -926,9 +901,7 @@ local function SafeTween(targetCFrame, customSpeed)
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = intermediatePos end
         
-        local bg = root:FindFirstChild("RyuGyro")
-        if bg then bg.CFrame = targetCFrame.Rotation end
-        
+        -- Garantiert, dass die Rotation starr bleibt (kein Flackern)
         root.CFrame = CFrame.new(intermediatePos) * targetCFrame.Rotation
         RunService.Heartbeat:Wait()
     end
@@ -938,7 +911,7 @@ local function SafeTween(targetCFrame, customSpeed)
     root.CFrame = targetCFrame
 end
 
--- Anti-Fling & Flacker-Schutz (Blockiert GPO Game-Scripts)
+-- Anti-Fling & Flacker-Schutz
 RunService.Stepped:Connect(function()
     if RyuConfig.Noclip or RyuConfig.AutoFarm then
         local char = LocalPlayer.Character
@@ -946,7 +919,6 @@ RunService.Stepped:Connect(function()
             local hum = char:FindFirstChildOfClass("Humanoid")
             if hum and RyuConfig.AutoFarm then
                 hum.AutoRotate = false 
-                _G.FaceMouse = false -- Zwingt GPO, nicht gegen unser Skript anzukämpfen
             end
             
             for _, v in pairs(char:GetChildren()) do
@@ -1004,11 +976,8 @@ local function FetchQuest()
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if root then
-            root.Anchored = false
-            local targetCFrame = CFrame.new(npcPos.Position + Vector3.new(0, RyuConfig.KillHeight, 3.5)) * CFrame.Angles(math.rad(-90), 0, 0)
-            
-            local bg = root:FindFirstChild("RyuGyro")
-            if bg then bg.CFrame = targetCFrame.Rotation end
+            local targetPos = npcPos.Position + Vector3.new(0, RyuConfig.KillHeight, 3.5)
+            local targetCFrame = CFrame.new(targetPos) * CFrame.Angles(math.rad(-90), 0, 0)
             
             SafeTween(targetCFrame)
             root.CFrame = targetCFrame
@@ -1070,9 +1039,7 @@ task.spawn(function()
         if not RyuConfig.AutoFarm then
             local char = LocalPlayer.Character
             local hum = char and char:FindFirstChildOfClass("Humanoid")
-            local root = char and char:FindFirstChild("HumanoidRootPart")
             if hum then hum.AutoRotate = true end
-            if root then root.Anchored = false end
             continue
         end
 
@@ -1138,12 +1105,8 @@ task.spawn(function()
                         local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
                         local targetCFrame = CFrame.new(attackPos) * CFrame.Angles(math.rad(-90), 0, 0)
                         
-                        local bg = root:FindFirstChild("RyuGyro")
-                        if bg then bg.CFrame = targetCFrame.Rotation end
-                        
                         local distToPos = (root.Position - attackPos).Magnitude
                         if distToPos > 5 then
-                            root.Anchored = false
                             SafeTween(targetCFrame)
                         end
                         
@@ -1151,10 +1114,8 @@ task.spawn(function()
                         if bp then bp.Position = attackPos end
                         root.CFrame = targetCFrame
                         
-                        -- ULTIMATIVER ANTI-FLACKER FIX: Während wir angreifen, frieren wir den RootPart ein!
-                        root.Anchored = true
-                        
-                        PerformMeleeAttack()
+                        -- Übergibt den aktuellen NPC als Ziel an den Remote-Schlag
+                        PerformMeleeAttack({npc})
                         task.wait(0.05)
                     end
                 end
@@ -1163,11 +1124,7 @@ task.spawn(function()
                 if RyuConfig.AutoFarm and CheckQuestActive() then
                     local targetCFrameCenter = CFrame.new(attackCenter) * CFrame.Angles(math.rad(-90), 0, 0)
                     
-                    local bg = root:FindFirstChild("RyuGyro")
-                    if bg then bg.CFrame = targetCFrameCenter.Rotation end
-                    
                     if (root.Position - attackCenter).Magnitude > 5 then
-                        root.Anchored = false
                         SafeTween(targetCFrameCenter)
                     end
                     
@@ -1183,6 +1140,14 @@ task.spawn(function()
                             
                             if mHum and mRoot and mHum.Health > 0 then
                                 anyAlive = true
+                                
+                                for _, part in pairs(npc:GetChildren()) do
+                                    if part:IsA("BasePart") then
+                                        part.CanCollide = false
+                                        part.Velocity = Vector3.new(0, 0, 0)
+                                        part.RotVelocity = Vector3.new(0, 0, 0)
+                                    end
+                                end
                                 
                                 if isRagdolled then
                                     mRoot.Size = Vector3.new(2, 2, 1)
@@ -1200,16 +1165,13 @@ task.spawn(function()
                             if bp then bp.Position = attackCenter end
                             root.CFrame = targetCFrameCenter
                             
-                            -- ULTIMATIVER ANTI-FLACKER FIX
-                            root.Anchored = true
-                            
-                            PerformMeleeAttack()
+                            -- Übergibt ALLE gelockten Mobs als Ziel an den Remote-Schlag
+                            PerformMeleeAttack(targetMobs)
                             task.wait(0.05)
                         end
                     end
                     
-                    -- Reset Hitboxes & Entankern, wenn alle tot sind
-                    root.Anchored = false
+                    -- Reset Hitboxes
                     for _, npc in ipairs(targetMobs) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
                         if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
