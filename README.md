@@ -33,6 +33,7 @@ task.spawn(function()
                 task.delay(0.01, function()
                     if descendant.Parent and descendant.Text then
                         local txt = descendant.Text:lower()
+                        -- "error" hinzugefügt, um generische GPO-Fehlermeldungen zu blockieren
                         if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") then
                             descendant.Visible = false
                             descendant:Destroy()
@@ -784,7 +785,7 @@ suggestLabel.TextSize = 11
 suggestLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT (PERFEKTE DAMAGE REMOTES)
+--// MODULE HOOKING: PURE RAW COMBAT (PERFEKTE DAMAGE REMOTES - 0.9s DELAY)
 --// ============================================================================
 local currentComboIndex = 1
 local lastSwing = 0
@@ -833,12 +834,12 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        if now - lastSwing >= 0.35 then
+        -- Exakt 0.9 Sekunden Delay, wie gewünscht
+        if now - lastSwing >= 0.9 then
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
                 
-                -- Sammle alle Hitboxen (HumanoidRootParts) der Gegner, die noch leben
                 if type(targets) == "table" then
                     for _, npc in ipairs(targets) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
@@ -850,7 +851,6 @@ local function PerformMeleeAttack(targets)
                 end
                 
                 if #hitParts > 0 then
-                    -- Das exakte "damage" Array aus deinem Remote Spy!
                     local argsDamage = {
                         "damage",
                         hitParts,
@@ -872,7 +872,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT VERTICAL LOOK)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (NORMALES SCHAUEN)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -901,7 +901,6 @@ local function SafeTween(targetCFrame, customSpeed)
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = intermediatePos end
         
-        -- Garantiert, dass die Rotation starr bleibt (kein Flackern)
         root.CFrame = CFrame.new(intermediatePos) * targetCFrame.Rotation
         RunService.Heartbeat:Wait()
     end
@@ -977,7 +976,7 @@ local function FetchQuest()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if root then
             local targetPos = npcPos.Position + Vector3.new(0, RyuConfig.KillHeight, 3.5)
-            local targetCFrame = CFrame.new(targetPos) * CFrame.Angles(math.rad(-90), 0, 0)
+            local targetCFrame = CFrame.lookAt(targetPos, Vector3.new(npcPos.Position.X, targetPos.Y, npcPos.Position.Z))
             
             SafeTween(targetCFrame)
             root.CFrame = targetCFrame
@@ -1103,7 +1102,7 @@ task.spawn(function()
                         if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
                         
                         local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
-                        local targetCFrame = CFrame.new(attackPos) * CFrame.Angles(math.rad(-90), 0, 0)
+                        local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mRoot.Position.X, attackPos.Y, mRoot.Position.Z))
                         
                         local distToPos = (root.Position - attackPos).Magnitude
                         if distToPos > 5 then
@@ -1114,7 +1113,6 @@ task.spawn(function()
                         if bp then bp.Position = attackPos end
                         root.CFrame = targetCFrame
                         
-                        -- Übergibt den aktuellen NPC als Ziel an den Remote-Schlag
                         PerformMeleeAttack({npc})
                         task.wait(0.05)
                     end
@@ -1122,7 +1120,7 @@ task.spawn(function()
                 
                 -- Phase 2: In die Mitte fliegen und Spammen
                 if RyuConfig.AutoFarm and CheckQuestActive() then
-                    local targetCFrameCenter = CFrame.new(attackCenter) * CFrame.Angles(math.rad(-90), 0, 0)
+                    local targetCFrameCenter = CFrame.new(attackCenter)
                     
                     if (root.Position - attackCenter).Magnitude > 5 then
                         SafeTween(targetCFrameCenter)
@@ -1165,7 +1163,6 @@ task.spawn(function()
                             if bp then bp.Position = attackCenter end
                             root.CFrame = targetCFrameCenter
                             
-                            -- Übergibt ALLE gelockten Mobs als Ziel an den Remote-Schlag
                             PerformMeleeAttack(targetMobs)
                             task.wait(0.05)
                         end
