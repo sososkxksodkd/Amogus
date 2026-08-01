@@ -307,7 +307,7 @@ local function ToggleHover(state)
     end
 end
 
---// UI AUFBAU: FARM
+--// UI AUFBAU: FARM (FISHMAN CAVE FARM)
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 local SubStats = CreateSubTab(TabFarm, "Stats") 
@@ -468,7 +468,6 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% UNANGETASTETES ORIGINAL TRANSPORT SYSTEM
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -616,7 +615,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 local currentPos = root.Position
-                if (currentPos - tPos).Magnitude <= 5 then break end
+                local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
+                local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
+                
+                if (flatCurrent - flatTargetLoop).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
@@ -725,10 +727,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                 end
-                
-                if (root.Position - finalPos).Magnitude > 15 then
-                    break
-                end
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
@@ -746,7 +744,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             return true
         end
         
-        SpiderLerp(targetPos, RyuConfig.IslandSpeed)
+        SpiderLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.IslandSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
