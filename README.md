@@ -332,6 +332,7 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
+--// NEUE SEKTION FÜR FISHMAN CAVE TP IN FARM
 local SecMovement = CreateSection(SubLeveling, "Auto Farm")
 
 local tpCaveLabel = Instance.new("TextLabel", SecMovement)
@@ -359,64 +360,45 @@ CreateButton(SecMovement, "Fishman Cave tp", function()
                 return
             end
             
-            -- Simuliere Bewegung für 2 Sekunden
-            RyuNotify:Send("Fishman Cave TP", "Simuliere Bewegung...", 2)
-            local moveStart = tick()
-            while tick() - moveStart < 2 do
-                if hum and root then
-                    hum:Move(root.CFrame.LookVector, false)
-                end
-                RunService.Heartbeat:Wait()
-            end
-            if hum then hum:Move(Vector3.new(0,0,0), false) end
+            RyuNotify:Send("Fishman Cave TP", "Laufe ins Portal...", 3)
+            ToggleHover(false)
+            
+            root.Velocity = Vector3.new(0,0,0)
+            root.CFrame = portal.CFrame * CFrame.new(0, 0, 15)
+            root.CFrame = CFrame.lookAt(root.Position, portal.Position)
             
             local tpSuccess = false
             local isBlack = false
+            local moveStart = tick()
             
-            while not tpSuccess do
-                root.Velocity = Vector3.new(0, 0, 0)
-                root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
+            while tick() - moveStart < 4 do
+                if hum then hum:Move(root.CFrame.LookVector, false) end
+                root.CFrame = root.CFrame + root.CFrame.LookVector * 0.4
                 
-                local checkStart = tick()
-                isBlack = false
+                pcall(function() firetouchinterest(root, portal, 0) task.wait() firetouchinterest(root, portal, 1) end)
                 
-                while tick() - checkStart < 4 do
-                    if char and root and portal and (root.Position - portal.Position).Magnitude > 1000 then
-                        tpSuccess = true
-                        break
-                    end
-                    
-                    if hum and root and portal and (root.Position - portal.Position).Magnitude < 50 then
-                        hum:Move(Vector3.new(math.sin(tick() * 10), 0, math.cos(tick() * 10)))
-                        local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
-                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-                    end
-                    
-                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                    if pg then
-                        for _, v in pairs(pg:GetDescendants()) do
-                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                    isBlack = true
-                                    tpSuccess = true
-                                    break
-                                end
+                if (root.Position - portal.Position).Magnitude > 1000 then
+                    tpSuccess = true
+                    break
+                end
+                
+                local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                if pg then
+                    for _, v in pairs(pg:GetDescendants()) do
+                        if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
+                            if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
+                                isBlack = true
+                                tpSuccess = true
+                                break
                             end
                         end
                     end
-                    
-                    if tpSuccess then 
-                        if hum then hum:Move(Vector3.new(0,0,0)) end
-                        break 
-                    end
-                    task.wait(0.1)
                 end
-                
-                if not tpSuccess then
-                    if hum then hum:Move(Vector3.new(0,0,0)) end
-                    task.wait(3)
-                end
+                if tpSuccess then break end
+                RunService.Heartbeat:Wait()
             end
+            
+            if hum then hum:Move(Vector3.new(0,0,0), false) end
             
             if isBlack then
                 local startClear = tick()
@@ -437,8 +419,6 @@ CreateButton(SecMovement, "Fishman Cave tp", function()
                     task.wait(0.1)
                 end
                 task.wait(1)
-            else
-                task.wait(2)
             end
             
             RyuNotify:Send("Fishman Cave TP", "Erfolgreich angekommen!", 4)
@@ -477,7 +457,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT EXAKTEM 300-STUDS ROBO SCANNER)
+--// DEIN 100% UNANGETASTETES ORIGINAL-TRANSPORT-SYSTEM (VERBESSERT FÜR WASSER/AUFZUG)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -542,8 +522,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local isStartIslandRobo = (distToPlayer < 1000 and islandDistFromPlayer > 1500)
                 
-                -- HIER IST DER VERBESSERTE 300-STUDS ROBO SCANNER (IGNORIERT BENACHBARTE INSELN)
-                if not isStartIslandRobo and distToTarget <= 300 then
+                if not isStartIslandRobo then
                     if distToTarget < closestDist then
                         closestDist = distToTarget
                         closestRobo = v
@@ -569,7 +548,19 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
         local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
         
-        local function SpiderLerp(tPos, currentSpeed)
+        local platform = Instance.new("Part")
+        platform.Name = "Part"
+        platform.Size = Vector3.new(40, 3, 40) 
+        platform.Anchored = true
+        platform.CanCollide = true
+        platform.Transparency = 0.5
+        platform.Material = Enum.Material.ForceField
+        platform.Color = Color3.fromRGB(0, 255, 255)
+        platform.CFrame = CFrame.new(root.Position - Vector3.new(0, floorOffset, 0))
+        platform.Parent = Workspace
+        
+        -- Spezielle Wasser/Aufzug Funktion
+        local function SpiderLerp(tPos, currentSpeed, forceY)
             local startPos = root.Position
             local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
             local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
@@ -592,7 +583,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             _G.soruDashing = true
 
             local rayParamsDown = RaycastParams.new()
-            rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+            rayParamsDown.FilterDescendantsInstances = {char, platform, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
 
             if hum then hum.PlatformStand = false end
@@ -607,8 +598,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if npcsFolder then
                         for _, v in pairs(npcsFolder:GetChildren()) do
                             if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-                                local distToTarget = (v.HumanoidRootPart.Position - rawPos).Magnitude
-                                if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 and distToTarget <= 300 then
+                                if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 then
                                     tPos = v.HumanoidRootPart.Position
                                     isLookingForRobo = false
                                     
@@ -636,77 +626,87 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local samplePos1 = Vector3.new(currentX, 0, currentZ)
-                local samplePos2 = samplePos1 + (flatMoveDir * 6)
-                
-                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y1 = hit1 and hit1.Position.Y or 0
-                
-                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y2 = hit2 and hit2.Position.Y or 0
-                
-                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
-                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
-                
-                local targetY = y1
-                if forwardHit then
-                    targetY = math.max(y1, y2)
-                else
-                    if math.abs(y2 - currentY) < 6 then
-                        targetY = y2
-                    end
-                end
-                
-                targetY = math.max(targetY, 1) 
-                
-                local finalY = targetY + floorOffset
                 local yVelocity = 0
                 local addTime = dt
                 
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
-
-                if finalY > currentY + 3 then 
-                    if not isClimbing then
-                        isClimbing = true
-                    end
-                    
-                    if tick() - lastClimbFire > 0.3 then
-                        lastClimbFire = tick()
-                        task.spawn(function()
-                            if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-                        end)
-                    end
-                    if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
-                    
-                    local climbRate = currentSpeed * 0.8
-                    currentY = math.min(currentY + (climbRate * dt), finalY)
-                    yVelocity = climbRate
-                    
-                    if isWallBlocking then
-                        addTime = 0 
-                    elseif finalY - currentY > 5 then
-                        addTime = dt * 0.3
+                if forceY then
+                    currentY = forceY
+                    if platform and platform.Parent then
+                        platform.CFrame = CFrame.new(currentX, forceY - floorOffset - 1.5, currentZ)
                     end
                 else
-                    if isClimbing then
-                        isClimbing = false
-                        task.spawn(function()
-                            if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
-                        end)
-                        if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
+                    local samplePos1 = Vector3.new(currentX, 0, currentZ)
+                    local samplePos2 = samplePos1 + (flatMoveDir * 6)
+                    
+                    local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                    local y1 = hit1 and hit1.Position.Y or 0
+                    
+                    local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                    local y2 = hit2 and hit2.Position.Y or 0
+                    
+                    local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
+                    local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
+                    
+                    local targetY = y1
+                    if forwardHit then
+                        targetY = math.max(y1, y2)
+                    else
+                        if math.abs(y2 - currentY) < 6 then
+                            targetY = y2
+                        end
                     end
                     
-                    if finalY < currentY then
-                        local fallRate = 150
-                        currentY = math.max(currentY - (fallRate * dt), finalY)
-                        yVelocity = -fallRate
+                    targetY = math.max(targetY, 1) 
+                    local finalY = targetY + floorOffset
+                    
+                    local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 1.5, rayParamsDown)
+                    local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 1
+
+                    if finalY > currentY + 3 then 
+                        if not isClimbing then
+                            isClimbing = true
+                        end
+                        
+                        if tick() - lastClimbFire > 0.3 then
+                            lastClimbFire = tick()
+                            task.spawn(function()
+                                if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                            end)
+                        end
+                        if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
+                        
+                        local climbRate = currentSpeed * 0.8
+                        currentY = math.min(currentY + (climbRate * dt), finalY)
+                        yVelocity = climbRate
+                        
+                        if isWallBlocking then
+                            addTime = 0 
+                        elseif finalY - currentY > 5 then
+                            addTime = dt * 0.3
+                        end
                     else
-                        currentY = finalY
+                        if isClimbing then
+                            isClimbing = false
+                            task.spawn(function()
+                                if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+                            end)
+                            if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
+                        end
+                        
+                        if finalY < currentY then
+                            local fallRate = 150
+                            currentY = math.max(currentY - (fallRate * dt), finalY)
+                            yVelocity = -fallRate
+                        else
+                            currentY = finalY
+                        end
+                    end
+                    
+                    currentY = math.max(currentY, 1)
+                    if platform and platform.Parent then
+                        platform.CFrame = CFrame.new(currentX, currentY - floorOffset - 1.5, currentZ)
                     end
                 end
-                
-                currentY = math.max(currentY, 1)
                 
                 elapsedTime = elapsedTime + addTime
                 
@@ -736,6 +736,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                 end
+                
+                if not forceY and (root.Position - finalPos).Magnitude > 15 then
+                    break
+                end
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
@@ -747,20 +751,60 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
-            
             root.Velocity = Vector3.new(0, 0, 0)
-            
             return true
         end
         
-        SpiderLerp(targetPos, RyuConfig.IslandSpeed)
+        -- Hole Wasserhöhe
+        local waterY = 15
+        local ocean = Workspace:FindFirstChild("WaterStuff") and Workspace.WaterStuff:FindFirstChild("Ocean") or Workspace:FindFirstChild("Ocean")
+        if ocean then
+            if ocean:IsA("Model") then
+                local pt = ocean:FindFirstChildWhichIsA("BasePart", true)
+                if pt then waterY = pt.Position.Y + (pt.Size.Y/2) end
+            elseif ocean:IsA("BasePart") then
+                waterY = ocean.Position.Y + (ocean.Size.Y/2)
+            end
+        end
+        
+        local runY = waterY + floorOffset + 2
+        
+        -- NOCLIP aktivieren für Wasser-Fahrt
+        _G.RyuIsTweening = true 
+        
+        -- Aufzug sofort nach unten (aufs Wasser)
+        root.Velocity = Vector3.new(0,0,0)
+        root.CFrame = CFrame.new(root.Position.X, runY, root.Position.Z)
+        
+        -- Laufen auf dem Wasser (schnell, flüssig)
+        local waterTargetPos = Vector3.new(targetPos.X, runY, targetPos.Z)
+        SpiderLerp(waterTargetPos, RyuConfig.IslandSpeed, runY)
+        
+        -- Aufzug sofort nach oben (Instant Elevator)
+        RyuNotify:Send("Spider TP", "Aufzug nach oben!", 2)
+        root.Velocity = Vector3.new(0,0,0)
+        root.CFrame = CFrame.new(targetPos + Vector3.new(0, 5, 0))
         
         if hum then hum.Jump = true end
-        root.Velocity = Vector3.new(0, 0, 0)
         
+        if platform then platform:Destroy() end
         ToggleHover(false)
         _G.RyuIsTweening = false
     end)
+end)
+
+-- Erweiterte Noclip Logik für den Wassertransport
+RunService.Stepped:Connect(function()
+    if RyuConfig.Noclip or RyuConfig.AutoFarm or _G.RyuIsTweening then
+        local char = LocalPlayer.Character
+        if char then
+            for _, v in pairs(char:GetChildren()) do
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
+                    v.CanCollide = false 
+                end
+            end
+        end
+    end
 end)
 
 local SecAutoBuy = CreateSection(SubAutoBuy, "Auto Buy")
@@ -878,21 +922,8 @@ local function SafeTween(targetCFrame, customSpeed)
     root.CFrame = targetCFrame
 end
 
-RunService.Stepped:Connect(function()
-    if RyuConfig.Noclip or RyuConfig.AutoFarm then
-        local char = LocalPlayer.Character
-        if char then
-            for _, v in pairs(char:GetChildren()) do
-                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
-                    v.CanCollide = false 
-                end
-            end
-        end
-    end
-end)
-
 --// ============================================================================
---// HARMONY CORE: 1-BY-1 FARM (MOB GROUPING)
+--// HARMONY CORE: 1-BY-1 FARM, QUEST FUSION & FAIL-SAFE
 --// ============================================================================
 local function CheckQuestActive()
     local active = false
@@ -985,7 +1016,7 @@ task.spawn(function()
     end
 end)
 
---// MAIN FARM LOOP (KITING / GROUPING REWORK)
+--// MAIN FARM LOOP
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1010,14 +1041,13 @@ task.spawn(function()
             end
         end
 
-        --// 2. MOB GROUPING / KITING (ALLE PULLEN & IN DER MITTE TÖTEN)
+        --// 2. 1-BY-1 MOB HUNT
         if RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local npcs = Workspace:FindFirstChild("NPCs")
             if not npcs then continue end
             
-            local targetMobs = {}
-            local centerPos = Vector3.new(0, 0, 0)
-            local mobCount = 0
+            local targetMob = nil
+            local closestDist = math.huge
             
             for _, npc in pairs(npcs:GetChildren()) do
                 if npc.Name == RyuConfig.TargetMob then
@@ -1027,92 +1057,58 @@ task.spawn(function()
                     local isRagdolled = npc:FindFirstChild("Rag") or (npc.Parent and npc.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
                     
                     if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
-                        table.insert(targetMobs, npc)
-                        centerPos = centerPos + mRoot.Position
-                        mobCount = mobCount + 1
+                        local d = (root.Position - mRoot.Position).Magnitude
+                        
+                        if d < closestDist then
+                            closestDist = d
+                            targetMob = npc
+                        end
                     end
                 end
             end
             
-            if mobCount > 0 then
-                centerPos = centerPos / mobCount
-                local attackCenter = centerPos + Vector3.new(0, RyuConfig.KillHeight, 0)
+            if targetMob then
+                local mRoot = targetMob:FindFirstChild("HumanoidRootPart")
+                local mHum = targetMob:FindFirstChildOfClass("Humanoid")
                 
                 EquipTargetWeapon()
                 
-                -- Phase 1: Jeden Mob einmal anhitten (Pulling)
-                for _, npc in ipairs(targetMobs) do
-                    if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
+                while RyuConfig.AutoFarm and mHum and mHum.Health > 0 do
+                    local isRagdolled = targetMob:FindFirstChild("Rag") or (targetMob.Parent and targetMob.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
                     
-                    local mHum = npc:FindFirstChildOfClass("Humanoid")
-                    local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                    local isRagdolled = npc:FindFirstChild("Rag") or (npc.Parent and npc.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
-                    
-                    if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
-                        local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
-                        if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
-                        local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
-                        
-                        local distToPos = (root.Position - attackPos).Magnitude
-                        if distToPos > 5 then
-                            SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
-                        end
-                        
-                        local bp = root:FindFirstChild("RyuHover")
-                        if bp then bp.Position = attackPos end
-                        root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
-                        
-                        PerformMeleeAttack()
-                        task.wait(0.05)
+                    if isRagdolled then
+                        mRoot.Size = Vector3.new(2, 2, 1)
+                        task.wait(0.2)
+                        continue 
                     end
+                    
+                    if not CheckQuestActive() then
+                        break 
+                    end
+                    
+                    mRoot.Size = Vector3.new(20, 20, 20)
+                    mRoot.CanCollide = false
+                    mRoot.Velocity = Vector3.new(0, 0, 0)
+                    mRoot.RotVelocity = Vector3.new(0, 0, 0)
+                    
+                    local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
+                    if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
+                    local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
+                    
+                    local distToPos = (root.Position - attackPos).Magnitude
+                    if distToPos > 5 then
+                        SafeTween(CFrame.lookAt(attackPos, mRoot.Position))
+                    end
+                    
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = attackPos end
+                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                    
+                    PerformMeleeAttack()
+                    task.wait(0.05)
                 end
                 
-                -- Phase 2: In die Mitte fliegen und Spammen
-                if RyuConfig.AutoFarm and CheckQuestActive() then
-                    if (root.Position - attackCenter).Magnitude > 5 then
-                        SafeTween(CFrame.lookAt(attackCenter, centerPos))
-                    end
-                    
-                    local anyAlive = true
-                    while RyuConfig.AutoFarm and anyAlive do
-                        if not CheckQuestActive() then break end
-                        anyAlive = false
-                        
-                        for _, npc in ipairs(targetMobs) do
-                            local mHum = npc:FindFirstChildOfClass("Humanoid")
-                            local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                            local isRagdolled = npc:FindFirstChild("Rag") or (npc.Parent and npc.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
-                            
-                            if mHum and mRoot and mHum.Health > 0 then
-                                anyAlive = true
-                                
-                                if isRagdolled then
-                                    mRoot.Size = Vector3.new(2, 2, 1)
-                                else
-                                    mRoot.Size = Vector3.new(20, 20, 20)
-                                    mRoot.CanCollide = false
-                                    mRoot.Velocity = Vector3.new(0, 0, 0)
-                                    mRoot.RotVelocity = Vector3.new(0, 0, 0)
-                                end
-                            end
-                        end
-                        
-                        if anyAlive then
-                            local bp = root:FindFirstChild("RyuHover")
-                            if bp then bp.Position = attackCenter end
-                            root.CFrame = CFrame.lookAt(root.Position, Vector3.new(centerPos.X, root.Position.Y, centerPos.Z))
-                            
-                            PerformMeleeAttack()
-                            task.wait(0.05)
-                        end
-                    end
-                    
-                    -- Reset Hitboxes
-                    for _, npc in ipairs(targetMobs) do
-                        local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                        if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
-                    end
-                end
+                if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
             end
         end
     end
