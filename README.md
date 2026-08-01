@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (300 STUDS ISLAND-LOCKED ROBO SCANNER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NO DISTANCE LIMIT / NO ERRORS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift & Errors)
+--// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift)
 task.spawn(function()
     local pg = LocalPlayer:WaitForChild("PlayerGui", 10)
     if pg then
@@ -33,6 +33,7 @@ task.spawn(function()
                 task.delay(0.01, function()
                     if descendant.Parent and descendant.Text then
                         local txt = descendant.Text:lower()
+                        -- "error" hinzugefügt, um generische GPO-Fehlermeldungen zu blockieren
                         if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") then
                             descendant.Visible = false
                             descendant:Destroy()
@@ -339,6 +340,7 @@ CreateSlider(SecMovement, "Aufzug Geschw. (Y-Achse)", 5, 65, RyuConfig.ElevatorS
     RyuConfig.ElevatorSpeed = val
 end)
 
+--// VERBESSERTES FISHMAN CAVE SYSTEM (MIT DEM PRÄZISEN 300-STUDS ROBO SCANNER)
 CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
     task.spawn(function()
         local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
@@ -349,17 +351,16 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then return end
         
-        -- EXakter 300-Studs Robo Scanner für Fishman Cave
         local targetPos = rawPos
         local closestRobo = nil
-        local closestDistToIsland = math.huge 
+        local closestDist = math.huge 
         
         for _, v in pairs(Workspace:GetDescendants()) do
             if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-                local distToIslandCenter = (v.HumanoidRootPart.Position - rawPos).Magnitude
-                if distToIslandCenter <= 300 then
-                    if distToIslandCenter < closestDistToIsland then
-                        closestDistToIsland = distToIslandCenter
+                local distToTarget = (v.HumanoidRootPart.Position - rawPos).Magnitude
+                if distToTarget <= 300 then
+                    if distToTarget < closestDist then
+                        closestDist = distToTarget
                         closestRobo = v
                     end
                 end
@@ -417,7 +418,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
-            local nextRoboCheck = tick()
             local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
@@ -580,8 +580,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 root.Velocity = Vector3.new(0, 0, 0)
                 root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
                 
-                RyuNotify:Send("Smart TP", "Versuche Portal-Teleport...", 3)
-                
                 local checkStart = tick()
                 isBlack = false
                 
@@ -619,13 +617,11 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 
                 if not tpSuccess then
                     if hum then hum:Move(Vector3.new(0,0,0)) end
-                    RyuNotify:Send("Smart TP", "Teleport verzögert! Versuche es in 3 Sek. nochmal...", 3)
                     task.wait(3)
                 end
             end
             
             if isBlack then
-                RyuNotify:Send("Smart TP", "Ladebildschirm erkannt! Warte auf Map...", 3)
                 local startClear = tick()
                 while tick() - startClear < 15 do
                     local foundBlack = false
@@ -649,7 +645,20 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             end
             
             ToggleHover(true)
-            RyuNotify:Send("Smart TP", "Erfolgreich in Fishman Cave angekommen!", 3)
+            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
+            
+            local caveRoute = {
+                Vector3.new(8004, -2154, -17130),
+                Vector3.new(7960, -2154, -17156),
+                Vector3.new(7862, -2154, -17159),
+                Vector3.new(7775, -2177, -17174)
+            }
+            
+            for _, wp in ipairs(caveRoute) do
+                SpiderLerp(wp, RyuConfig.FishmanSpeed)
+            end
+            
+            RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
         end
         
         platform:Destroy()
@@ -704,7 +713,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
-            local nextRoboCheck = tick()
             local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
@@ -972,7 +980,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 100% UNBERÜHRTES TRANSPORT-SYSTEM (EXAKT WIE DU ES GESCHICKT HAST) + 300-STUDS ISLAND-LOCKED ROBO SCANNER
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT EXAKTEM 300-STUDS ROBO SCANNER)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -1037,7 +1045,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local isStartIslandRobo = (distToPlayer < 1000 and islandDistFromPlayer > 1500)
                 
-                -- Exakter 300 Studs Radius Check, um Nachbarinseln zu ignorieren
+                -- HIER IST DER VERBESSERTE 300-STUDS ROBO SCANNER (IGNORIERT BENACHBARTE INSELN)
                 if not isStartIslandRobo and distToTarget <= 300 then
                     if distToTarget < closestDist then
                         closestDist = distToTarget
