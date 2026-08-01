@@ -69,7 +69,7 @@ local RyuConfig = {
     TargetWeapon = "Combat",           
     
     TweenSpeed = 50, 
-    KillHeight = 7, 
+    KillHeight = 5, -- 5 Studs für Gegner und Quest 
     FishmanSpeed = 65, 
     ElevatorSpeed = 65, 
     
@@ -827,15 +827,29 @@ local function EquipTargetWeapon()
 end
 
 local function PerformMeleeAttack()
-    pcall(function()
-        local char = LocalPlayer.Character
-        local tool = char and char:FindFirstChildOfClass("Tool")
-        if tool then tool:Activate() end
-        
-        if mouse1click then mouse1click() end
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
-        task.wait()
-        VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+    task.spawn(function()
+        pcall(function()
+            local argsBlock = { true, "Melee", true }
+            ReplicatedStorage.Events.Block:InvokeServer(unpack(argsBlock))
+        end)
+    end)
+    
+    task.spawn(function()
+        pcall(function()
+            local argsAttack = {
+                {
+                    "swingsfx",
+                    "Melee",
+                    3,
+                    "Ground",
+                    false,
+                    ReplicatedStorage.CombatAnimations.Melee.Punch3,
+                    2,
+                    1.5
+                }
+            }
+            ReplicatedStorage.Events.CombatRegister:InvokeServer(unpack(argsAttack))
+        end)
     end)
 end
 
@@ -860,6 +874,8 @@ local function SafeTween(targetCFrame, customSpeed)
     end
 
     local startTime = tick()
+    local lastFootstep = tick()
+    
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm then break end
         
@@ -870,6 +886,12 @@ local function SafeTween(targetCFrame, customSpeed)
         if bp then bp.Position = intermediatePos end
         
         root.CFrame = CFrame.lookAt(intermediatePos, targetPos)
+        
+        if tick() - lastFootstep > 0.3 then
+            lastFootstep = tick()
+            pcall(function() ReplicatedStorage.Events.footstep:FireServer() end)
+        end
+        
         RunService.Heartbeat:Wait()
     end
     
@@ -933,7 +955,7 @@ local function FetchQuest()
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if root then
-            SafeTween(npcPos * CFrame.new(0, 0, 3.5))
+            SafeTween(npcPos * CFrame.new(0, RyuConfig.KillHeight, 3.5))
             root.CFrame = CFrame.lookAt(root.Position, Vector3.new(npcPos.Position.X, root.Position.Y, npcPos.Position.Z))
             
             pcall(function()
