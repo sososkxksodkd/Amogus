@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE FIXED & TRANSPORT UNTOUCHED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FISHMAN CAVE CLEAN STOP & UNTOUCHED TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift)
+--// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift & Errors)
 task.spawn(function()
     local pg = LocalPlayer:WaitForChild("PlayerGui", 10)
     if pg then
@@ -339,7 +339,7 @@ CreateSlider(SecMovement, "Aufzug Geschw. (Y-Achse)", 5, 65, RyuConfig.ElevatorS
     RyuConfig.ElevatorSpeed = val
 end)
 
---// FISHMAN CAVE SYSTEM (ROBO IGNORE & PLAYER SCANNER FIX)
+--// FISHMAN CAVE: OHNE ROBO, NUR SPIELER ZUM PORTAL TPN & WARTEN AUF KONTROLLE
 CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
     task.spawn(function()
         local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
@@ -618,30 +618,17 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     if not foundBlack then break end
                     task.wait(0.1)
                 end
-                task.wait(1) 
+                task.wait(1)
             else
                 task.wait(2)
             end
             
-            ToggleHover(true)
-            RyuNotify:Send("Smart TP", "Navigiere durch Fishman Cave...", 3)
-            
-            local caveRoute = {
-                Vector3.new(8004, -2154, -17130),
-                Vector3.new(7960, -2154, -17156),
-                Vector3.new(7862, -2154, -17159),
-                Vector3.new(7775, -2177, -17174)
-            }
-            
-            for _, wp in ipairs(caveRoute) do
-                SpiderLerp(wp, RyuConfig.FishmanSpeed)
-            end
-            
-            RyuNotify:Send("Smart TP", "Route in Fishman Cave abgeschlossen!", 3)
+            -- HIER WIRD DER TWEEN BEENDET: KEIN ROBO FLUG MEHR, DU HAST DIE KONTROLLE
+            ToggleHover(false)
+            RyuNotify:Send("Smart TP", "Erfolgreich angekommen! Du hast die Kontrolle.", 4)
         end
         
         platform:Destroy()
-        ToggleHover(false)
     end)
 end)
 
@@ -692,7 +679,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
-            local nextRoboCheck = tick()
             local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
@@ -917,17 +903,11 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 task.wait(2)
             end
             
-            local caveRoute = {
-                Vector3.new(8004, -2154, -17130),
-                Vector3.new(7960, -2154, -17156),
-                Vector3.new(7862, -2154, -17159),
-                Vector3.new(7775, -2177, -17174)
-            }
-            
-            for _, wp in ipairs(caveRoute) do
-                SpiderLerp(wp, RyuConfig.FishmanSpeed)
-            end
+            ToggleHover(false)
+            RyuNotify:Send("Smart TP", "Erfolgreich in Fishman Cave angekommen! Du hast die Kontrolle.", 4)
         end
+        
+        platform:Destroy()
     end)
 end)
 
@@ -960,9 +940,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ============================================================================
---// DEIN URSPRÜNGLICHES TRANSPORT-SYSTEM (100% UNBERÜHRT & ORIGINAL)
---// ============================================================================
+--// 100% UNBERÜHRTES TRANSPORT-SYSTEM (MIT EXAKTEM 300-STUDS ROBO SCANNER)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -1027,7 +1005,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local isStartIslandRobo = (distToPlayer < 1000 and islandDistFromPlayer > 1500)
                 
-                if not isStartIslandRobo then
+                if not isStartIslandRobo and distToTarget <= 300 then
                     if distToTarget < closestDist then
                         closestDist = distToTarget
                         closestRobo = v
@@ -1091,7 +1069,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if npcsFolder then
                         for _, v in pairs(npcsFolder:GetChildren()) do
                             if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-                                if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 then
+                                local distToTarget = (v.HumanoidRootPart.Position - rawPos).Magnitude
+                                if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 and distToTarget <= 300 then
                                     tPos = v.HumanoidRootPart.Position
                                     isLookingForRobo = false
                                     
@@ -1236,14 +1215,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             return true
         end
         
-        RyuNotify:Send("Spider TP", "Reise nach " .. targetIslandName .. "...", 3)
         SpiderLerp(targetPos, RyuConfig.IslandSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
         ToggleHover(false)
-        RyuNotify:Send("Spider TP", "Ziel erreicht!", 3)
         _G.RyuIsTweening = false
     end)
 end)
@@ -1259,7 +1236,6 @@ CreateButton(SecAutoBuy, "Buy Geppo", function()
                 inter:InvokeServer("Geppo")
             end
         end
-        RyuNotify:Send("Auto Buy", "Kaufanfrage für Geppo gesendet!", 3)
     end)
 end)
 
