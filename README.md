@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (NO RAMP LAUNCH & 5-STUD CLIMB GAP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (Y=0 LOCK, NO LAUNCH & REAL GROUNDING)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -404,41 +404,30 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local samplePos1 = Vector3.new(currentX, 0, currentZ)
-                local samplePos2 = samplePos1 + (flatMoveDir * 6)
+                -- RAYCAST: Wahren Boden finden
+                local groundHit = Workspace:Raycast(Vector3.new(currentX, 2500, currentZ), Vector3.new(0, -3000, 0), rayParamsDown)
+                local targetY = groundHit and groundHit.Position.Y or 0
                 
-                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y1 = hit1 and hit1.Position.Y or 0
-                
-                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y2 = hit2 and hit2.Position.Y or 0
-                
-                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
-                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
-                
-                local targetY = y1
-                if forwardHit then
-                    targetY = math.max(y1, y2)
-                else
-                    if math.abs(y2 - currentY) < 6 then
-                        targetY = y2
-                    end
-                end
-                
-                -- Y Terrain Intelligenz
+                -- Wasser = Y:0, Land = Boden
                 if targetY <= 1 then
                     targetY = 0
-                else
-                    targetY = targetY + 3
                 end
                 
                 local finalY = targetY + floorOffset
                 local yVelocity = 0
                 local addTime = dt
                 
-                -- 5-Stud Abstand Logik & Velocity Fix (Ramp Launch Prevention)
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 5.5, rayParamsDown)
+                -- 5-Stud Abstand Logik
+                local forwardRayStart = Vector3.new(currentX, currentY, currentZ) 
+                local wallCheckHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 5.5, rayParamsDown)
                 local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 5
+                
+                if isWallBlocking then
+                    local topHit = Workspace:Raycast(Vector3.new(currentX + flatMoveDir.X * 5.5, 2500, currentZ + flatMoveDir.Z * 5.5), Vector3.new(0, -3000, 0), rayParamsDown)
+                    if topHit and topHit.Position.Y > targetY then
+                        finalY = topHit.Position.Y + floorOffset
+                    end
+                end
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
@@ -451,7 +440,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     
                     local climbRate = currentSpeed * 1.3 
                     currentY = math.min(currentY + (climbRate * dt), finalY)
-                    yVelocity = climbRate
                     
                     if not climbPart then
                         climbPart = Instance.new("Part")
@@ -484,9 +472,8 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     end
                     
                     if finalY < currentY then
-                        local fallRate = 150
+                        local fallRate = 250 -- SCHNELLER WIEDER RUNTER (Kein Schweben)
                         currentY = math.max(currentY - (fallRate * dt), finalY)
-                        yVelocity = -fallRate
                     else
                         currentY = finalY
                     end
@@ -513,9 +500,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 end
                 if hum then hum:Move(moveDir, false) end
                 
-                -- RAMPE FIX: Verhindert, dass Velocity dich in die Wand schiebt, wenn X/Z CFrame pausiert ist
+                -- Y-VELOCITY AUF 0 (RAMPEN FIX!)
                 local activeSpeed = isWallBlocking and 0 or currentSpeed
-                root.Velocity = Vector3.new(moveDir.X * activeSpeed, yVelocity, moveDir.Z * activeSpeed)
+                root.Velocity = Vector3.new(moveDir.X * activeSpeed, 0, moveDir.Z * activeSpeed)
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -523,10 +510,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
-                end
-                
-                if (root.Position - finalPos).Magnitude > 15 then
-                    break
                 end
             end
             
@@ -710,41 +693,30 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local samplePos1 = Vector3.new(currentX, 0, currentZ)
-                local samplePos2 = samplePos1 + (flatMoveDir * 6)
+                -- RAYCAST: Wahren Boden finden
+                local groundHit = Workspace:Raycast(Vector3.new(currentX, 2500, currentZ), Vector3.new(0, -3000, 0), rayParamsDown)
+                local targetY = groundHit and groundHit.Position.Y or 0
                 
-                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y1 = hit1 and hit1.Position.Y or 0
-                
-                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y2 = hit2 and hit2.Position.Y or 0
-                
-                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
-                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
-                
-                local targetY = y1
-                if forwardHit then
-                    targetY = math.max(y1, y2)
-                else
-                    if math.abs(y2 - currentY) < 6 then
-                        targetY = y2
-                    end
-                end
-                
-                -- Y Terrain Intelligenz
+                -- Wasser = Y:0, Land = Boden
                 if targetY <= 1 then
                     targetY = 0
-                else
-                    targetY = targetY + 3
                 end
                 
                 local finalY = targetY + floorOffset
                 local yVelocity = 0
                 local addTime = dt
                 
-                -- 5-Stud Abstand Logik & Velocity Fix
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 5.5, rayParamsDown)
+                -- 5-Stud Abstand Logik
+                local forwardRayStart = Vector3.new(currentX, currentY, currentZ) 
+                local wallCheckHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 5.5, rayParamsDown)
                 local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 5
+                
+                if isWallBlocking then
+                    local topHit = Workspace:Raycast(Vector3.new(currentX + flatMoveDir.X * 5.5, 2500, currentZ + flatMoveDir.Z * 5.5), Vector3.new(0, -3000, 0), rayParamsDown)
+                    if topHit and topHit.Position.Y > targetY then
+                        finalY = topHit.Position.Y + floorOffset
+                    end
+                end
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
@@ -757,7 +729,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     
                     local climbRate = currentSpeed * 1.3 
                     currentY = math.min(currentY + (climbRate * dt), finalY)
-                    yVelocity = climbRate
                     
                     if not climbPart then
                         climbPart = Instance.new("Part")
@@ -790,9 +761,8 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     end
                     
                     if finalY < currentY then
-                        local fallRate = 150
+                        local fallRate = 250 -- SCHNELLER WIEDER RUNTER
                         currentY = math.max(currentY - (fallRate * dt), finalY)
-                        yVelocity = -fallRate
                     else
                         currentY = finalY
                     end
@@ -819,9 +789,9 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 end
                 if hum then hum:Move(moveDir, false) end
                 
-                -- RAMPE FIX: Verhindert, dass Velocity dich in die Wand schiebt, wenn X/Z CFrame pausiert ist
+                -- Y-VELOCITY AUF 0 (RAMPEN FIX!)
                 local activeSpeed = isWallBlocking and 0 or currentSpeed
-                root.Velocity = Vector3.new(moveDir.X * activeSpeed, yVelocity, moveDir.Z * activeSpeed)
+                root.Velocity = Vector3.new(moveDir.X * activeSpeed, 0, moveDir.Z * activeSpeed)
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -829,10 +799,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
-                end
-                
-                if (root.Position - finalPos).Magnitude > 15 then
-                    break
                 end
             end
             
@@ -929,7 +895,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                     if not foundBlack then break end
                     task.wait(0.1)
                 end
-                task.wait(1)
+                task.wait(1) 
             else
                 task.wait(2)
             end
@@ -1076,6 +1042,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
                 local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
                 
+                -- Zentrums-Check: Sanfter Stopp bei 5 Studs an der Zielmitte
                 if (flatCurrent - flatTargetLoop).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
@@ -1085,41 +1052,30 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local samplePos1 = Vector3.new(currentX, 0, currentZ)
-                local samplePos2 = samplePos1 + (flatMoveDir * 6)
+                -- RAYCAST: Wahren Boden finden
+                local groundHit = Workspace:Raycast(Vector3.new(currentX, 2500, currentZ), Vector3.new(0, -3000, 0), rayParamsDown)
+                local targetY = groundHit and groundHit.Position.Y or 0
                 
-                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y1 = hit1 and hit1.Position.Y or 0
-                
-                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y2 = hit2 and hit2.Position.Y or 0
-                
-                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
-                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
-                
-                local targetY = y1
-                if forwardHit then
-                    targetY = math.max(y1, y2)
-                else
-                    if math.abs(y2 - currentY) < 6 then
-                        targetY = y2
-                    end
-                end
-                
-                -- Y Terrain Intelligenz
+                -- Wasser = Y:0, Land = Boden
                 if targetY <= 1 then
                     targetY = 0
-                else
-                    targetY = targetY + 3
                 end
                 
                 local finalY = targetY + floorOffset
                 local yVelocity = 0
                 local addTime = dt
                 
-                -- 5-Stud Abstand Logik & Velocity Fix (Ramp Launch Prevention)
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 5.5, rayParamsDown)
+                -- 5-Stud Abstand Logik
+                local forwardRayStart = Vector3.new(currentX, currentY, currentZ) 
+                local wallCheckHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 5.5, rayParamsDown)
                 local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 5
+                
+                if isWallBlocking then
+                    local topHit = Workspace:Raycast(Vector3.new(currentX + flatMoveDir.X * 5.5, 2500, currentZ + flatMoveDir.Z * 5.5), Vector3.new(0, -3000, 0), rayParamsDown)
+                    if topHit and topHit.Position.Y > targetY then
+                        finalY = topHit.Position.Y + floorOffset
+                    end
+                end
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
@@ -1132,7 +1088,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local climbRate = currentSpeed * 1.3 
                     currentY = math.min(currentY + (climbRate * dt), finalY)
-                    yVelocity = climbRate
                     
                     if not climbPart then
                         climbPart = Instance.new("Part")
@@ -1165,9 +1120,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                     
                     if finalY < currentY then
-                        local fallRate = 150
+                        local fallRate = 250 -- SCHNELLER WIEDER RUNTER (Kein Schweben)
                         currentY = math.max(currentY - (fallRate * dt), finalY)
-                        yVelocity = -fallRate
                     else
                         currentY = finalY
                     end
@@ -1194,9 +1148,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 if hum then hum:Move(moveDir, false) end
                 
-                -- RAMPE FIX: Verhindert, dass Velocity dich in die Wand schiebt, wenn X/Z CFrame pausiert ist
+                -- Y-VELOCITY AUF 0 (RAMPEN FIX!)
                 local activeSpeed = isWallBlocking and 0 or currentSpeed
-                root.Velocity = Vector3.new(moveDir.X * activeSpeed, yVelocity, moveDir.Z * activeSpeed)
+                root.Velocity = Vector3.new(moveDir.X * activeSpeed, 0, moveDir.Z * activeSpeed)
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -1204,10 +1158,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
-                end
-                
-                if (root.Position - finalPos).Magnitude > 15 then
-                    break
                 end
             end
             
