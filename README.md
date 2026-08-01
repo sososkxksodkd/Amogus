@@ -340,7 +340,7 @@ CreateSlider(SecMovement, "Aufzug Geschw. (Y-Achse)", 5, 65, RyuConfig.ElevatorS
     RyuConfig.ElevatorSpeed = val
 end)
 
---// FISHMAN CAVE TWEEN (OHNE ROBO, NUR ZUM PORTAL, JETZT MIT SAUBEREM STOPP & KONTROLLE)
+--// FISHMAN CAVE: OHNE SKY-TWEEN, OHNE ROBO, DIREKT ZUM ZIEL UND KONTROLLE GEBEN
 CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
     task.spawn(function()
         local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
@@ -540,94 +540,15 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             return true
         end
         
-        SpiderLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed)
+        -- Direktes Ankommen ohne Sky-Tween (Kein Zwang nach oben/Robo)
+        SpiderLerp(targetPos, RyuConfig.FishmanSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        task.wait(5)
-        
-        local areaTp = Workspace:FindFirstChild("AreaTeleporters")
-        if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
-            local portal = areaTp.FirstSea.Fishman.Part
-            
-            local tpSuccess = false
-            local isBlack = false
-            
-            while not tpSuccess do
-                root.Velocity = Vector3.new(0, 0, 0)
-                root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
-                
-                local checkStart = tick()
-                isBlack = false
-                
-                while tick() - checkStart < 4 do
-                    if char and root and portal and (root.Position - portal.Position).Magnitude > 1000 then
-                        tpSuccess = true
-                        break
-                    end
-                    
-                    if hum and root and portal and (root.Position - portal.Position).Magnitude < 50 then
-                        hum:Move(Vector3.new(math.sin(tick() * 10), 0, math.cos(tick() * 10)))
-                        local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
-                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-                    end
-                    
-                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                    if pg then
-                        for _, v in pairs(pg:GetDescendants()) do
-                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                    isBlack = true
-                                    tpSuccess = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    
-                    if tpSuccess then 
-                        if hum then hum:Move(Vector3.new(0,0,0)) end
-                        break 
-                    end
-                    task.wait(0.1)
-                end
-                
-                if not tpSuccess then
-                    if hum then hum:Move(Vector3.new(0,0,0)) end
-                    task.wait(3)
-                end
-            end
-            
-            if isBlack then
-                local startClear = tick()
-                while tick() - startClear < 15 do
-                    local foundBlack = false
-                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                    if pg then
-                        for _, v in pairs(pg:GetDescendants()) do
-                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                    foundBlack = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    if not foundBlack then break end
-                    task.wait(0.1)
-                end
-                task.wait(1)
-            else
-                task.wait(2)
-            end
-            
-            -- HIER WURDE DER ROBO-TEIL FÜR FISHMAN CAVE ENTFERNT: Volle Kontrolle zurück, kein automatisches Weiterfliegen!
-            ToggleHover(false)
-            RyuNotify:Send("Smart TP", "Du bist da! Du hast wieder die volle Kontrolle.", 4)
-        end
-        
+        ToggleHover(false)
         platform:Destroy()
+        RyuNotify:Send("Smart TP", "Fishman Cave erreicht! Du hast die Kontrolle.", 4)
     end)
 end)
 
@@ -820,93 +741,14 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             return true
         end
         
-        SpiderLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed)
+        SpiderLerp(targetPos, RyuConfig.FishmanSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        task.wait(5)
-        
-        local areaTp = Workspace:FindFirstChild("AreaTeleporters")
-        if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
-            local portal = areaTp.FirstSea.Fishman.Part
-            
-            local tpSuccess = false
-            local isBlack = false
-            
-            while not tpSuccess do
-                root.Velocity = Vector3.new(0, 0, 0)
-                root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
-                
-                local checkStart = tick()
-                isBlack = false
-                
-                while tick() - checkStart < 4 do
-                    if char and root and portal and (root.Position - portal.Position).Magnitude > 1000 then
-                        tpSuccess = true
-                        break
-                    end
-                    
-                    if hum and root and portal and (root.Position - portal.Position).Magnitude < 50 then
-                        hum:Move(Vector3.new(math.sin(tick() * 10), 0, math.cos(tick() * 10)))
-                        local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
-                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-                    end
-                    
-                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                    if pg then
-                        for _, v in pairs(pg:GetDescendants()) do
-                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                    isBlack = true
-                                    tpSuccess = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    
-                    if tpSuccess then 
-                        if hum then hum:Move(Vector3.new(0,0,0)) end
-                        break 
-                    end
-                    task.wait(0.1)
-                end
-                
-                if not tpSuccess then
-                    if hum then hum:Move(Vector3.new(0,0,0)) end
-                    task.wait(3)
-                end
-            end
-            
-            if isBlack then
-                local startClear = tick()
-                while tick() - startClear < 15 do
-                    local foundBlack = false
-                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                    if pg then
-                        for _, v in pairs(pg:GetDescendants()) do
-                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                    foundBlack = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    if not foundBlack then break end
-                    task.wait(0.1)
-                end
-                task.wait(1)
-            else
-                task.wait(2)
-            end
-            
-            ToggleHover(false)
-            RyuNotify:Send("Smart TP", "Erfolgreich in Fishman Cave angekommen! Du hast die Kontrolle.", 4)
-        end
-        
+        ToggleHover(false)
         platform:Destroy()
+        RyuNotify:Send("Smart TP", "Boden-TP beendet! Du hast die Kontrolle.", 4)
     end)
 end)
 
@@ -1539,7 +1381,7 @@ task.spawn(function()
                     
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = attackPos end
-                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, mRoot.Position.Y, mRoot.Position.Z))
+                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
                     
                     PerformMeleeAttack()
                     task.wait(0.05)
