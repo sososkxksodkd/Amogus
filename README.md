@@ -48,7 +48,7 @@ local function GetDynamicLists()
     local mobs = {}
     local quests = {}
     local islands = {}
-    local weapons = {} -- Nur noch das, was du auch wirklich hast!
+    local weapons = {}
     
     local mDict, qDict, iDict, wDict = {}, {}, {}, {}
     
@@ -301,6 +301,7 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
+-- Verbessertes Dropdown mit UI-Fix für Refresh
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -442,7 +443,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (WAND-HACK ENTFERNT!)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -614,7 +615,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local targetY = y1
                 if forwardHit then
-                    targetY = math.max(y1, y2, currentY + 30) -- MODIFIED: Geh über die Wand!
+                    targetY = math.max(y1, y2)
                 else
                     if math.abs(y2 - currentY) < 6 then
                         targetY = y2
@@ -648,7 +649,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     yVelocity = climbRate
                     
                     if isWallBlocking then
-                        targetY = math.max(targetY, currentY + 30)
+                        addTime = 0 
                     elseif finalY - currentY > 5 then
                         addTime = dt * 0.3
                     end
@@ -958,7 +959,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB FÜR AUTO FARM)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -989,14 +990,12 @@ local function SafeTween(targetCFrame, customSpeed)
         local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
         
-        -- Wand-Erkennung: Raycast nur nach vorne
+        -- Wand-Erkennung nur für den Auto Farm! (Ignoriert Wasser, zwingt dich drüber)
         local moveDir = (targetPos - root.Position).Unit
         if moveDir.Magnitude > 0 then
             local wallHit = Workspace:Raycast(root.Position, moveDir * 6, rayParams)
             if wallHit then
-                -- Wand erkannt! Wir fliegen stattdessen gerade nach oben, um sie zu überqueren.
                 intermediatePos = root.Position + Vector3.new(0, 15, 0)
-                -- Startzeit zurücksetzen, um nach dem Klettern wieder eine perfekte Linie zu fliegen
                 startTime = tick()
                 startPos = root.Position
                 timeToTake = (targetPos - startPos).Magnitude / speed
