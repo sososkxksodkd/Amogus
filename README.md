@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (TRUE SPIDER TWEEN & ROBO TRACKER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (TRUE SPIDER TWEEN + ANIMATIONS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -53,7 +53,7 @@ local RyuConfig = {
     ElevatorSpeed = 85,
     
     TargetIsland = IslandList[1],
-    IslandSpeed = 60, -- Standard Speed auf 60
+    IslandSpeed = 60, -- Max Speed 60
     
     AutoStrength = false,
     AutoStamina = false,
@@ -102,38 +102,6 @@ function RyuNotify:Send(title, text, duration)
         fadeOut:Play(); fadeOut.Completed:Wait(); NotifFrame:Destroy()
     end)
 end
-
---// RAINBOW OVERHEAD TITLE
-local function AddRainbowTag(character)
-    local head = character:WaitForChild("Head", 5)
-    if head then
-        if head:FindFirstChild("RyuHubTag") then head.RyuHubTag:Destroy() end
-        local bg = Instance.new("BillboardGui")
-        bg.Name = "RyuHubTag"
-        bg.Size = UDim2.new(0, 200, 0, 50)
-        bg.StudsOffset = Vector3.new(0, 3, 0)
-        bg.AlwaysOnTop = true
-        bg.Parent = head
-        
-        local txt = Instance.new("TextLabel")
-        txt.Size = UDim2.new(1, 0, 1, 0)
-        txt.BackgroundTransparency = 1
-        txt.Text = "RYUHUB"
-        txt.Font = Enum.Font.GothamBlack
-        txt.TextSize = 22
-        txt.TextStrokeTransparency = 0
-        txt.Parent = bg
-        
-        task.spawn(function()
-            while bg.Parent do
-                txt.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
-                task.wait(0.1) 
-            end
-        end)
-    end
-end
-if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
-LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
 
 --// UI SETUP
 local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50) }
@@ -735,12 +703,12 @@ end)
 
 --// MOBILITY TAB -> TRANSPORTATION & AUTO BUY
 local TabMobility = CreateMainTab("Mobility")
-local SubTransport = CreateSubTab(TabMobility, "Transportation")
+local SubTransport = CreateSubTab(TabMobility, "Spider TP")
 local SubAutoBuy = CreateSubTab(TabMobility, "Auto Buy")
 
-local SecIslandTP = CreateSection(SubTransport, "Spider TP to Island")
+local SecIslandTP = CreateSection(SubTransport, "Spider Teleportation")
 CreateDropdown(SecIslandTP, "Select Island", IslandList, "TargetIsland")
-CreateSlider(SecIslandTP, "Travel Speed", 50, 60, RyuConfig.IslandSpeed, function(val)
+CreateSlider(SecIslandTP, "Travel Speed", 10, 60, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
 
@@ -867,6 +835,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
 
+            -- Animationen zulassen (PlatformStand auf false erzwingen)
+            if hum then hum.PlatformStand = false end
+
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
@@ -887,15 +858,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 local finalY = targetY + floorOffset
+                local yVelocity = 0
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
                         isClimbing = true
                         if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                        if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
                     
                     local climbRate = currentSpeed * 0.8
                     currentY = math.min(currentY + (climbRate * dt), finalY)
+                    yVelocity = climbRate
                     
                     if finalY - currentY > 5 then
                         elapsedTime = elapsedTime - (dt * 0.5)
@@ -906,11 +880,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if isClimbing then
                         isClimbing = false
                         if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+                        if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
                     end
                     
                     if finalY < currentY then
                         local fallRate = 150
                         currentY = math.max(currentY - (fallRate * dt), finalY)
+                        yVelocity = -fallRate
                     else
                         currentY = finalY
                     end
@@ -919,16 +895,25 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
+                
+                -- Bewegungsrichtung für Animationen berechnen
+                local moveDir = (lookPos - finalPos).Unit
+                if moveDir ~= moveDir then moveDir = root.CFrame.LookVector end -- NaN check
+                
                 if (lookPos - finalPos).Magnitude > 0.1 then 
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
                 else
                     root.CFrame = CFrame.new(finalPos)
                 end
                 
+                -- ECHTES LAUFEN FÜR ANIMATIONEN
+                if hum then hum:Move(moveDir, false) end
+                
+                -- VELOCITY ANPASSEN, DAMIT AC NICHT BANNED
+                root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+                
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = finalPos end
-                
-                root.Velocity = Vector3.new(0, 0, 0)
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -939,18 +924,20 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
             end
             
+            if hum then hum:Move(Vector3.new(0,0,0), false) end
             if isClimbing and climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
             
+            root.Velocity = Vector3.new(0, 0, 0)
             root.CFrame = CFrame.new(tPos)
             
             return true
         end
         
         RyuNotify:Send("Spider TP", "Reise nach " .. targetIslandName .. "...", 3)
-        IslandLerp(targetPos, RyuConfig.IslandSpeed)
+        SpiderLerp(targetPos, RyuConfig.IslandSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -1284,4 +1271,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "Spider-System & Robo-Tracker erfolgreich geladen!", 4)
+RyuNotify:Send("RYU HUB", "Spider Animation & Physics Engine Loaded!", 4)
