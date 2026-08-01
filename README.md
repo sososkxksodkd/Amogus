@@ -33,6 +33,7 @@ task.spawn(function()
                 task.delay(0.01, function()
                     if descendant.Parent and descendant.Text then
                         local txt = descendant.Text:lower()
+                        -- "error" hinzugefügt, um generische GPO-Fehlermeldungen zu blockieren
                         if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") then
                             descendant.Visible = false
                             descendant:Destroy()
@@ -68,7 +69,7 @@ local RyuConfig = {
     TargetWeapon = "Combat",           
     
     TweenSpeed = 50, 
-    KillHeight = 7, 
+    KillHeight = 5, -- 5 Studs für Gegner und Quest 
     FishmanSpeed = 65, 
     ElevatorSpeed = 65, 
     
@@ -307,7 +308,7 @@ local function ToggleHover(state)
 end
 
 --// ============================================================================
---// AUTO FARM CORE SPIDER LERP
+--// AUTO FARM CORE SPIDER LERP (UNTERWASSER FIX / DIREKT ZUM ZIEL)
 --// ============================================================================
 local function FarmSpiderLerp(tPos, currentSpeed, customStopDist)
     local char = LocalPlayer.Character
@@ -315,136 +316,52 @@ local function FarmSpiderLerp(tPos, currentSpeed, customStopDist)
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not root or not hum then return true end
 
-    local flatStart = Vector3.new(root.Position.X, 0, root.Position.Z)
-    local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
-    local totalDist = (flatStart - flatTarget).Magnitude
+    local startPos = root.Position
+    local targetPos = tPos
+    local dist = (targetPos - startPos).Magnitude
     
     local stopDist = customStopDist or 5
-    if totalDist <= stopDist then return true end 
+    if dist <= stopDist then return true end 
     
     currentSpeed = currentSpeed > 0 and currentSpeed or RyuConfig.TweenSpeed
-    local t = totalDist / currentSpeed
-    if t < 0.1 then return true end
-    
-    local elapsedTime = 0
-    local currentY = root.Position.Y
-    local isClimbing = false
-    local lastFootstep = tick()
-    local lastClimbFire = 0
-    
-    local hipHeight = hum.HipHeight or 2.15
-    local floorOffset = hipHeight + (root.Size.Y / 2)
+    local t = dist / currentSpeed
+    if t < 0.1 then 
+        root.CFrame = CFrame.lookAt(targetPos, targetPos + root.CFrame.LookVector)
+        return true 
+    end
 
-    local rayParamsDown = RaycastParams.new()
-    rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-    rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+    local startTime = tick()
+    local lastFootstep = tick()
+    
+    char:SetAttribute("evading", true)
+    _G.soruDashing = true
 
     if hum then hum.PlatformStand = false end
-    local startPos = root.Position
 
-    while elapsedTime < t do
+    while tick() - startTime < t do
         if not RyuConfig.AutoFarm then break end
         
-        local dt = RunService.Heartbeat:Wait()
-        dt = math.clamp(dt, 0.001, 0.05)
+        local alpha = (tick() - startTime) / t
+        local intermediatePos = startPos:Lerp(targetPos, alpha)
         
-        local currentPos = root.Position
-        local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
-        local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
-        
-        if (flatCurrent - flatTargetLoop).Magnitude <= stopDist then break end
-        
-        local alpha = math.clamp(elapsedTime / t, 0, 1)
-        local currentX = startPos.X + (tPos.X - startPos.X) * alpha
-        local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
-        
-        local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
-        if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
-        
-        local samplePos1 = Vector3.new(currentX, 0, currentZ)
-        local samplePos2 = samplePos1 + (flatMoveDir * 6)
-        
-        local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-        local y1 = hit1 and hit1.Position.Y or 0
-        
-        local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-        local y2 = hit2 and hit2.Position.Y or 0
-        
-        local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
-        local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
-        
-        local targetY = y1
-        if forwardHit then targetY = math.max(y1, y2) else
-            if math.abs(y2 - currentY) < 6 then targetY = y2 end
-        end
-        
-        targetY = math.max(targetY, 1) 
-        local finalY = targetY + floorOffset
-        local yVelocity = 0
-        local addTime = dt
-        
-        local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
-        local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
-
-        if finalY > currentY + 3 then 
-            if not isClimbing then isClimbing = true end
-            if tick() - lastClimbFire > 0.3 then
-                lastClimbFire = tick()
-                pcall(function() ReplicatedStorage.Events.climb:InvokeServer(true) end)
-            end
-            if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
-            
-            local climbRate = currentSpeed * 0.8
-            currentY = math.min(currentY + (climbRate * dt), finalY)
-            yVelocity = climbRate
-            if isWallBlocking then addTime = 0 elseif finalY - currentY > 5 then addTime = dt * 0.3 end
-        else
-            if isClimbing then
-                isClimbing = false
-                pcall(function() ReplicatedStorage.Events.climb:InvokeServer(false) end)
-                if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
-            end
-            if finalY < currentY then
-                local fallRate = 150
-                currentY = math.max(currentY - (fallRate * dt), finalY)
-                yVelocity = -fallRate
-            else
-                currentY = finalY
-            end
-        end
-        
-        currentY = math.max(currentY, 1)
-        elapsedTime = elapsedTime + addTime
-        
-        local finalPos = Vector3.new(currentX, currentY, currentZ)
-        local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
-        
-        local moveDir = (lookPos - finalPos).Unit
-        if moveDir ~= moveDir then moveDir = root.CFrame.LookVector end
-        
-        if (lookPos - finalPos).Magnitude > 0.1 then 
-            root.CFrame = CFrame.lookAt(finalPos, lookPos)
-        else
-            root.CFrame = CFrame.new(finalPos)
-        end
-        
-        if hum then hum:Move(moveDir, false) end
-        root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+        if (root.Position - targetPos).Magnitude <= stopDist then break end
         
         local bp = root:FindFirstChild("RyuHover")
-        if bp then bp.Position = finalPos end
+        if bp then bp.Position = intermediatePos end
+        
+        root.CFrame = CFrame.lookAt(intermediatePos, targetPos)
         
         if tick() - lastFootstep > 0.3 then
             lastFootstep = tick()
-            if not isClimbing then
-                pcall(function() ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457") end)
-                pcall(function() ReplicatedStorage.Events.footstep:FireServer() end)
-            end
+            pcall(function() ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457") end)
+            pcall(function() ReplicatedStorage.Events.footstep:FireServer() end)
         end
+        
+        RunService.Heartbeat:Wait()
     end
     
-    if hum then hum:Move(Vector3.new(0,0,0), false) end
-    if isClimbing then pcall(function() ReplicatedStorage.Events.climb:InvokeServer(false) end) end
+    char:SetAttribute("evading", nil)
+    _G.soruDashing = nil
     root.Velocity = Vector3.new(0, 0, 0)
     return true
 end
@@ -1020,8 +937,44 @@ local function PerformMeleeAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT FOOTSTEP SIMULATION)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE
 --// ============================================================================
+local function SafeTween(targetCFrame, customSpeed)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local startPos = root.Position
+    local targetPos = targetCFrame.Position
+    local dist = (targetPos - startPos).Magnitude
+    
+    local speed = customSpeed or RyuConfig.TweenSpeed 
+    local timeToTake = dist / speed
+    
+    if timeToTake < 0.1 then 
+        root.CFrame = targetCFrame
+        return 
+    end
+
+    local startTime = tick()
+    while tick() - startTime < timeToTake do
+        if not RyuConfig.AutoFarm then break end
+        
+        local alpha = (tick() - startTime) / timeToTake
+        local intermediatePos = startPos:Lerp(targetPos, alpha)
+        
+        local bp = root:FindFirstChild("RyuHover")
+        if bp then bp.Position = intermediatePos end
+        
+        root.CFrame = CFrame.lookAt(intermediatePos, targetPos)
+        RunService.Heartbeat:Wait()
+    end
+    
+    local bpFinal = root:FindFirstChild("RyuHover")
+    if bpFinal then bpFinal.Position = targetPos end
+    root.CFrame = targetCFrame
+end
+
 RunService.Stepped:Connect(function()
     if RyuConfig.Noclip or RyuConfig.AutoFarm then
         local char = LocalPlayer.Character
