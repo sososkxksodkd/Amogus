@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART Y-ADJUST & 2D ARRIVAL FIX)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NO UNDERGROUND SNAP & EARLY STOP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -395,6 +395,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
                 local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
                 
+                -- SANFTER ABBBRUCH (Waypoint erreicht)
                 if (flatCurrent - flatTargetLoop).Magnitude <= 15 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
@@ -436,6 +437,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local yVelocity = 0
                 local addTime = dt
                 
+                -- 6-Stud Abstand Logik
                 local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 6.5, rayParamsDown)
                 local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 6
 
@@ -520,10 +522,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
-                end
-                
-                if (root.Position - finalPos).Magnitude > 15 then
-                    break
                 end
             end
             
@@ -825,10 +823,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                 end
-                
-                if (root.Position - finalPos).Magnitude > 15 then
-                    break
-                end
             end
             
             if climbPart then climbPart:Destroy() end
@@ -1071,7 +1065,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
                 local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
                 
-                if (flatCurrent - flatTargetLoop).Magnitude <= 15 then break end
+                -- SANFTER INSEL-ABBBRUCH: Stoppt auf der Insel, anstatt in den Pivot zu drücken
+                if (flatCurrent - flatTargetLoop).Magnitude <= 100 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
@@ -1081,7 +1076,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
                 local samplePos1 = Vector3.new(currentX, 0, currentZ)
-                local samplePos2 = samplePos1 + (flatMoveDir * 6)
+                local samplePos2 = samplePos1 + (flatMoveDir * 6.5)
                 
                 local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
                 local y1 = hit1 and hit1.Position.Y or 0
@@ -1090,7 +1085,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local y2 = hit2 and hit2.Position.Y or 0
                 
                 local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
-                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
+                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6.5, rayParamsDown)
                 
                 local targetY = y1
                 if forwardHit then
@@ -1132,13 +1127,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if not climbPart then
                         climbPart = Instance.new("Part")
                         climbPart.Name = "RyuClimbPart"
-                        climbPart.Size = Vector3.new(4, 3, 4)
+                        climbPart.Size = Vector3.new(5, 3, 5)
                         climbPart.Anchored = true
                         climbPart.Transparency = 1
                         climbPart.CanCollide = true
                         climbPart.Parent = Workspace
                     end
-                    climbPart.CFrame = CFrame.new(currentX, currentY - 1.5, currentZ)
+                    climbPart.CFrame = CFrame.new(currentX, currentY - floorOffset - 1.5, currentZ)
                     
                     if isWallBlocking then
                         addTime = 0 
@@ -1197,10 +1192,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
-                end
-                
-                if (root.Position - finalPos).Magnitude > 15 then
-                    break
                 end
             end
             
