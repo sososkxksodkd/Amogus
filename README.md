@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART SPIDER TWEEN + TUNNEL FIX)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART SPIDER TWEEN + CLIMB HOLD & 2-STUD GAP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -870,6 +870,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
+            local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -894,51 +895,52 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                -- TUNNEL & GATE FIX: Forward Raycast
-                local forwardHit = Workspace:Raycast(currentPos + Vector3.new(0, 3, 0), flatMoveDir * 12, rayParamsDown)
+                local samplePos1 = Vector3.new(currentX, 0, currentZ)
+                local samplePos2 = samplePos1 + (flatMoveDir * 6)
                 
-                local targetY = 0
+                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                local y1 = hit1 and hit1.Position.Y or 0
+                
+                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                local y2 = hit2 and hit2.Position.Y or 0
+                
+                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
+                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
+                
+                local targetY = y1
                 if forwardHit then
-                    -- Wand erkannt! Globaler Scan nach oben zum Klettern
-                    local topDownStart = Vector3.new(currentX, 2500, currentZ)
-                    local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -3000, 0), rayParamsDown)
-                    if tempGroundHit and tempGroundHit.Position.Y >= -1 then
-                        targetY = tempGroundHit.Position.Y
-                    end
+                    targetY = math.max(y1, y2)
                 else
-                    -- Weg ist frei (Tunnel, Tore, flach), lokaler Scan
-                    local localDownStart = Vector3.new(currentX, currentY + 15, currentZ)
-                    local localDownHit = Workspace:Raycast(localDownStart, Vector3.new(0, -100, 0), rayParamsDown)
-                    if localDownHit and localDownHit.Position.Y >= -1 then
-                        targetY = localDownHit.Position.Y
-                    else
-                        -- Fallback falls lokaler Scan nichts findet
-                        local topDownStart = Vector3.new(currentX, 2500, currentZ)
-                        local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -3000, 0), rayParamsDown)
-                        if tempGroundHit and tempGroundHit.Position.Y >= -1 then
-                            targetY = tempGroundHit.Position.Y
-                        end
+                    if math.abs(y2 - currentY) < 6 then
+                        targetY = y2
                     end
                 end
                 
                 local finalY = targetY + floorOffset
                 local yVelocity = 0
+                local addTime = dt
+                
+                local isWallBlocking = forwardHit and forwardHit.Distance < 2.5
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
                         isClimbing = true
-                        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-                        if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
+                    
+                    if tick() - lastClimbFire > 0.3 then
+                        lastClimbFire = tick()
+                        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                    end
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
                     local climbRate = currentSpeed * 0.8
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
                     
-                    if finalY - currentY > 5 then
-                        elapsedTime = elapsedTime - (dt * 0.5)
-                    else
-                        elapsedTime = elapsedTime + dt
+                    if isWallBlocking then
+                        addTime = 0
+                    elseif finalY - currentY > 5 then
+                        addTime = dt * 0.3
                     end
                 else
                     if isClimbing then
@@ -954,8 +956,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     else
                         currentY = finalY
                     end
-                    elapsedTime = elapsedTime + dt
                 end
+                
+                elapsedTime = elapsedTime + addTime
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
@@ -1332,4 +1335,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "Spider Animation & Smart Tunnel Raycast Loaded!", 4)
+RyuNotify:Send("RYU HUB", "Spider: Climb-Hold & 2-Stud Gap Active!", 4)
