@@ -9,6 +9,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -71,7 +72,7 @@ local RyuConfig = {
     KillHeight = 5, 
     FishmanSpeed = 65, 
     ElevatorSpeed = 65, 
-    AttackDelay = 0.9, -- 0.9 Sekunden Delay
+    AttackDelay = 0.3, -- 0.3 Sekunden Delay Standard
     
     TargetIsland = IslandList[1],
     IslandSpeed = 60, 
@@ -331,7 +332,7 @@ end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) 
     RyuConfig.KillHeight = val 
 end)
-CreateSlider(SecFarmAdvanced, "Attack Delay (5=0.5s, 10=1s)", 5, 10, 9, function(val) 
+CreateSlider(SecFarmAdvanced, "Attack Delay (3=0.3s, 5=0.5s)", 3, 5, 3, function(val) 
     RyuConfig.AttackDelay = val / 10 
 end)
 
