@@ -24,7 +24,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift)
+--// ANTI-ANNOYING MESSAGE HIDER (Zusätzlicher Schutz gegen "t" Spam / Warnings)
 task.spawn(function()
     local pg = LocalPlayer:WaitForChild("PlayerGui", 10)
     if pg then
@@ -33,7 +33,7 @@ task.spawn(function()
                 task.delay(0.01, function()
                     if descendant.Parent and descendant.Text then
                         local txt = descendant.Text:lower()
-                        if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") then
+                        if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") or txt:match("too fast") or txt == "t" then
                             descendant.Visible = false
                             descendant:Destroy()
                         end
@@ -68,7 +68,7 @@ local RyuConfig = {
     TargetWeapon = "Combat",           
     
     TweenSpeed = 50, 
-    KillHeight = 5, 
+    KillHeight = 5, -- 5 Studs für Gegner und Quest 
     FishmanSpeed = 65, 
     ElevatorSpeed = 65, 
     
@@ -306,7 +306,7 @@ local function ToggleHover(state)
     end
 end
 
---// UI AUFBAU: FARM (FISHMAN CAVE FARM)
+--// UI AUFBAU: FARM
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 local SubStats = CreateSubTab(TabFarm, "Stats") 
@@ -440,7 +440,7 @@ CreateButton(SecMovement, "Fishman Cave tp", function()
                 task.wait(2)
             end
             
-            RyuNotify:Send("Fishman Cave TP", "Erfolgreich angekommen! Du hast die Kontrolle.", 4)
+            RyuNotify:Send("Fishman Cave TP", "Erfolgreich angekommen!", 4)
         else
             RyuNotify:Send("Error", "Portal nicht gefunden!", 3)
         end
@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT EXAKTEM 300-STUDS ROBO SCANNER)
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -541,7 +541,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local isStartIslandRobo = (distToPlayer < 1000 and islandDistFromPlayer > 1500)
                 
-                -- HIER IST DER VERBESSERTE 300-STUDS ROBO SCANNER (IGNORIERT BENACHBARTE INSELN)
                 if not isStartIslandRobo and distToTarget <= 300 then
                     if distToTarget < closestDist then
                         closestDist = distToTarget
@@ -752,7 +751,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             return true
         end
         
-        SpiderLerp(targetPos + Vector3.new(0, 50, 0), RyuConfig.FishmanSpeed)
+        SpiderLerp(targetPos, RyuConfig.IslandSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
@@ -835,13 +834,6 @@ local function EquipTargetWeapon()
 end
 
 local function PerformMeleeAttack()
-    task.spawn(function()
-        pcall(function()
-            local argsBlock = { true, "Melee", true }
-            ReplicatedStorage.Events.Block:InvokeServer(unpack(argsBlock))
-        end)
-    end)
-    
     task.spawn(function()
         pcall(function()
             local comboData = comboSequence[currentComboIndex]
