@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (TRUE SPIDER TWEEN + ANIMATIONS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMART SPIDER TWEEN + TUNNEL FIX)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -102,6 +102,38 @@ function RyuNotify:Send(title, text, duration)
         fadeOut:Play(); fadeOut.Completed:Wait(); NotifFrame:Destroy()
     end)
 end
+
+--// RAINBOW OVERHEAD TITLE
+local function AddRainbowTag(character)
+    local head = character:WaitForChild("Head", 5)
+    if head then
+        if head:FindFirstChild("RyuHubTag") then head.RyuHubTag:Destroy() end
+        local bg = Instance.new("BillboardGui")
+        bg.Name = "RyuHubTag"
+        bg.Size = UDim2.new(0, 200, 0, 50)
+        bg.StudsOffset = Vector3.new(0, 3, 0)
+        bg.AlwaysOnTop = true
+        bg.Parent = head
+        
+        local txt = Instance.new("TextLabel")
+        txt.Size = UDim2.new(1, 0, 1, 0)
+        txt.BackgroundTransparency = 1
+        txt.Text = "RYUHUB"
+        txt.Font = Enum.Font.GothamBlack
+        txt.TextSize = 22
+        txt.TextStrokeTransparency = 0
+        txt.Parent = bg
+        
+        task.spawn(function()
+            while bg.Parent do
+                txt.TextColor3 = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+                task.wait(0.1) 
+            end
+        end)
+    end
+end
+if LocalPlayer.Character then AddRainbowTag(LocalPlayer.Character) end
+LocalPlayer.CharacterAdded:Connect(AddRainbowTag)
 
 --// UI SETUP
 local Theme = { Background = Color3.fromRGB(12, 12, 14), Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26), Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135), Accent = Color3.fromRGB(255, 255, 255), ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255), Stroke = Color3.fromRGB(45, 45, 50) }
@@ -761,40 +793,51 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             return
         end
         
-        -- Robo Target Logic
+        -- Robo Target Logic - Ignoriere Robos der aktuellen Insel
         local targetPos = rawPos
         local robo = island:FindFirstChild("Robo", true)
         
-        if not robo then
-            local npcsFolder = Workspace:FindFirstChild("NPCs")
-            if npcsFolder then
-                for _, v in pairs(npcsFolder:GetChildren()) do
-                    if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-                        if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 then
-                            robo = v
-                            break
-                        end
+        local closestRobo = nil
+        local closestDist = 1500 
+        
+        if robo and robo:FindFirstChild("HumanoidRootPart") then
+            local d = (robo.HumanoidRootPart.Position - rawPos).Magnitude
+            if d < closestDist then
+                closestDist = d
+                closestRobo = robo
+            end
+        end
+        
+        local npcsFolder = Workspace:FindFirstChild("NPCs")
+        if npcsFolder then
+            for _, v in pairs(npcsFolder:GetChildren()) do
+                if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
+                    local dist = (v.HumanoidRootPart.Position - rawPos).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestRobo = v
                     end
                 end
             end
         end
         
-        if not robo then
+        if not closestRobo then
             for _, v in pairs(Workspace:GetDescendants()) do
                 if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-                    if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 then
-                        robo = v
-                        break
+                    local dist = (v.HumanoidRootPart.Position - rawPos).Magnitude
+                    if dist < closestDist then
+                        closestDist = dist
+                        closestRobo = v
                     end
                 end
             end
         end
 
-        if robo and robo:FindFirstChild("HumanoidRootPart") then
-            targetPos = robo.HumanoidRootPart.Position
-            RyuNotify:Send("Transport", "Robo gefunden! Navigiere zu Robo.", 3)
+        if closestRobo and closestRobo:FindFirstChild("HumanoidRootPart") then
+            targetPos = closestRobo.HumanoidRootPart.Position
+            RyuNotify:Send("Transport", "Ziel-Robo gefunden! Navigiere dorthin.", 3)
         else
-            RyuNotify:Send("Transport", "Kein Robo gefunden, navigiere zur Insel-Mitte.", 3)
+            RyuNotify:Send("Transport", "Kein Ziel-Robo gefunden, nutze Insel-Mitte.", 3)
         end
         
         local char = LocalPlayer.Character
@@ -835,7 +878,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
 
-            -- Animationen zulassen (PlatformStand auf false erzwingen)
             if hum then hum.PlatformStand = false end
 
             while elapsedTime < t do
@@ -849,12 +891,34 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
                 local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
                 
-                local topDownStart = Vector3.new(currentX, 2500, currentZ)
-                local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -3000, 0), rayParamsDown)
+                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
+                if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local targetY = 0 
-                if tempGroundHit and tempGroundHit.Position.Y >= -1 then
-                    targetY = tempGroundHit.Position.Y
+                -- TUNNEL & GATE FIX: Forward Raycast
+                local forwardHit = Workspace:Raycast(currentPos + Vector3.new(0, 3, 0), flatMoveDir * 12, rayParamsDown)
+                
+                local targetY = 0
+                if forwardHit then
+                    -- Wand erkannt! Globaler Scan nach oben zum Klettern
+                    local topDownStart = Vector3.new(currentX, 2500, currentZ)
+                    local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -3000, 0), rayParamsDown)
+                    if tempGroundHit and tempGroundHit.Position.Y >= -1 then
+                        targetY = tempGroundHit.Position.Y
+                    end
+                else
+                    -- Weg ist frei (Tunnel, Tore, flach), lokaler Scan
+                    local localDownStart = Vector3.new(currentX, currentY + 15, currentZ)
+                    local localDownHit = Workspace:Raycast(localDownStart, Vector3.new(0, -100, 0), rayParamsDown)
+                    if localDownHit and localDownHit.Position.Y >= -1 then
+                        targetY = localDownHit.Position.Y
+                    else
+                        -- Fallback falls lokaler Scan nichts findet
+                        local topDownStart = Vector3.new(currentX, 2500, currentZ)
+                        local tempGroundHit = Workspace:Raycast(topDownStart, Vector3.new(0, -3000, 0), rayParamsDown)
+                        if tempGroundHit and tempGroundHit.Position.Y >= -1 then
+                            targetY = tempGroundHit.Position.Y
+                        end
+                    end
                 end
                 
                 local finalY = targetY + floorOffset
@@ -896,9 +960,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                -- Bewegungsrichtung für Animationen berechnen
                 local moveDir = (lookPos - finalPos).Unit
-                if moveDir ~= moveDir then moveDir = root.CFrame.LookVector end -- NaN check
+                if moveDir ~= moveDir then moveDir = root.CFrame.LookVector end
                 
                 if (lookPos - finalPos).Magnitude > 0.1 then 
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
@@ -906,10 +969,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     root.CFrame = CFrame.new(finalPos)
                 end
                 
-                -- ECHTES LAUFEN FÜR ANIMATIONEN
                 if hum then hum:Move(moveDir, false) end
                 
-                -- VELOCITY ANPASSEN, DAMIT AC NICHT BANNED
                 root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
                 
                 local bp = root:FindFirstChild("RyuHover")
@@ -1271,4 +1332,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "Spider Animation & Physics Engine Loaded!", 4)
+RyuNotify:Send("RYU HUB", "Spider Animation & Smart Tunnel Raycast Loaded!", 4)
