@@ -23,7 +23,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// ANTI-ANNOYING MESSAGE HIDER (Löscht die nervige rote Schrift)
+--// ANTI-ANNOYING MESSAGE HIDER
 task.spawn(function()
     local pg = LocalPlayer:WaitForChild("PlayerGui", 10)
     if pg then
@@ -32,7 +32,6 @@ task.spawn(function()
                 task.delay(0.01, function()
                     if descendant.Parent and descendant.Text then
                         local txt = descendant.Text:lower()
-                        -- "error" hinzugefügt, um generische GPO-Fehlermeldungen zu blockieren
                         if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") then
                             descendant.Visible = false
                             descendant:Destroy()
@@ -44,18 +43,70 @@ task.spawn(function()
     end
 end)
 
---// BEREINIGTE NPC & ENEMY LISTEN
-local DynamicEnemies = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"}
-local DynamicQuests = {"Becky", "Daph", "Tyson", "Helen"}
+--// DYNAMISCHER WORKSPACE SCANNER (FÜR SEA 1, SEA 2 & ISLANDS)
+local function GetDynamicLists()
+    local mobs = {}
+    local quests = {}
+    local islands = {}
+    local weapons = {"Combat", "Melee", "Sword", "Katana"}
+    
+    local mDict, qDict, iDict, wDict = {}, {}, {}, {Combat=true, Melee=true, Sword=true, Katana=true}
+    
+    -- Scanne NPCs
+    if Workspace:FindFirstChild("NPCs") then
+        for _, v in pairs(Workspace.NPCs:GetChildren()) do
+            if v:IsA("Model") then
+                local hum = v:FindFirstChildOfClass("Humanoid")
+                local root = v:FindFirstChild("HumanoidRootPart")
+                if hum and root then
+                    -- Feinde haben meistens mehr als 0 oder Standard-Health
+                    if not mDict[v.Name] then
+                        table.insert(mobs, v.Name)
+                        mDict[v.Name] = true
+                    end
+                else
+                    -- Quest NPCs haben in GPO oft eine andere Struktur oder Chat-Boxen
+                    if not qDict[v.Name] then
+                        table.insert(quests, v.Name)
+                        qDict[v.Name] = true
+                    end
+                end
+                -- Zur Sicherheit auch in Quest eintragen, da GPO machmal trickst
+                if not qDict[v.Name] then
+                    table.insert(quests, v.Name)
+                    qDict[v.Name] = true
+                end
+            end
+        end
+    end
+    
+    -- Scanne Inseln
+    for _, v in pairs(Workspace:GetChildren()) do
+        if v.Name:match("Island") or v.Name:match("Town") or v.Name:match("Cave") or v.Name:match("Fort") or v.Name:match("Park") or v.Name:match("Colosseum") then
+            if not iDict[v.Name] then
+                table.insert(islands, v.Name)
+                iDict[v.Name] = true
+            end
+        end
+    end
+    
+    -- Scanne Waffen im Inventar
+    for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+        if item:IsA("Tool") and not wDict[item.Name] then
+            table.insert(weapons, item.Name)
+            wDict[item.Name] = true
+        end
+    end
+    
+    -- Fallbacks falls der Scanner noch lädt
+    if #mobs == 0 then mobs = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"} end
+    if #quests == 0 then quests = {"Becky", "Daph", "Tyson", "Helen"} end
+    if #islands == 0 then islands = {"???? Shrine", "Coco Island", "Colosseum", "Fishman Cave", "Gravito's Fort", "Island Of Zou", "Logue Town"} end
+    
+    return mobs, quests, islands, weapons
+end
 
---// INSEL LISTE AUS WORKSPACE
-local IslandList = {
-    "???? Shrine", "Coco Island", "Colosseum", "Fishman Cave", "Gravito's Fort", 
-    "Island Of Zou", "Kori Island", "Land of the Sky", "Logue Town", "Marine Base G-1", 
-    "Marine Fort F-1", "Mysterious Cliff", "Orange Town", "Restaurant Baratie", 
-    "Reverse Mountain", "Roca Island", "Sandora", "Shark Park", "Shell's Town", 
-    "Sphinx Island", "Town of Beginnings"
-}
+local InitMobs, InitQuests, InitIslands, InitWeapons = GetDynamicLists()
 
 --// RYU CONFIGURATION
 local RyuConfig = {
@@ -63,8 +114,8 @@ local RyuConfig = {
     AutoQuest = false,
     QuestInterval = 45, 
     
-    TargetMob = "Fishman Karate User", 
-    TargetNPC = "Becky",               
+    TargetMob = InitMobs[1] or "Fishman Karate User", 
+    TargetNPC = InitQuests[1] or "Becky",               
     TargetWeapon = "Combat",           
     
     TweenSpeed = 50, 
@@ -72,17 +123,16 @@ local RyuConfig = {
     FishmanSpeed = 65, 
     ElevatorSpeed = 65, 
     
-    TargetIsland = IslandList[1],
+    TargetIsland = InitIslands[1] or "Fishman Cave",
     IslandSpeed = 60, 
     
-    AutoStrength = false,
-    AutoStamina = false,
-    AutoDefense = false,
-    AutoSword = false,
-    AutoGun = false
+    -- STATS & LIMITER CONFIG
+    AutoStrength = false, StrengthCap = 1500,
+    AutoStamina = false,  StaminaCap = 1500,
+    AutoDefense = false,  DefenseCap = 1500,
+    AutoSword = false,    SwordCap = 1500,
+    AutoGun = false,      GunCap = 1500
 }
-
-local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
 
 --// NOTIFICATION SYSTEM
 local NotificationContainer = Instance.new("Frame")
@@ -249,16 +299,28 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
+-- Verbessertes Dropdown mit Refresh-Funktion für Sea 1 / Sea 2 Switch
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
     local scroll = Instance.new("ScrollingFrame", frame); scroll.Size = UDim2.new(1, 0, 0, 130); scroll.Position = UDim2.new(0, 0, 0, 25); scroll.BackgroundColor3 = Theme.Background; scroll.ScrollBarThickness = 4; Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
     local listLayout = Instance.new("UIListLayout", scroll); listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    for _, itemName in ipairs(itemsList) do
-        local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. itemName; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-        btn.Activated:Connect(function() RyuConfig[targetConfigKey] = itemName; header.Text = headerText .. ": " .. itemName end)
+    
+    local function populate(list)
+        for _, child in pairs(scroll:GetChildren()) do
+            if child:IsA("TextButton") then child:Destroy() end
+        end
+        for _, itemName in ipairs(list) do
+            local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. itemName; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+            btn.Activated:Connect(function() RyuConfig[targetConfigKey] = itemName; header.Text = headerText .. ": " .. itemName end)
+        end
+        scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
     end
+    
     listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
+    populate(itemsList)
+    
+    return { Refresh = populate }
 end
 
 local function CreateSlider(section, text, min, max, default, callback)
@@ -306,12 +368,12 @@ local function ToggleHover(state)
     end
 end
 
---// UI AUFBAU: FARM
+--// UI AUFBAU: FARM & CONFIG
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 local SubStats = CreateSubTab(TabFarm, "Stats") 
 
-local SecAutoFarmMain = CreateSection(SubLeveling, "FISHMAN CAVE FARM")
+local SecAutoFarmMain = CreateSection(SubLeveling, "Auto Farm")
 CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(state) 
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
@@ -323,6 +385,20 @@ CreateSlider(SecAutoFarmMain, "Quest Interval (Secs)", 10, 100, RyuConfig.QuestI
     RyuConfig.QuestInterval = val 
 end)
 
+-- NEUE FARM CONFIG FOLIE MIT LIVE SCANNER
+local SecFarmConfig = CreateSection(SubLeveling, "Farm Config")
+local DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
+local DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
+local DropWep = CreateDropdown(SecFarmConfig, "Select Weapon", InitWeapons, "TargetWeapon")
+
+CreateButton(SecFarmConfig, "Refresh Lists (Sea Switch)", function()
+    local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
+    DropMob:Refresh(newMobs)
+    DropNPC:Refresh(newQuests)
+    DropWep:Refresh(newWeaps)
+    RyuNotify:Send("Lists Refreshed", "NPCs, Quests & Weapons wurden aktualisiert!", 3)
+end)
+
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
 CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 10, 85, RyuConfig.TweenSpeed, function(val) 
     RyuConfig.TweenSpeed = val 
@@ -331,8 +407,7 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
-local SecMovement = CreateSection(SubLeveling, "Auto Farm")
-
+local SecMovement = CreateSection(SubLeveling, "Teleports / Utility")
 local tpCaveLabel = Instance.new("TextLabel", SecMovement)
 tpCaveLabel.Size = UDim2.new(0.92, 0, 0, 20)
 tpCaveLabel.BackgroundTransparency = 1
@@ -439,30 +514,30 @@ CreateButton(SecMovement, "Fishman Cave tp", function()
                 task.wait(2)
             end
             
-            RyuNotify:Send("Fishman Cave TP", "Erfolgreich angekommen! Du hast die Kontrolle.", 4)
+            RyuNotify:Send("Fishman Cave TP", "Erfolgreich angekommen!", 4)
         else
             RyuNotify:Send("Error", "Portal nicht gefunden!", 3)
         end
     end)
 end)
 
---// AUTO STATS UI
+--// AUTO STATS UI (MIT NEUEM INTELLIGENTEN LIMITER)
 local SecAutoStats = CreateSection(SubStats, "Auto Stats System")
-CreateToggle(SecAutoStats, "Auto Strength", RyuConfig.AutoStrength, function(state) 
-    RyuConfig.AutoStrength = state 
-end)
-CreateToggle(SecAutoStats, "Auto Stamina", RyuConfig.AutoStamina, function(state) 
-    RyuConfig.AutoStamina = state 
-end)
-CreateToggle(SecAutoStats, "Auto Defense", RyuConfig.AutoDefense, function(state) 
-    RyuConfig.AutoDefense = state 
-end)
-CreateToggle(SecAutoStats, "Auto Sword Mastery", RyuConfig.AutoSword, function(state) 
-    RyuConfig.AutoSword = state 
-end)
-CreateToggle(SecAutoStats, "Auto Gun Mastery", RyuConfig.AutoGun, function(state) 
-    RyuConfig.AutoGun = state 
-end)
+
+CreateToggle(SecAutoStats, "Auto Strength", RyuConfig.AutoStrength, function(state) RyuConfig.AutoStrength = state end)
+CreateSlider(SecAutoStats, "Strength Cap", 1, 2000, 1500, function(val) RyuConfig.StrengthCap = val end)
+
+CreateToggle(SecAutoStats, "Auto Stamina", RyuConfig.AutoStamina, function(state) RyuConfig.AutoStamina = state end)
+CreateSlider(SecAutoStats, "Stamina Cap", 1, 2000, 1500, function(val) RyuConfig.StaminaCap = val end)
+
+CreateToggle(SecAutoStats, "Auto Defense", RyuConfig.AutoDefense, function(state) RyuConfig.AutoDefense = state end)
+CreateSlider(SecAutoStats, "Defense Cap", 1, 2000, 1500, function(val) RyuConfig.DefenseCap = val end)
+
+CreateToggle(SecAutoStats, "Auto Sword", RyuConfig.AutoSword, function(state) RyuConfig.AutoSword = state end)
+CreateSlider(SecAutoStats, "Sword Cap", 1, 2000, 1500, function(val) RyuConfig.SwordCap = val end)
+
+CreateToggle(SecAutoStats, "Auto Gun", RyuConfig.AutoGun, function(state) RyuConfig.AutoGun = state end)
+CreateSlider(SecAutoStats, "Gun Cap", 1, 2000, 1500, function(val) RyuConfig.GunCap = val end)
 
 --// MOBILITY TAB -> TRANSPORTATION & AUTO BUY
 local TabMobility = CreateMainTab("Mobility")
@@ -470,7 +545,7 @@ local SubTransport = CreateSubTab(TabMobility, "Spider TP")
 local SubAutoBuy = CreateSubTab(TabMobility, "Auto Buy")
 
 local SecIslandTP = CreateSection(SubTransport, "Spider Teleportation")
-CreateDropdown(SecIslandTP, "Select Island", IslandList, "TargetIsland")
+CreateDropdown(SecIslandTP, "Select Island", InitIslands, "TargetIsland")
 CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
@@ -833,7 +908,7 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        -- Exakt auf feste 0.5 Sekunden Delay limitiert (permanenter Sweet Spot)
+        -- Fest auf den 0.5s Sweet Spot eingestellt
         if now - lastSwing >= 0.5 then
             lastSwing = now
             task.spawn(function()
@@ -852,13 +927,12 @@ local function PerformMeleeAttack(targets)
                 local animName = "Punch" .. currentComboIndex
                 if currentComboIndex == 1 then animName = "Dash" end
                 if currentComboIndex == 4 then animName = "GroundPunch4" end
-                -- Schlag 5 komplett entfernt, da er Knockback verursacht!
+                -- 5. Schlag bleibt entfernt wegen Knockback
                 
                 local animObj = ReplicatedStorage:FindFirstChild("CombatAnimations") 
                     and ReplicatedStorage.CombatAnimations:FindFirstChild("Melee")
                     and ReplicatedStorage.CombatAnimations.Melee:FindFirstChild(animName)
                 
-                -- 1. SCHRITT: Sende die Animation an den Server
                 if animObj then
                     local argsAnim = {
                         "swingsfx",
@@ -873,7 +947,6 @@ local function PerformMeleeAttack(targets)
                     ReplicatedStorage.Events.CombatRegister:InvokeServer(argsAnim)
                 end
                 
-                -- 2. SCHRITT: Sende sofort danach den Schaden an den Server
                 if #hitParts > 0 then
                     local argsDamage = {
                         "damage",
@@ -888,7 +961,6 @@ local function PerformMeleeAttack(targets)
                 end
                 
                 currentComboIndex = currentComboIndex + 1
-                -- Nach dem 4. Schlag direkt wieder bei 1 anfangen (kein 5. Schlag!)
                 if currentComboIndex > 4 then currentComboIndex = 1 end
             end)
         end
@@ -1033,24 +1105,34 @@ task.spawn(function()
     end
 end)
 
---// AUTO STATS LOOP
+--// AUTO STATS LOOP (MIT INTELLIGENTEM LIMITER)
 task.spawn(function()
     while true do
         task.wait(3) 
         
-        local function upgradeStat(statName)
-            for i = 1, 5 do 
-                pcall(function()
-                    ReplicatedStorage:WaitForChild("Events"):WaitForChild("stats"):FireServer(statName, nil, 1)
-                end)
+        local function getStatVal(name)
+            local statsFolder = LocalPlayer:FindFirstChild("Stats") or LocalPlayer:FindFirstChild("Data")
+            if statsFolder and statsFolder:FindFirstChild(name) then
+                return statsFolder[name].Value
+            end
+            return 0 
+        end
+        
+        local function upgradeStat(statName, cap)
+            if getStatVal(statName) < cap then
+                for i = 1, 5 do 
+                    pcall(function()
+                        ReplicatedStorage:WaitForChild("Events"):WaitForChild("stats"):FireServer(statName, nil, 1)
+                    end)
+                end
             end
         end
 
-        if RyuConfig.AutoStrength then upgradeStat("Strength") end
-        if RyuConfig.AutoStamina then upgradeStat("Stamina") end
-        if RyuConfig.AutoDefense then upgradeStat("Defense") end
-        if RyuConfig.AutoSword then upgradeStat("SwordMastery") end
-        if RyuConfig.AutoGun then upgradeStat("GunMastery") end
+        if RyuConfig.AutoStrength then upgradeStat("Strength", RyuConfig.StrengthCap) end
+        if RyuConfig.AutoStamina then upgradeStat("Stamina", RyuConfig.StaminaCap) end
+        if RyuConfig.AutoDefense then upgradeStat("Defense", RyuConfig.DefenseCap) end
+        if RyuConfig.AutoSword then upgradeStat("SwordMastery", RyuConfig.SwordCap) end
+        if RyuConfig.AutoGun then upgradeStat("GunMastery", RyuConfig.GunCap) end
     end
 end)
 
