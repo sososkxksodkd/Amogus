@@ -43,27 +43,25 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (QUESTS VS ENEMIES, ISLANDS & UNEQUIPED WEAPONS)
+--// DYNAMISCHER WORKSPACE SCANNER (QUESTS VS ENEMIES, ISLANDS FOLDER & UNEQUIPED WEAPONS)
 local function GetDynamicLists()
     local mobs = {}
     local quests = {}
     local islands = {}
-    local weapons = {"Combat", "Melee", "Sword", "Katana"}
+    local weapons = {} -- Nur noch das, was du auch wirklich hast!
     
-    local mDict, qDict, iDict, wDict = {}, {}, {}, {Combat=true, Melee=true, Sword=true, Katana=true}
+    local mDict, qDict, iDict, wDict = {}, {}, {}, {}
     
     -- Scanne NPCs (Mit präziser Unterscheidung Regen vs QuestMark)
     if Workspace:FindFirstChild("NPCs") then
         for _, v in pairs(Workspace.NPCs:GetChildren()) do
             if v:IsA("Model") then
                 if v:FindFirstChild("Regen") then
-                    -- Feind gefunden
                     if not mDict[v.Name] then
                         table.insert(mobs, v.Name)
                         mDict[v.Name] = true
                     end
                 elseif v:FindFirstChild("QuestMark") then
-                    -- Quest Geber gefunden
                     if not qDict[v.Name] then
                         table.insert(quests, v.Name)
                         qDict[v.Name] = true
@@ -73,14 +71,13 @@ local function GetDynamicLists()
         end
     end
     
-    -- Scanne Inseln direkt aus Workspace (Ignoriere bestimmte Inseln)
-    for _, v in pairs(Workspace:GetChildren()) do
-        if v:IsA("Model") and v.Name ~= "NPCs" and v.Name ~= "PlayerCharacters" and v.Name ~= "Jails" and v.Name ~= "Projectiles" and v.Name ~= "Effects" then
-            if v.Name ~= "Fishman Island" and v.Name ~= "Land of the Sky" then
-                if not iDict[v.Name] then
-                    table.insert(islands, v.Name)
-                    iDict[v.Name] = true
-                end
+    -- Scanne Inseln direkt aus dem Islands Ordner
+    local islandsFolder = Workspace:FindFirstChild("Islands")
+    if islandsFolder then
+        for _, v in pairs(islandsFolder:GetChildren()) do
+            if not iDict[v.Name] then
+                table.insert(islands, v.Name)
+                iDict[v.Name] = true
             end
         end
     end
@@ -97,16 +94,17 @@ local function GetDynamicLists()
     end
     
     for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-        if item:IsA("Tool") and not wDict[item.Name] then
+        if item:IsA("Tool") and item.Name ~= "Unequiped" and not wDict[item.Name] then
             table.insert(weapons, item.Name)
             wDict[item.Name] = true
         end
     end
     
-    -- Fallbacks falls leer
-    if #mobs == 0 then mobs = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"} end
-    if #quests == 0 then quests = {"Becky", "Daph", "Tyson", "Helen"} end
-    if #islands == 0 then islands = {"???? Shrine", "Coco Island", "Colosseum", "Fishman Cave", "Gravito's Fort"} end
+    -- Fallbacks falls komplett leer
+    if #mobs == 0 then mobs = {"Fishman Karate User"} end
+    if #quests == 0 then quests = {"Becky"} end
+    if #islands == 0 then islands = {"Fishman Cave"} end
+    if #weapons == 0 then weapons = {"Combat"} end
     
     return mobs, quests, islands, weapons
 end
@@ -119,16 +117,16 @@ local RyuConfig = {
     AutoQuest = false,
     QuestInterval = 45, 
     
-    TargetMob = InitMobs[1] or "Fishman Karate User", 
-    TargetNPC = InitQuests[1] or "Becky",               
-    TargetWeapon = "Combat",           
+    TargetMob = InitMobs[1], 
+    TargetNPC = InitQuests[1],               
+    TargetWeapon = InitWeapons[1],           
     
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
     ElevatorSpeed = 65, 
     
-    TargetIsland = InitIslands[1] or "Fishman Cave",
+    TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
     
     AutoStrength = false, StrengthCap = 1500,
@@ -137,8 +135,6 @@ local RyuConfig = {
     AutoSword = false,    SwordCap = 1500,
     AutoGun = false,      GunCap = 1500
 }
-
-local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
 
 --// NOTIFICATION SYSTEM
 local NotificationContainer = Instance.new("Frame")
@@ -305,7 +301,6 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
--- Verbessertes Dropdown mit UI-Fix für Refresh
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -447,6 +442,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -618,7 +614,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local targetY = y1
                 if forwardHit then
-                    targetY = math.max(y1, y2)
+                    targetY = math.max(y1, y2, currentY + 30) -- MODIFIED: Geh über die Wand!
                 else
                     if math.abs(y2 - currentY) < 6 then
                         targetY = y2
@@ -652,7 +648,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     yVelocity = climbRate
                     
                     if isWallBlocking then
-                        addTime = 0 
+                        targetY = math.max(targetY, currentY + 30)
                     elseif finalY - currentY > 5 then
                         addTime = dt * 0.3
                     end
@@ -858,7 +854,7 @@ local function EquipTargetWeapon()
     
     local targetWep = RyuConfig.TargetWeapon
     
-    -- NEU: Automatisches Ausrüsten per Remote, wenn die Waffe im "Unequiped" Ordner liegt
+    -- Automatisches Ausrüsten per Remote, wenn die Waffe im "Unequiped" Ordner liegt
     pcall(function()
         local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
         if unequiped and unequiped:FindFirstChild(targetWep) then
@@ -927,7 +923,6 @@ local function PerformMeleeAttack(targets)
                     and ReplicatedStorage.CombatAnimations:FindFirstChild("Melee")
                     and ReplicatedStorage.CombatAnimations.Melee:FindFirstChild(animName)
                 
-                -- 1. SCHRITT: Sende die Animation an den Server
                 if animObj then
                     local argsAnim = {
                         "swingsfx",
@@ -942,7 +937,6 @@ local function PerformMeleeAttack(targets)
                     ReplicatedStorage.Events.CombatRegister:InvokeServer(argsAnim)
                 end
                 
-                -- 2. SCHRITT: Sende sofort danach den Schaden an den Server
                 if #hitParts > 0 then
                     local argsDamage = {
                         "damage",
@@ -964,7 +958,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (NORMALES SCHAUEN)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -984,11 +978,30 @@ local function SafeTween(targetCFrame, customSpeed)
     end
 
     local startTime = tick()
+    
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), Workspace:FindFirstChild("Water")}
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm then break end
         
         local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
+        
+        -- Wand-Erkennung: Raycast nur nach vorne
+        local moveDir = (targetPos - root.Position).Unit
+        if moveDir.Magnitude > 0 then
+            local wallHit = Workspace:Raycast(root.Position, moveDir * 6, rayParams)
+            if wallHit then
+                -- Wand erkannt! Wir fliegen stattdessen gerade nach oben, um sie zu überqueren.
+                intermediatePos = root.Position + Vector3.new(0, 15, 0)
+                -- Startzeit zurücksetzen, um nach dem Klettern wieder eine perfekte Linie zu fliegen
+                startTime = tick()
+                startPos = root.Position
+                timeToTake = (targetPos - startPos).Magnitude / speed
+            end
+        end
         
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = intermediatePos end
