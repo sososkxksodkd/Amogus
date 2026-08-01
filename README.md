@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (CENTER ARRIVAL NO SINK & 1.3X CLIMB)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NO RAMP LAUNCH & 5-STUD CLIMB GAP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -395,7 +395,6 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
                 local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
                 
-                -- Zentrums-Check: Sanfter Stopp bei 5 Studs an der Zielmitte
                 if (flatCurrent - flatTargetLoop).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
@@ -437,9 +436,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local yVelocity = 0
                 local addTime = dt
                 
-                -- 6-Stud Abstand Logik
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 6.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 6
+                -- 5-Stud Abstand Logik & Velocity Fix (Ramp Launch Prevention)
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 5.5, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 5
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
@@ -450,7 +449,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                         if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
                     
-                    local climbRate = currentSpeed * 1.3 -- Geänderter Climb-Speed auf 1.3
+                    local climbRate = currentSpeed * 1.3 
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
                     
@@ -514,7 +513,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 end
                 if hum then hum:Move(moveDir, false) end
                 
-                root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+                -- RAMPE FIX: Verhindert, dass Velocity dich in die Wand schiebt, wenn X/Z CFrame pausiert ist
+                local activeSpeed = isWallBlocking and 0 or currentSpeed
+                root.Velocity = Vector3.new(moveDir.X * activeSpeed, yVelocity, moveDir.Z * activeSpeed)
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -522,6 +523,10 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
+                end
+                
+                if (root.Position - finalPos).Magnitude > 15 then
+                    break
                 end
             end
             
@@ -696,7 +701,6 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
                 local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
                 
-                -- Zentrums-Check: Sanfter Stopp bei 5 Studs an der Zielmitte
                 if (flatCurrent - flatTargetLoop).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
@@ -738,9 +742,9 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 local yVelocity = 0
                 local addTime = dt
                 
-                -- 6-Stud Abstand Logik
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 6.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 6
+                -- 5-Stud Abstand Logik & Velocity Fix
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 5.5, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 5
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
@@ -751,7 +755,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
                     
-                    local climbRate = currentSpeed * 1.3 -- Geänderter Climb-Speed auf 1.3
+                    local climbRate = currentSpeed * 1.3 
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
                     
@@ -815,7 +819,9 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 end
                 if hum then hum:Move(moveDir, false) end
                 
-                root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+                -- RAMPE FIX: Verhindert, dass Velocity dich in die Wand schiebt, wenn X/Z CFrame pausiert ist
+                local activeSpeed = isWallBlocking and 0 or currentSpeed
+                root.Velocity = Vector3.new(moveDir.X * activeSpeed, yVelocity, moveDir.Z * activeSpeed)
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -823,6 +829,10 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
+                end
+                
+                if (root.Position - finalPos).Magnitude > 15 then
+                    break
                 end
             end
             
@@ -1066,7 +1076,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
                 local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
                 
-                -- Zentrums-Check: Sanfter Stopp bei 5 Studs an der Zielmitte
                 if (flatCurrent - flatTargetLoop).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
@@ -1108,9 +1117,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
                 
-                -- 6-Stud Abstand Logik
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 6.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 6
+                -- 5-Stud Abstand Logik & Velocity Fix (Ramp Launch Prevention)
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 5.5, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 5
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
@@ -1121,7 +1130,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
                     
-                    local climbRate = currentSpeed * 1.3 -- Geänderter Climb-Speed auf 1.3
+                    local climbRate = currentSpeed * 1.3 
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
                     
@@ -1185,7 +1194,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 if hum then hum:Move(moveDir, false) end
                 
-                root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+                -- RAMPE FIX: Verhindert, dass Velocity dich in die Wand schiebt, wenn X/Z CFrame pausiert ist
+                local activeSpeed = isWallBlocking and 0 or currentSpeed
+                root.Velocity = Vector3.new(moveDir.X * activeSpeed, yVelocity, moveDir.Z * activeSpeed)
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -1193,6 +1204,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
+                end
+                
+                if (root.Position - finalPos).Magnitude > 15 then
+                    break
                 end
             end
             
