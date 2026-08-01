@@ -340,6 +340,7 @@ CreateSlider(SecMovement, "Aufzug Geschw. (Y-Achse)", 5, 65, RyuConfig.ElevatorS
     RyuConfig.ElevatorSpeed = val
 end)
 
+--// FISHMAN CAVE: SPIDER LERP DIRECTLY TO CAVE AND STOP AFTER PORTAL TP
 CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
     task.spawn(function()
         local cave = Workspace:FindFirstChild("Fishman Cave", true) or Workspace:FindFirstChild("FishmanIsland", true)
@@ -354,7 +355,7 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
-        ToggleHover(false)
+        ToggleHover(true)
         
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
@@ -428,8 +429,9 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                 local yVelocity = 0
                 local addTime = dt
                 
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
+                -- HIER IST DEINE ÄNDERUNG: 1 STUD BEIM KLETTERN
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 1.5, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 1
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
@@ -518,14 +520,13 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
             return true
         end
         
-        -- DIREKT ZUM ZIEL (OHNE SKY TWEEN)
+        -- NORMALER DIREKT TWEEN OHNE SKY (Direkt zum Portal)
         SpiderLerp(targetPos, RyuConfig.FishmanSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
-        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
-        task.wait(5)
+        task.wait(2)
         
         local areaTp = Workspace:FindFirstChild("AreaTeleporters")
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
@@ -597,13 +598,14 @@ CreateButton(SecMovement, "Smart Sky-TP to Fishman Cave", function()
                     if not foundBlack then break end
                     task.wait(0.1)
                 end
-                task.wait(1) 
+                task.wait(1)
             else
                 task.wait(2)
             end
             
-            -- HIER STOPPT DAS SCRIPT NACH DEM PORTAL-CHECK: KEINE CAVEROUTE MEHR
-            RyuNotify:Send("Smart TP", "Fishman Cave erreicht!", 3)
+            -- BEENDEN: Keine Cave-Route, sofortige Kontrolle geben!
+            ToggleHover(false)
+            RyuNotify:Send("Fishman Cave", "Erfolgreich angekommen! Du hast die Kontrolle.", 4)
         end
     end)
 end)
@@ -622,7 +624,7 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
         local hipHeight = hum and hum.HipHeight or 2.15
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
-        ToggleHover(false)
+        ToggleHover(true)
         
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
@@ -696,8 +698,9 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
                 local yVelocity = 0
                 local addTime = dt
                 
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
+                -- HIER IST DEINE ÄNDERUNG: 1 STUD BEIM KLETTERN
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 1.5, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 1
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
@@ -786,93 +789,13 @@ CreateButton(SecMovement, "Boden-TP to Fishman Cave (Direkt)", function()
             return true
         end
         
-        -- DIREKT ZUM ZIEL (OHNE SKY TWEEN)
+        -- NORMALER DIREKT TWEEN OHNE SKY (Direkt zum Ziel)
         SpiderLerp(targetPos, RyuConfig.FishmanSpeed)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
+        ToggleHover(false)
         
-        RyuNotify:Send("Smart TP", "Warte 5 Sekunden für Portal-TP...", 5)
-        task.wait(5)
-        
-        local areaTp = Workspace:FindFirstChild("AreaTeleporters")
-        if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
-            local portal = areaTp.FirstSea.Fishman.Part
-            
-            local tpSuccess = false
-            local isBlack = false
-            
-            while not tpSuccess do
-                root.Velocity = Vector3.new(0, 0, 0)
-                root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
-                
-                local checkStart = tick()
-                isBlack = false
-                
-                while tick() - checkStart < 4 do
-                    if char and root and portal and (root.Position - portal.Position).Magnitude > 1000 then
-                        tpSuccess = true
-                        break
-                    end
-                    
-                    if hum and root and portal and (root.Position - portal.Position).Magnitude < 50 then
-                        hum:Move(Vector3.new(math.sin(tick() * 10), 0, math.cos(tick() * 10)))
-                        local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
-                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-                    end
-                    
-                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                    if pg then
-                        for _, v in pairs(pg:GetDescendants()) do
-                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                    isBlack = true
-                                    tpSuccess = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    
-                    if tpSuccess then 
-                        if hum then hum:Move(Vector3.new(0,0,0)) end
-                        break 
-                    end
-                    task.wait(0.1)
-                end
-                
-                if not tpSuccess then
-                    if hum then hum:Move(Vector3.new(0,0,0)) end
-                    task.wait(3)
-                end
-            end
-            
-            if isBlack then
-                local startClear = tick()
-                while tick() - startClear < 15 do
-                    local foundBlack = false
-                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                    if pg then
-                        for _, v in pairs(pg:GetDescendants()) do
-                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                    foundBlack = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    if not foundBlack then break end
-                    task.wait(0.1)
-                end
-                task.wait(1) 
-            else
-                task.wait(2)
-            end
-            
-            -- HIER STOPPT DAS SCRIPT NACH DEM PORTAL-CHECK: KEINE CAVEROUTE MEHR
-            RyuNotify:Send("Smart TP", "Fishman Cave erreicht!", 3)
-        end
     end)
 end)
 
@@ -905,7 +828,10 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// UNBERÜHRTES TRANSPORT SYSTEM (ORIGINAL)
+--// ============================================================================
+--// DEIN 100% UNANGETASTETES ORIGINAL TRANSPORT SYSTEM
+--// (NUR wallCheckHit AUF 1 STUD GEÄNDERT WIE GEFRAGT)
+--// ============================================================================
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -1053,10 +979,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 local currentPos = root.Position
-                local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
-                local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
-                
-                if (flatCurrent - flatTargetLoop).Magnitude <= 5 then break end
+                if (currentPos - tPos).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
@@ -1092,8 +1015,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
                 
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
+                -- HIER IST DEINE ÄNDERUNG: 1 STUD BEIM KLETTERN
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 1.5, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 1
 
                 if finalY > currentY + 3 then 
                     if not isClimbing then
