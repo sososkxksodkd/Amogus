@@ -307,7 +307,7 @@ local function ToggleHover(state)
     end
 end
 
---// UI AUFBAU: FARM (FISHMAN CAVE FARM)
+--// UI AUFBAU: FARM
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 local SubStats = CreateSubTab(TabFarm, "Stats") 
@@ -332,10 +332,8 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
---// UMBENANNT IN "Auto Farm" STATT "Fishman Cave Movement"
 local SecMovement = CreateSection(SubLeveling, "Auto Farm")
 
---// NEUER FISHMAN CAVE TP BUTTON MIT 100 STUDS CHECK UND BESCHREIBUNG
 local tpCaveLabel = Instance.new("TextLabel", SecMovement)
 tpCaveLabel.Size = UDim2.new(0.92, 0, 0, 20)
 tpCaveLabel.BackgroundTransparency = 1
@@ -356,7 +354,7 @@ CreateButton(SecMovement, "Fishman Cave tp", function()
         if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
             local portal = areaTp.FirstSea.Fishman.Part
             
-            if (root.Position - portal.Position).Magnitude > 100 then
+            if (root.Position - portal.Position).Magnitude > 500 then
                 RyuNotify:Send("Error", "You must be closer to the Fishman Cave!", 3)
                 return
             end
@@ -434,7 +432,7 @@ CreateButton(SecMovement, "Fishman Cave tp", function()
                 task.wait(2)
             end
             
-            RyuNotify:Send("Fishman Cave TP", "Erfolgreich in Fishman Cave angekommen!", 4)
+            RyuNotify:Send("Fishman Cave TP", "Erfolgreich angekommen! Du hast die Kontrolle.", 4)
         else
             RyuNotify:Send("Error", "Portal nicht gefunden!", 3)
         end
@@ -618,10 +616,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 local currentPos = root.Position
-                local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
-                local flatTargetLoop = Vector3.new(tPos.X, 0, tPos.Z)
-                
-                if (flatCurrent - flatTargetLoop).Magnitude <= 5 then break end
+                if (currentPos - tPos).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
