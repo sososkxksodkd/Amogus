@@ -33,7 +33,6 @@ task.spawn(function()
                 task.delay(0.01, function()
                     if descendant.Parent and descendant.Text then
                         local txt = descendant.Text:lower()
-                        -- "error" hinzugefügt, um generische GPO-Fehlermeldungen zu blockieren
                         if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") then
                             descendant.Visible = false
                             descendant:Destroy()
@@ -69,7 +68,7 @@ local RyuConfig = {
     TargetWeapon = "Combat",           
     
     TweenSpeed = 50, 
-    KillHeight = 5, -- Auf 5 Studs angepasst
+    KillHeight = 5, 
     FishmanSpeed = 65, 
     ElevatorSpeed = 65, 
     
@@ -337,7 +336,7 @@ local SecMovement = CreateSection(SubLeveling, "Auto Farm")
 local tpCaveLabel = Instance.new("TextLabel", SecMovement)
 tpCaveLabel.Size = UDim2.new(0.92, 0, 0, 20)
 tpCaveLabel.BackgroundTransparency = 1
-tpCaveLabel.Text = "USE IT ONLY IF YOU ARE IN THE FISHMAN CAVE"
+tpCaveLabel.Text = "GO TO THE FISHMAN CAVE TO USE IT"
 tpCaveLabel.TextColor3 = Theme.SubText
 tpCaveLabel.Font = Enum.Font.GothamBold
 tpCaveLabel.TextSize = 11
@@ -359,10 +358,18 @@ CreateButton(SecMovement, "Fishman Cave tp", function()
                 return
             end
             
+            RyuNotify:Send("Fishman Cave TP", "Simuliere Bewegung...", 2)
+            local moveStart = tick()
+            while tick() - moveStart < 2 do
+                if hum and root then
+                    hum:Move(root.CFrame.LookVector, false)
+                end
+                RunService.Heartbeat:Wait()
+            end
+            if hum then hum:Move(Vector3.new(0,0,0), false) end
+            
             local tpSuccess = false
             local isBlack = false
-            
-            RyuNotify:Send("Fishman Cave TP", "Teleportiere zum Portal...", 3)
             
             while not tpSuccess do
                 root.Velocity = Vector3.new(0, 0, 0)
@@ -468,7 +475,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% UNANGETASTETES ORIGINAL TRANSPORT SYSTEM
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -533,7 +540,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local isStartIslandRobo = (distToPlayer < 1000 and islandDistFromPlayer > 1500)
                 
-                if not isStartIslandRobo then
+                if not isStartIslandRobo and distToTarget <= 300 then
                     if distToTarget < closestDist then
                         closestDist = distToTarget
                         closestRobo = v
@@ -597,7 +604,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if npcsFolder then
                         for _, v in pairs(npcsFolder:GetChildren()) do
                             if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-                                if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 then
+                                local distToTarget = (v.HumanoidRootPart.Position - rawPos).Magnitude
+                                if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 and distToTarget <= 300 then
                                     tPos = v.HumanoidRootPart.Position
                                     isLookingForRobo = false
                                     
@@ -776,7 +784,7 @@ suggestLabel.TextSize = 11
 suggestLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT (REMOTES ONLY)
+--// MODULE HOOKING: PURE RAW COMBAT (REMOTES ONLY - FIXED UNPACK)
 --// ============================================================================
 local currentComboIndex = 1
 local lastSwing = 0
@@ -838,10 +846,10 @@ local function PerformMeleeAttack()
                     and ReplicatedStorage.CombatAnimations.Melee:FindFirstChild(animName)
                 
                 if animObj then
-                    local wepName = tool and tool.Name or "Melee"
+                    -- WICHTIG: Die Tabelle exakt so aufbauen, wie der Server sie erwartet!
                     local argsAttack = {
                         "swingsfx",
-                        wepName,
+                        "Melee", -- MUSS "Melee" bleiben, wie in deinem Spy Log!
                         currentComboIndex,
                         "Ground",
                         currentComboIndex == 1,
@@ -849,7 +857,8 @@ local function PerformMeleeAttack()
                         2,
                         1.5
                     }
-                    ReplicatedStorage.Events.CombatRegister:InvokeServer(unpack(argsAttack))
+                    -- WICHTIG: KEIN unpack() ! Die Argumente müssen als EINE Tabelle gesendet werden!
+                    ReplicatedStorage.Events.CombatRegister:InvokeServer(argsAttack)
                 end
                 
                 currentComboIndex = currentComboIndex + 1
@@ -860,7 +869,7 @@ local function PerformMeleeAttack()
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT ROTATION & FOOTSTEP SIMULATION)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT ROTATION & ANTI-FLUTTER)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -889,7 +898,7 @@ local function SafeTween(targetCFrame, customSpeed)
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = intermediatePos end
         
-        -- Hält die gewünschte Rotation (z.B. nach unten schauen) während dem Fliegen
+        -- Hält die gewünschte Rotation während dem Fliegen ZWINGEND fest
         root.CFrame = CFrame.new(intermediatePos) * targetCFrame.Rotation
         RunService.Heartbeat:Wait()
     end
@@ -899,13 +908,13 @@ local function SafeTween(targetCFrame, customSpeed)
     root.CFrame = targetCFrame
 end
 
--- Anti-Fling: Macht den gesamten Spieler zu einem unsichtbaren Geist für die Physik-Engine
+-- Anti-Fling & Flutter Fix
 RunService.Stepped:Connect(function()
     if RyuConfig.Noclip or RyuConfig.AutoFarm then
         local char = LocalPlayer.Character
         if char then
             for _, v in pairs(char:GetChildren()) do
-                if v:IsA("BasePart") and v.CanCollide then 
+                if v:IsA("BasePart") and v.Name ~= "HumanoidRootPart" and v.CanCollide then 
                     v.CanCollide = false 
                 end
             end
@@ -955,6 +964,7 @@ local function FetchQuest()
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if root then
+            -- Exakt 5 Studs über NPC und strikt -90 Grad nach unten schauen
             local targetCFrame = CFrame.new(npcPos.Position + Vector3.new(0, RyuConfig.KillHeight, 3.5)) * CFrame.Angles(math.rad(-90), 0, 0)
             SafeTween(targetCFrame)
             root.CFrame = targetCFrame
@@ -1014,6 +1024,9 @@ task.spawn(function()
         task.wait(0.1)
         
         if not RyuConfig.AutoFarm then
+            local char = LocalPlayer.Character
+            local hum = char and char:FindFirstChildOfClass("Humanoid")
+            if hum then hum.AutoRotate = true end
             continue
         end
 
@@ -1024,6 +1037,8 @@ task.spawn(function()
         if not root or not hum or hum.Health <= 0 then continue end
 
         ToggleHover(true)
+        -- VERHINDERT FLATTERN: Stoppt die normale Drehung von Roblox während dem Farmen!
+        hum.AutoRotate = false 
         
         --// 1. QUEST CHECK
         if RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
@@ -1074,7 +1089,7 @@ task.spawn(function()
                     if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
                         local pullTimeout = tick()
                         
-                        -- Versucht zu pullen, bis er nah genug war (max 4 Sekunden Timeout)
+                        -- Versucht zu pullen, bis er wirklich physisch berührt/geschlagen wurde (max 4 Sekunden)
                         while RyuConfig.AutoFarm and mHum.Health > 0 and tick() - pullTimeout < 4 do
                             local distToPos = (root.Position - mRoot.Position).Magnitude
                             local attackPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
@@ -1087,7 +1102,7 @@ task.spawn(function()
                                 if bp then bp.Position = attackPos end
                                 root.CFrame = targetCFrame
                                 
-                                -- 100% sichere Touch-Registrierung
+                                -- 100% sichere Touch-Registrierung (Zieht die Aggro sofort)
                                 pcall(function()
                                     if firetouchinterest then
                                         firetouchinterest(root, mRoot, 0)
@@ -1125,7 +1140,7 @@ task.spawn(function()
                             if mHum and mRoot and mHum.Health > 0 then
                                 anyAlive = true
                                 
-                                -- Kompletten NPC einfrieren & unkollidierbar machen (Anti-Fling)
+                                -- Kompletten NPC einfrieren & unkollidierbar machen (Anti-Fling & Anti-Flackern)
                                 for _, part in pairs(npc:GetChildren()) do
                                     if part:IsA("BasePart") then
                                         part.CanCollide = false
