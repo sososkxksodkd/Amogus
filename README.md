@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SPIDER TWEEN + ROBO FILTER FIX)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SPIDER TWEEN + DYNAMIC ROBO RADAR)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -23,6 +23,26 @@ end)
 for _, v in pairs(guiParent:GetChildren()) do 
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
+
+--// ANTI-CLIMB CD MESSAGE HIDER (Löscht die nervige rote Schrift)
+task.spawn(function()
+    local pg = LocalPlayer:WaitForChild("PlayerGui", 10)
+    if pg then
+        pg.DescendantAdded:Connect(function(descendant)
+            if descendant:IsA("TextLabel") or descendant:IsA("TextButton") then
+                task.delay(0.01, function()
+                    if descendant.Parent and descendant.Text then
+                        local txt = descendant.Text:lower()
+                        if txt:match("cd") or txt:match("cooldown") then
+                            descendant.Visible = false
+                            descendant:Destroy()
+                        end
+                    end
+                end)
+            end
+        end)
+    end
+end)
 
 --// BEREINIGTE NPC & ENEMY LISTEN
 local DynamicEnemies = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"}
@@ -797,19 +817,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then _G.RyuIsTweening = false return end
 
-        -- Robo Target Logic mit perfektem Filter
         local targetPos = rawPos
         local closestRobo = nil
         local closestDist = math.huge 
         
         local islandDistFromPlayer = (rawPos - root.Position).Magnitude
         
+        -- Start-Suche nach Robo (Ignoriert Robos der aktuellen Start-Insel)
         for _, v in pairs(Workspace:GetDescendants()) do
             if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
                 local distToTarget = (v.HumanoidRootPart.Position - rawPos).Magnitude
                 local distToPlayer = (v.HumanoidRootPart.Position - root.Position).Magnitude
                 
-                -- Schutz: Wenn der Robo nah am Spieler ist (< 1000 Studs), aber die Zielinsel weit weg ist (> 1500 Studs), ist es der Robo der START-INSEL! -> Ignorieren
                 local isStartIslandRobo = (distToPlayer < 1000 and islandDistFromPlayer > 1500)
                 
                 if not isStartIslandRobo then
@@ -821,11 +840,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
         end
 
+        local isLookingForRobo = false
         if closestRobo and closestRobo:FindFirstChild("HumanoidRootPart") then
             targetPos = closestRobo.HumanoidRootPart.Position
             RyuNotify:Send("Transport", "Ziel-Robo gefunden! Navigiere dorthin.", 3)
         else
-            RyuNotify:Send("Transport", "Kein Ziel-Robo gefunden, nutze Insel-Mitte.", 3)
+            isLookingForRobo = true
+            RyuNotify:Send("Transport", "Ziel-Robo nicht geladen. Scanne während dem Flug...", 3)
         end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
@@ -838,7 +859,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
         local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
         
-        local function SpiderLerp(tPos, currentSpeed)
+        local function SpiderLerp(tPos, currentSpeed, baseIslandPos)
             local startPos = root.Position
             local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
             local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
@@ -854,7 +875,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
-            local lastClimbFire = 0
+            local nextRoboCheck = tick()
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -868,6 +889,32 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
+                
+                -- Dynamische Live-Suche nach dem Robo, falls er anfangs nicht da war
+                if isLookingForRobo and tick() - nextRoboCheck > 1 then
+                    nextRoboCheck = tick()
+                    local npcsFolder = Workspace:FindFirstChild("NPCs")
+                    if npcsFolder then
+                        for _, v in pairs(npcsFolder:GetChildren()) do
+                            if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
+                                if (v.HumanoidRootPart.Position - baseIslandPos).Magnitude < 1500 then
+                                    tPos = v.HumanoidRootPart.Position
+                                    isLookingForRobo = false
+                                    
+                                    startPos = root.Position
+                                    local newFlatStart = Vector3.new(startPos.X, 0, startPos.Z)
+                                    local newFlatTarget = Vector3.new(tPos.X, 0, tPos.Z)
+                                    totalDist = (newFlatStart - newFlatTarget).Magnitude
+                                    t = totalDist / currentSpeed
+                                    elapsedTime = 0
+                                    
+                                    RyuNotify:Send("Transport", "Ziel-Robo gespawnt! Passe Route an.", 3)
+                                    break
+                                end
+                            end
+                        end
+                    end
+                end
                 
                 local currentPos = root.Position
                 if (currentPos - tPos).Magnitude <= 5 then break end
@@ -914,15 +961,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 if finalY > currentY + 3 then 
                     if not isClimbing then
                         isClimbing = true
-                    end
-                    
-                    if tick() - lastClimbFire > 0.3 then
-                        lastClimbFire = tick()
                         task.spawn(function()
                             if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                         end)
+                        if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
-                    if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
                     local climbRate = currentSpeed * 0.8
                     currentY = math.min(currentY + (climbRate * dt), finalY)
@@ -1000,7 +1043,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         end
         
         RyuNotify:Send("Spider TP", "Reise nach " .. targetIslandName .. "...", 3)
-        SpiderLerp(targetPos, RyuConfig.IslandSpeed)
+        SpiderLerp(targetPos, RyuConfig.IslandSpeed, rawPos)
         
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
