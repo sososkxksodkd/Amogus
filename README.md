@@ -9,7 +9,6 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -72,7 +71,6 @@ local RyuConfig = {
     KillHeight = 5, 
     FishmanSpeed = 65, 
     ElevatorSpeed = 65, 
-    AttackDelay = 0.3, -- 0.3 Sekunden Delay Standard
     
     TargetIsland = IslandList[1],
     IslandSpeed = 60, 
@@ -331,9 +329,6 @@ CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 10, 85, RyuConfig.TweenS
 end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) 
     RyuConfig.KillHeight = val 
-end)
-CreateSlider(SecFarmAdvanced, "Attack Delay (3=0.3s, 5=0.5s)", 3, 5, 3, function(val) 
-    RyuConfig.AttackDelay = val / 10 
 end)
 
 local SecMovement = CreateSection(SubLeveling, "Auto Farm")
@@ -838,8 +833,8 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        -- Nutzt jetzt den einstellbaren Delay aus dem UI
-        if now - lastSwing >= RyuConfig.AttackDelay then
+        -- Exakt auf feste 0.5 Sekunden Delay limitiert (permanenter Sweet Spot)
+        if now - lastSwing >= 0.5 then
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
