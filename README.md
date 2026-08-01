@@ -43,7 +43,7 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (QUESTS VS ENEMIES & ISLANDS)
+--// DYNAMISCHER WORKSPACE SCANNER (QUESTS VS ENEMIES, ISLANDS & UNEQUIPED WEAPONS)
 local function GetDynamicLists()
     local mobs = {}
     local quests = {}
@@ -73,17 +73,29 @@ local function GetDynamicLists()
         end
     end
     
-    -- Scanne Inseln direkt aus Workspace (Alles was ein Model ist und kein Core-Ordner)
+    -- Scanne Inseln direkt aus Workspace (Ignoriere bestimmte Inseln)
     for _, v in pairs(Workspace:GetChildren()) do
         if v:IsA("Model") and v.Name ~= "NPCs" and v.Name ~= "PlayerCharacters" and v.Name ~= "Jails" and v.Name ~= "Projectiles" and v.Name ~= "Effects" then
-            if not iDict[v.Name] then
-                table.insert(islands, v.Name)
-                iDict[v.Name] = true
+            if v.Name ~= "Fishman Island" and v.Name ~= "Land of the Sky" then
+                if not iDict[v.Name] then
+                    table.insert(islands, v.Name)
+                    iDict[v.Name] = true
+                end
             end
         end
     end
     
-    -- Scanne Waffen im Inventar
+    -- Scanne Waffen im Unequiped Ordner (und Backpack)
+    local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
+    if unequiped then
+        for _, item in pairs(unequiped:GetChildren()) do
+            if item:IsA("Tool") and not wDict[item.Name] then
+                table.insert(weapons, item.Name)
+                wDict[item.Name] = true
+            end
+        end
+    end
+    
     for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
         if item:IsA("Tool") and not wDict[item.Name] then
             table.insert(weapons, item.Name)
@@ -125,6 +137,8 @@ local RyuConfig = {
     AutoSword = false,    SwordCap = 1500,
     AutoGun = false,      GunCap = 1500
 }
+
+local GPOWeapons = { "Combat", "Melee", "Sword", "Katana" }
 
 --// NOTIFICATION SYSTEM
 local NotificationContainer = Instance.new("Frame")
@@ -291,7 +305,7 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
--- Verbessertes Dropdown mit Refresh-Funktion für Live Scanning
+-- Verbessertes Dropdown mit UI-Fix für Refresh
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -303,10 +317,12 @@ local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
             if child:IsA("TextButton") then child:Destroy() end
         end
         for _, itemName in ipairs(list) do
-            local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. itemName; btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-            btn.Activated:Connect(function() RyuConfig[targetConfigKey] = itemName; header.Text = headerText .. ": " .. itemName end)
+            local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. tostring(itemName); btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+            btn.Activated:Connect(function() RyuConfig[targetConfigKey] = itemName; header.Text = headerText .. ": " .. tostring(itemName) end)
         end
-        scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+        task.defer(function()
+            scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+        end)
     end
     
     listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
@@ -360,10 +376,10 @@ local function ToggleHover(state)
     end
 end
 
---// UI AUFBAU: FARM & CONFIG (NEU)
+--// UI AUFBAU: FARM & CONFIG
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
-local SubConfig = CreateSubTab(TabFarm, "Config") -- NEUE FOLIE
+local SubConfig = CreateSubTab(TabFarm, "Config")
 local SubStats = CreateSubTab(TabFarm, "Stats") 
 
 local SecAutoFarmMain = CreateSection(SubLeveling, "Auto Farm")
@@ -386,121 +402,7 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
-local SecMovement = CreateSection(SubLeveling, "Teleports / Utility")
-local tpCaveLabel = Instance.new("TextLabel", SecMovement)
-tpCaveLabel.Size = UDim2.new(0.92, 0, 0, 20)
-tpCaveLabel.BackgroundTransparency = 1
-tpCaveLabel.Text = "USE IT ONLY IF YOU ARE IN THE FISHMAN CAVE"
-tpCaveLabel.TextColor3 = Theme.SubText
-tpCaveLabel.Font = Enum.Font.GothamBold
-tpCaveLabel.TextSize = 11
-tpCaveLabel.TextXAlignment = Enum.TextXAlignment.Center
-
-CreateButton(SecMovement, "Fishman Cave tp", function()
-    task.spawn(function()
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        local hum = char and char:FindFirstChildOfClass("Humanoid")
-        if not root or not hum then return end
-        
-        local areaTp = Workspace:FindFirstChild("AreaTeleporters")
-        if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
-            local portal = areaTp.FirstSea.Fishman.Part
-            
-            if (root.Position - portal.Position).Magnitude > 500 then
-                RyuNotify:Send("Error", "You must be closer to the Fishman Cave!", 3)
-                return
-            end
-            
-            RyuNotify:Send("Fishman Cave TP", "Simuliere Bewegung...", 2)
-            local moveStart = tick()
-            while tick() - moveStart < 2 do
-                if hum and root then
-                    hum:Move(root.CFrame.LookVector, false)
-                end
-                RunService.Heartbeat:Wait()
-            end
-            if hum then hum:Move(Vector3.new(0,0,0), false) end
-            
-            local tpSuccess = false
-            local isBlack = false
-            
-            while not tpSuccess do
-                root.Velocity = Vector3.new(0, 0, 0)
-                root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
-                
-                local checkStart = tick()
-                isBlack = false
-                
-                while tick() - checkStart < 4 do
-                    if char and root and portal and (root.Position - portal.Position).Magnitude > 1000 then
-                        tpSuccess = true
-                        break
-                    end
-                    
-                    if hum and root and portal and (root.Position - portal.Position).Magnitude < 50 then
-                        hum:Move(Vector3.new(math.sin(tick() * 10), 0, math.cos(tick() * 10)))
-                        local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
-                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-                    end
-                    
-                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                    if pg then
-                        for _, v in pairs(pg:GetDescendants()) do
-                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                    isBlack = true
-                                    tpSuccess = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    
-                    if tpSuccess then 
-                        if hum then hum:Move(Vector3.new(0,0,0)) end
-                        break 
-                    end
-                    task.wait(0.1)
-                end
-                
-                if not tpSuccess then
-                    if hum then hum:Move(Vector3.new(0,0,0)) end
-                    task.wait(3)
-                end
-            end
-            
-            if isBlack then
-                local startClear = tick()
-                while tick() - startClear < 15 do
-                    local foundBlack = false
-                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                    if pg then
-                        for _, v in pairs(pg:GetDescendants()) do
-                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
-                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
-                                    foundBlack = true
-                                    break
-                                end
-                            end
-                        end
-                    end
-                    if not foundBlack then break end
-                    task.wait(0.1)
-                end
-                task.wait(1)
-            else
-                task.wait(2)
-            end
-            
-            RyuNotify:Send("Fishman Cave TP", "Erfolgreich angekommen!", 4)
-        else
-            RyuNotify:Send("Error", "Portal nicht gefunden!", 3)
-        end
-    end)
-end)
-
---// NEUE CONFIG FOLIE
+-- NEUE FARM CONFIG FOLIE MIT LIVE SCANNER
 local DropMob, DropNPC, DropWep, DropIsland
 
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
@@ -535,10 +437,9 @@ CreateSlider(SecAutoStats, "Sword Cap", 1, 2000, 1500, function(val) RyuConfig.S
 CreateToggle(SecAutoStats, "Auto Gun", RyuConfig.AutoGun, function(state) RyuConfig.AutoGun = state end)
 CreateSlider(SecAutoStats, "Gun Cap", 1, 2000, 1500, function(val) RyuConfig.GunCap = val end)
 
---// MOBILITY TAB -> TRANSPORTATION & AUTO BUY
+--// MOBILITY TAB -> TRANSPORTATION
 local TabMobility = CreateMainTab("Mobility")
 local SubTransport = CreateSubTab(TabMobility, "Spider TP")
-local SubAutoBuy = CreateSubTab(TabMobility, "Auto Buy")
 
 local SecIslandTP = CreateSection(SubTransport, "Spider Teleportation")
 DropIsland = CreateDropdown(SecIslandTP, "Select Island", InitIslands, "TargetIsland")
@@ -546,7 +447,6 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -831,28 +731,119 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
     end)
 end)
 
-local SecAutoBuy = CreateSection(SubAutoBuy, "Auto Buy")
-CreateButton(SecAutoBuy, "Buy Geppo", function()
-    pcall(function()
-        local inter = LocalPlayer:WaitForChild("InteractionsV2", 2)
-        if inter then
-            if inter:IsA("RemoteEvent") then
-                inter:FireServer("Geppo")
-            elseif inter:IsA("RemoteFunction") then
-                inter:InvokeServer("Geppo")
+local SecCaveTP = CreateSection(SubTransport, "Fishman Cave")
+local tpCaveLabel2 = Instance.new("TextLabel", SecCaveTP)
+tpCaveLabel2.Size = UDim2.new(0.92, 0, 0, 20)
+tpCaveLabel2.BackgroundTransparency = 1
+tpCaveLabel2.Text = "USE IT ONLY IF YOU ARE IN THE FISHMAN CAVE"
+tpCaveLabel2.TextColor3 = Theme.SubText
+tpCaveLabel2.Font = Enum.Font.GothamBold
+tpCaveLabel2.TextSize = 11
+tpCaveLabel2.TextXAlignment = Enum.TextXAlignment.Center
+
+CreateButton(SecCaveTP, "TP", function()
+    task.spawn(function()
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        if not root or not hum then return end
+        
+        local areaTp = Workspace:FindFirstChild("AreaTeleporters")
+        if areaTp and areaTp:FindFirstChild("FirstSea") and areaTp.FirstSea:FindFirstChild("Fishman") and areaTp.FirstSea.Fishman:FindFirstChild("Part") then
+            local portal = areaTp.FirstSea.Fishman.Part
+            
+            if (root.Position - portal.Position).Magnitude > 500 then
+                RyuNotify:Send("Error", "You must be closer to the Fishman Cave!", 3)
+                return
             end
+            
+            RyuNotify:Send("Fishman Cave TP", "Simuliere Bewegung...", 2)
+            local moveStart = tick()
+            while tick() - moveStart < 2 do
+                if hum and root then
+                    hum:Move(root.CFrame.LookVector, false)
+                end
+                RunService.Heartbeat:Wait()
+            end
+            if hum then hum:Move(Vector3.new(0,0,0), false) end
+            
+            local tpSuccess = false
+            local isBlack = false
+            
+            while not tpSuccess do
+                root.Velocity = Vector3.new(0, 0, 0)
+                root.CFrame = portal.CFrame * CFrame.new(0, 3, 0)
+                
+                local checkStart = tick()
+                isBlack = false
+                
+                while tick() - checkStart < 4 do
+                    if char and root and portal and (root.Position - portal.Position).Magnitude > 1000 then
+                        tpSuccess = true
+                        break
+                    end
+                    
+                    if hum and root and portal and (root.Position - portal.Position).Magnitude < 50 then
+                        hum:Move(Vector3.new(math.sin(tick() * 10), 0, math.cos(tick() * 10)))
+                        local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
+                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
+                    end
+                    
+                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                    if pg then
+                        for _, v in pairs(pg:GetDescendants()) do
+                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
+                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
+                                    isBlack = true
+                                    tpSuccess = true
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    
+                    if tpSuccess then 
+                        if hum then hum:Move(Vector3.new(0,0,0)) end
+                        break 
+                    end
+                    task.wait(0.1)
+                end
+                
+                if not tpSuccess then
+                    if hum then hum:Move(Vector3.new(0,0,0)) end
+                    task.wait(3)
+                end
+            end
+            
+            if isBlack then
+                local startClear = tick()
+                while tick() - startClear < 15 do
+                    local foundBlack = false
+                    local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                    if pg then
+                        for _, v in pairs(pg:GetDescendants()) do
+                            if v:IsA("Frame") and v.Visible and v.BackgroundTransparency <= 0.1 then
+                                if v.BackgroundColor3 == Color3.new(0, 0, 0) and v.AbsoluteSize.X > 500 and v.AbsoluteSize.Y > 500 then
+                                    foundBlack = true
+                                    break
+                                end
+                            end
+                        end
+                    end
+                    if not foundBlack then break end
+                    task.wait(0.1)
+                end
+                task.wait(1)
+            else
+                task.wait(2)
+            end
+            
+            RyuNotify:Send("Fishman Cave TP", "Erfolgreich angekommen!", 4)
+        else
+            RyuNotify:Send("Error", "Portal nicht gefunden!", 3)
         end
     end)
 end)
-
-local suggestLabel = Instance.new("TextLabel", SecAutoBuy)
-suggestLabel.Size = UDim2.new(0.92, 0, 0, 20)
-suggestLabel.BackgroundTransparency = 1
-suggestLabel.Text = "SUGGEST MORE IN THE DISCORD"
-suggestLabel.TextColor3 = Theme.SubText
-suggestLabel.Font = Enum.Font.GothamBold
-suggestLabel.TextSize = 11
-suggestLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 --// ============================================================================
 --// MODULE HOOKING: PURE RAW COMBAT (ANIMATION + DAMAGE REMOTES)
@@ -866,6 +857,15 @@ local function EquipTargetWeapon()
     if not hum then return false end
     
     local targetWep = RyuConfig.TargetWeapon
+    
+    -- NEU: Automatisches Ausrüsten per Remote, wenn die Waffe im "Unequiped" Ordner liegt
+    pcall(function()
+        local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
+        if unequiped and unequiped:FindFirstChild(targetWep) then
+            ReplicatedStorage.Events.Tools:InvokeServer("equip", targetWep)
+            task.wait(0.1)
+        end
+    end)
     
     if char:FindFirstChild(targetWep) then return true end
     for _, item in pairs(char:GetChildren()) do
@@ -904,8 +904,7 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        -- Exakt auf feste 0.55 Sekunden Delay limitiert
-        if now - lastSwing >= 0.55 then
+        if now - lastSwing >= 0.5 then
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
@@ -923,7 +922,6 @@ local function PerformMeleeAttack(targets)
                 local animName = "Punch" .. currentComboIndex
                 if currentComboIndex == 1 then animName = "Dash" end
                 if currentComboIndex == 4 then animName = "GroundPunch4" end
-                -- Schlag 5 komplett entfernt, da er Knockback verursacht!
                 
                 local animObj = ReplicatedStorage:FindFirstChild("CombatAnimations") 
                     and ReplicatedStorage.CombatAnimations:FindFirstChild("Melee")
@@ -959,7 +957,6 @@ local function PerformMeleeAttack(targets)
                 end
                 
                 currentComboIndex = currentComboIndex + 1
-                -- Nach dem 4. Schlag direkt wieder bei 1 anfangen
                 if currentComboIndex > 4 then currentComboIndex = 1 end
             end)
         end
@@ -1235,7 +1232,6 @@ task.spawn(function()
                     local lastDamageTime = tick()
                     local lastTotalHealth = 0
                     
-                    -- Initial HP Kalkulation für den Fail-Safe
                     for _, npc in ipairs(targetMobs) do
                         local mHum = npc:FindFirstChildOfClass("Humanoid")
                         if mHum then lastTotalHealth = lastTotalHealth + mHum.Health end
@@ -1275,14 +1271,12 @@ task.spawn(function()
                             end
                         end
                         
-                        -- SMARTER FAIL SAFE (15 Sekunden Timeout ohne Schaden)
                         if currentTotalHealth < lastTotalHealth then
                             lastTotalHealth = currentTotalHealth
                             lastDamageTime = tick()
                         end
                         
                         if tick() - lastDamageTime > 15 then
-                            -- Wenn 15s kein Schaden verursacht wurde (stuck, bugged etc.), repull!
                             RyuNotify:Send("Fail Safe", "15s kein Schaden. Repositioniere Gegner...", 2)
                             break 
                         end
