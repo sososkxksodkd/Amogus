@@ -71,6 +71,7 @@ local RyuConfig = {
     KillHeight = 5, 
     FishmanSpeed = 65, 
     ElevatorSpeed = 65, 
+    AttackDelay = 0.9, -- 0.9 Sekunden Delay
     
     TargetIsland = IslandList[1],
     IslandSpeed = 60, 
@@ -329,6 +330,9 @@ CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 10, 85, RyuConfig.TweenS
 end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) 
     RyuConfig.KillHeight = val 
+end)
+CreateSlider(SecFarmAdvanced, "Attack Delay (5=0.5s, 10=1s)", 5, 10, 9, function(val) 
+    RyuConfig.AttackDelay = val / 10 
 end)
 
 local SecMovement = CreateSection(SubLeveling, "Auto Farm")
@@ -833,8 +837,8 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        -- 1 Sekunde Cooldown, um Kick/Block vom Server zu verhindern
-        if now - lastSwing >= 1 then
+        -- Nutzt jetzt den einstellbaren Delay aus dem UI
+        if now - lastSwing >= RyuConfig.AttackDelay then
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
@@ -852,7 +856,7 @@ local function PerformMeleeAttack(targets)
                 local animName = "Punch" .. currentComboIndex
                 if currentComboIndex == 1 then animName = "Dash" end
                 if currentComboIndex == 4 then animName = "GroundPunch4" end
-                if currentComboIndex == 5 then animName = "GroundPunch5" end
+                -- Schlag 5 komplett entfernt, da er Knockback verursacht!
                 
                 local animObj = ReplicatedStorage:FindFirstChild("CombatAnimations") 
                     and ReplicatedStorage.CombatAnimations:FindFirstChild("Melee")
@@ -882,13 +886,14 @@ local function PerformMeleeAttack(targets)
                         {currentComboIndex, "Ground", "Melee"},
                         true,
                         root.CFrame,
-                        ["aircombo"] = "Ground" -- So akzeptiert es Luau perfekt
+                        ["aircombo"] = "Ground"
                     }
                     ReplicatedStorage.Events.CombatRegister:InvokeServer(argsDamage)
                 end
                 
                 currentComboIndex = currentComboIndex + 1
-                if currentComboIndex > 5 then currentComboIndex = 1 end
+                -- Nach dem 4. Schlag direkt wieder bei 1 anfangen (kein 5. Schlag!)
+                if currentComboIndex > 4 then currentComboIndex = 1 end
             end)
         end
     end)
