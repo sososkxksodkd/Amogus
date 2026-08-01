@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (TRUE SPIDER TWEEN + CLIMB HOLD FIX)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SPIDER TWEEN + ROBO FILTER FIX)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -793,17 +793,30 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             return
         end
         
-        -- Robo Target Logic - Absolute Map Search for Closest Robo to Target
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if not root then _G.RyuIsTweening = false return end
+
+        -- Robo Target Logic mit perfektem Filter
         local targetPos = rawPos
         local closestRobo = nil
-        local closestDist = 3500 
+        local closestDist = math.huge 
+        
+        local islandDistFromPlayer = (rawPos - root.Position).Magnitude
         
         for _, v in pairs(Workspace:GetDescendants()) do
             if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
-                local dist = (v.HumanoidRootPart.Position - rawPos).Magnitude
-                if dist < closestDist then
-                    closestDist = dist
-                    closestRobo = v
+                local distToTarget = (v.HumanoidRootPart.Position - rawPos).Magnitude
+                local distToPlayer = (v.HumanoidRootPart.Position - root.Position).Magnitude
+                
+                -- Schutz: Wenn der Robo nah am Spieler ist (< 1000 Studs), aber die Zielinsel weit weg ist (> 1500 Studs), ist es der Robo der START-INSEL! -> Ignorieren
+                local isStartIslandRobo = (distToPlayer < 1000 and islandDistFromPlayer > 1500)
+                
+                if not isStartIslandRobo then
+                    if distToTarget < closestDist then
+                        closestDist = distToTarget
+                        closestRobo = v
+                    end
                 end
             end
         end
@@ -814,10 +827,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         else
             RyuNotify:Send("Transport", "Kein Ziel-Robo gefunden, nutze Insel-Mitte.", 3)
         end
-        
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then _G.RyuIsTweening = false return end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         local hipHeight = hum and hum.HipHeight or 2.15
@@ -845,6 +854,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local currentY = root.Position.Y
             local isClimbing = false
             local lastFootstep = tick()
+            local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -904,18 +914,22 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 if finalY > currentY + 3 then 
                     if not isClimbing then
                         isClimbing = true
+                    end
+                    
+                    if tick() - lastClimbFire > 0.3 then
+                        lastClimbFire = tick()
                         task.spawn(function()
                             if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                         end)
-                        if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     end
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
                     local climbRate = currentSpeed * 0.8
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
                     
                     if isWallBlocking then
-                        addTime = 0 -- Friert X/Z Bewegung exakt bei 2 Studs Wandabstand ein
+                        addTime = 0 -- Friert X/Z Bewegung exakt bei 2.5 Studs Wandabstand ein
                     elseif finalY - currentY > 5 then
                         addTime = dt * 0.3
                     end
@@ -1320,4 +1334,4 @@ task.spawn(function()
 end)
 
 task.wait(0.5)
-RyuNotify:Send("RYU HUB", "Spider Master: Climb-Hold, 2-Stud Gap & Tunnel Fix!", 4)
+RyuNotify:Send("RYU HUB", "Spider Master: Robo-Filter, No-Spam & Undersea Fix!", 4)
