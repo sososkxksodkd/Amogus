@@ -9,7 +9,6 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -337,7 +336,7 @@ local SecMovement = CreateSection(SubLeveling, "Auto Farm")
 local tpCaveLabel = Instance.new("TextLabel", SecMovement)
 tpCaveLabel.Size = UDim2.new(0.92, 0, 0, 20)
 tpCaveLabel.BackgroundTransparency = 1
-tpCaveLabel.Text = "GO TO THE FISHMAN CAVE TO USE IT"
+tpCaveLabel.Text = "USE IT ONLY IF YOU ARE IN THE FISHMAN CAVE"
 tpCaveLabel.TextColor3 = Theme.SubText
 tpCaveLabel.Font = Enum.Font.GothamBold
 tpCaveLabel.TextSize = 11
@@ -785,7 +784,7 @@ suggestLabel.TextSize = 11
 suggestLabel.TextXAlignment = Enum.TextXAlignment.Center
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT (PERFEKTE DAMAGE REMOTES - 0.9s DELAY)
+--// MODULE HOOKING: PURE RAW COMBAT (ANIMATION + DAMAGE REMOTES)
 --// ============================================================================
 local currentComboIndex = 1
 local lastSwing = 0
@@ -834,8 +833,8 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        -- Exakt 0.9 Sekunden Delay, wie gewünscht
-        if now - lastSwing >= 0.9 then
+        -- 1 Sekunde Cooldown, um Kick/Block vom Server zu verhindern
+        if now - lastSwing >= 1 then
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
@@ -850,6 +849,31 @@ local function PerformMeleeAttack(targets)
                     end
                 end
                 
+                local animName = "Punch" .. currentComboIndex
+                if currentComboIndex == 1 then animName = "Dash" end
+                if currentComboIndex == 4 then animName = "GroundPunch4" end
+                if currentComboIndex == 5 then animName = "GroundPunch5" end
+                
+                local animObj = ReplicatedStorage:FindFirstChild("CombatAnimations") 
+                    and ReplicatedStorage.CombatAnimations:FindFirstChild("Melee")
+                    and ReplicatedStorage.CombatAnimations.Melee:FindFirstChild(animName)
+                
+                -- 1. SCHRITT: Sende die Animation an den Server
+                if animObj then
+                    local argsAnim = {
+                        "swingsfx",
+                        "Melee",
+                        currentComboIndex,
+                        "Ground",
+                        currentComboIndex == 1,
+                        animObj,
+                        2,
+                        1.5
+                    }
+                    ReplicatedStorage.Events.CombatRegister:InvokeServer(argsAnim)
+                end
+                
+                -- 2. SCHRITT: Sende sofort danach den Schaden an den Server
                 if #hitParts > 0 then
                     local argsDamage = {
                         "damage",
@@ -857,10 +881,9 @@ local function PerformMeleeAttack(targets)
                         "Melee",
                         {currentComboIndex, "Ground", "Melee"},
                         true,
-                        root.CFrame
+                        root.CFrame,
+                        ["aircombo"] = "Ground" -- So akzeptiert es Luau perfekt
                     }
-                    argsDamage.aircombo = "Ground"
-                    
                     ReplicatedStorage.Events.CombatRegister:InvokeServer(argsDamage)
                 end
                 
