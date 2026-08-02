@@ -43,7 +43,7 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (SORTIERT & PERFEKTIONIERT FÜR AUTO-REFRESH)
+--// DYNAMISCHER WORKSPACE SCANNER (QUESTS VS ENEMIES, ISLANDS FOLDER & UNEQUIPED WEAPONS)
 local function GetDynamicLists()
     local mobs = {}
     local quests = {}
@@ -61,7 +61,7 @@ local function GetDynamicLists()
                         table.insert(mobs, v.Name)
                         mDict[v.Name] = true
                     end
-                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
+                elseif v:FindFirstChild("QuestMark") then
                     if not qDict[v.Name] then
                         table.insert(quests, v.Name)
                         qDict[v.Name] = true
@@ -100,17 +100,11 @@ local function GetDynamicLists()
         end
     end
     
-    -- Fallbacks
+    -- Fallbacks falls komplett leer
     if #mobs == 0 then mobs = {"Fishman Karate User"} end
     if #quests == 0 then quests = {"Becky"} end
     if #islands == 0 then islands = {"Fishman Cave"} end
     if #weapons == 0 then weapons = {"Combat"} end
-    
-    -- WICHTIG FÜR REFRESH: Alphabetisch sortieren!
-    table.sort(mobs)
-    table.sort(quests)
-    table.sort(islands)
-    table.sort(weapons)
     
     return mobs, quests, islands, weapons
 end
@@ -130,7 +124,7 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
-    ElevatorSpeed = 300, -- NEU: Flexibel durch UI Slider
+    ElevatorSpeed = 65, 
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -307,6 +301,7 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
+-- Verbessertes Dropdown mit UI-Fix für Refresh
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -417,37 +412,7 @@ CreateButton(SecFarmConfig, "Refresh All Lists", function()
     if DropNPC then DropNPC:Refresh(newQuests) end
     if DropWep then DropWep:Refresh(newWeaps) end
     if DropIsland then DropIsland:Refresh(newIslands) end
-    RyuNotify:Send("Lists Refreshed", "Listen manuell aktualisiert!", 3)
-end)
-
--- AUTO REFRESH LOOP
-task.spawn(function()
-    local function listsEqual(a, b)
-        if #a ~= #b then return false end
-        for i = 1, #a do if a[i] ~= b[i] then return false end end
-        return true
-    end
-    local lastMobs, lastQuests, lastIslands, lastWeaps = InitMobs, InitQuests, InitIslands, InitWeapons
-    while true do
-        task.wait(3)
-        local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
-        if not listsEqual(lastMobs, newMobs) then
-            lastMobs = newMobs
-            if DropMob then DropMob:Refresh(newMobs) end
-        end
-        if not listsEqual(lastQuests, newQuests) then
-            lastQuests = newQuests
-            if DropNPC then DropNPC:Refresh(newQuests) end
-        end
-        if not listsEqual(lastWeaps, newWeaps) then
-            lastWeaps = newWeaps
-            if DropWep then DropWep:Refresh(newWeaps) end
-        end
-        if not listsEqual(lastIslands, newIslands) then
-            lastIslands = newIslands
-            if DropIsland then DropIsland:Refresh(newIslands) end
-        end
-    end
+    RyuNotify:Send("Lists Refreshed", "NPCs, Quests, Waffen & Inseln aktualisiert!", 3)
 end)
 
 --// AUTO STATS UI
@@ -477,11 +442,8 @@ DropIsland = CreateDropdown(SecIslandTP, "Select Island", InitIslands, "TargetIs
 CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
-CreateSlider(SecIslandTP, "Climb Speed", 60, 300, RyuConfig.ElevatorSpeed, function(val)
-    RyuConfig.ElevatorSpeed = val
-end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT CHECKPOINT 3 UPGRADES)
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (WAND-HACK ENTFERNT!)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -639,71 +601,74 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local calcPos = Vector3.new(currentX, currentY, currentZ)
+                local samplePos1 = Vector3.new(currentX, 0, currentZ)
+                local samplePos2 = samplePos1 + (flatMoveDir * 6)
                 
-                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 4.5, rayParamsDown)
-                local wallCheckHigh = Workspace:Raycast(calcPos + Vector3.new(0, 15, 0), flatMoveDir * 4.5, rayParamsDown)
-                local ledgeCheckHit = Workspace:Raycast(calcPos + (flatMoveDir * 5) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
+                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                local y1 = hit1 and hit1.Position.Y or 0
                 
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
-                local isWallBlockingHigh = wallCheckHigh and wallCheckHigh.Distance <= 4
-                local finalY = (ledgeCheckHit and ledgeCheckHit.Position.Y or 0) + floorOffset
+                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
+                local y2 = hit2 and hit2.Position.Y or 0
                 
+                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
+                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
+                
+                local targetY = y1
+                if forwardHit then
+                    targetY = math.max(y1, y2)
+                else
+                    if math.abs(y2 - currentY) < 6 then
+                        targetY = y2
+                    end
+                end
+                
+                targetY = math.max(targetY, 1) 
+                
+                local finalY = targetY + floorOffset
                 local yVelocity = 0
                 local addTime = dt
+                
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
 
-                if isWallBlocking then 
-                    if not isWallBlockingHigh then
-                        -- SMALL OBJECT BYPASS: Gleitet über kleine Objekte (Zäune, Steine)
-                        currentY = currentY + 15
-                        addTime = dt
-                        yVelocity = 0
-                    else
-                        -- ECHTES KLETTERN (Steil hoch)
-                        if not isClimbing then
-                            isClimbing = true
-                            pcall(function() climbEvent:InvokeServer(true) end)
-                        end
-                        currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
-                        addTime = dt * 0.5 
-                        yVelocity = 20 -- Physische Geschwindigkeit für Anti-Cheat
-                    end
-                elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
-                    -- ABGRUND (Runterklettern) - Ignoriert Wasser!
+                if finalY > currentY + 3 then 
                     if not isClimbing then
                         isClimbing = true
-                        pcall(function() climbEvent:InvokeServer(true) end)
                     end
                     
-                    -- NOCLIP FIX: Fällt niemals unter den echten Boden
-                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
-                    addTime = dt * 0.5 
-                    yVelocity = -20 
+                    if tick() - lastClimbFire > 0.3 then
+                        lastClimbFire = tick()
+                        task.spawn(function()
+                            if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                        end)
+                    end
+                    if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
-                    if currentY - finalY <= 3 then
-                        isClimbing = false
-                        pcall(function() climbEvent:InvokeServer(false) end)
+                    local climbRate = currentSpeed * 0.8
+                    currentY = math.min(currentY + (climbRate * dt), finalY)
+                    yVelocity = climbRate
+                    
+                    if isWallBlocking then
+                        addTime = 0 
+                    elseif finalY - currentY > 5 then
+                        addTime = dt * 0.3
                     end
                 else
-                    -- NORMALES LAUFEN / PLATEAU / WASSER
                     if isClimbing then
                         isClimbing = false
-                        pcall(function() climbEvent:InvokeServer(false) end)
+                        task.spawn(function()
+                            if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+                        end)
+                        if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
                     end
                     
-                    if finalY > currentY then
-                        currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), finalY)
-                    elseif finalY < currentY then
-                        currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
+                    if finalY < currentY then
+                        local fallRate = 150
+                        currentY = math.max(currentY - (fallRate * dt), finalY)
+                        yVelocity = -fallRate
+                    else
+                        currentY = finalY
                     end
-                    
-                    -- Wasser Fix: Bei Y=0 bis Y=4 immer oben bleiben und schnell sein!
-                    if currentY < 4 then 
-                        currentY = 4 
-                    end
-                    
-                    yVelocity = 0
-                    addTime = dt 
                 end
                 
                 currentY = math.max(currentY, 1)
@@ -890,6 +855,7 @@ local function EquipTargetWeapon()
     
     local targetWep = RyuConfig.TargetWeapon
     
+    -- Automatisches Ausrüsten per Remote, wenn die Waffe im "Unequiped" Ordner liegt
     pcall(function()
         local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
         if unequiped and unequiped:FindFirstChild(targetWep) then
@@ -993,7 +959,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (FÜR DEN AUTO FARM)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB FÜR AUTO FARM)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -1024,6 +990,7 @@ local function SafeTween(targetCFrame, customSpeed)
         local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
         
+        -- Wand-Erkennung nur für den Auto Farm! (Ignoriert Wasser, zwingt dich drüber)
         local moveDir = (targetPos - root.Position).Unit
         if moveDir.Magnitude > 0 then
             local wallHit = Workspace:Raycast(root.Position, moveDir * 6, rayParams)
