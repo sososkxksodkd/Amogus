@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-KICK SPIDER TP (5 STUDS HÖHE, 60 KLETTER-GESCHWINDIGKEIT)
+--// SPIDER TP MIT ZACK-RAUF / ZACK-RUNTER GIPFEL-SNAP (5 STUDS HÖHE, 60 SPEED)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,7 +560,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- HIER GEÄNDERT: Exakt 5 Studs Abstand über allem
+        -- Exakt 5 Studs über dem Gipfel/Boden stehen
         local floorOffset = 5
         
         ToggleHover(true)
@@ -602,8 +602,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 rParams.FilterType = Enum.RaycastFilterType.Exclude
                 rParams.IgnoreWater = true
                 
-                local origin = Vector3.new(x, 3000, z)
-                local dir = Vector3.new(0, -4000, 0)
+                local origin = Vector3.new(x, 4000, z)
+                local dir = Vector3.new(0, -5000, 0)
                 
                 for i = 1, 10 do
                     rParams.FilterDescendantsInstances = currentFilter
@@ -623,7 +623,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
-            -- Permanentes Kletter-Remote aktivieren!
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
             end
@@ -684,39 +683,34 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local calcPos = Vector3.new(currentX, currentY, currentZ)
+                -- ZACK-RAUF SYSTEM: Wir ermitteln direkt den höchsten Gipfel über uns (z.B. Baumspitze / Dach)
+                local roofY = GetTrueTopY(currentX, currentZ) + floorOffset
+                local groundY = GetTrueTopY(currentX, currentZ) -- Boden darunter
                 
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
-                
-                local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
-                local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
-                
-                local targetY = math.max(groundYCurrent, groundYAhead)
+                -- Wenn ein Gebäude oder Baum da ist, schnappt er nach oben (ZACK AUF DEN BAUM), 
+                -- ansonsten bleibt er auf der sicheren Boden-Ebene (ZACK AUF DEN BODEN)
+                local targetY = math.max(groundY + floorOffset, roofY)
                 
                 local yVelocity = 0
                 local addTime = dt
 
-                -- KOLLISIONSSCHUTZ: Prüft exakt 2.5 Studs vor dir, um Noclip in eine Wand zu verhindern
-                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
+                local wallCheckHit = Workspace:Raycast(Vector3.new(currentX, currentY, currentZ), flatMoveDir * 2.5, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
-                    local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
+                    local wallTopY = GetTrueTopY(wallCheckHit.Position.X, wallCheckHit.Position.Z) + floorOffset
                     if wallTopY > currentY then
-                        addTime = 0 -- VORWÄRTSBEWEGUNG STOPPT! Wir gehen nicht in die Wand rein.
                         targetY = math.max(targetY, wallTopY)
                     end
                 end
 
-                -- HIER GEÄNDERT: Kletter-Geschwindigkeit auf 60 gesetzt (Rauf & Runter)
+                -- Kletter-Geschwindigkeit auf 60
                 local safeVerticalSpeed = 60
 
                 if currentY < targetY - 0.5 then
-                    -- AUFZUG NACH OBEN
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
                     yVelocity = 20
                 elseif currentY > targetY + 0.5 then
-                    -- AUFZUG NACH UNTEN (erst nachdem Hindernisse überwunden wurden)
                     currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
-                    if currentY < groundYCurrent then currentY = groundYCurrent end
+                    if currentY < (groundY + floorOffset) then currentY = groundY + floorOffset end
                     yVelocity = -20
                 else
                     currentY = targetY
@@ -724,7 +718,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 if currentY < 4 then currentY = 4 end
-                
                 currentY = math.max(currentY, 1)
                 
                 elapsedTime = elapsedTime + addTime
