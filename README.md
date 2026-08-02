@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP MIT 4 STUDS HÖHE & TOUCH-TRIGGER FÜR WÄNDE (500 SPEED RAUF/RUNTER, 0 RANGE, KAMERA FREI)
+--// SPIDER TP MIT EXAKT 4 STUDS SCHWEBE-HÖHE & KOPF-WAND-BERÜHRUNGS-TRIGGER
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,7 +560,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- Exakt 4 Studs über dem Boden/Objekt schweben während des TPs
+        -- Immer exakt 4 Studs über dem Boden/Objekt stehen
         local floorOffset = 4
         
         ToggleHover(true)
@@ -681,7 +681,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0) -- Kletter-Range auf 0
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0)
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
@@ -691,12 +691,14 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
-                -- BERÜHRUNGS-PRÜFUNG: Klettern nur aktivieren, wenn etwas den Körper/Charakter berührt
-                local touchCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 1.5, rayParamsDown)
-                local isTouchingWall = (touchCheckHit and touchCheckHit.Instance and touchCheckHit.Instance.Transparency < 1)
+                -- KOPF-WAND-BERÜHRUNGS-TRIGGER: Startet erst ab Kopf-Höhe, damit der flache Boden ignoriert wird!
+                local headPart = char:FindFirstChild("Head")
+                local headPos = headPart and headPart.Position or (calcPos + Vector3.new(0, 3, 0))
+                local headCheckHit = Workspace:Raycast(headPos, flatMoveDir * 2, rayParamsDown)
+                local isHeadTouchingWall = (headCheckHit and headCheckHit.Instance and headCheckHit.Instance.Transparency < 1)
                 
                 if climbEvent then
-                    pcall(function() climbEvent:InvokeServer(isTouchingWall) end)
+                    pcall(function() climbEvent:InvokeServer(isHeadTouchingWall) end)
                 end
 
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
@@ -722,7 +724,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     yVelocity = 0
                 end
                 
-                -- Schutz-System bei starkem Y-Anstieg: Warten, bis Klettern/Höhe angepasst ist
                 if math.abs(currentY - targetY) > 8 then
                     addTime = 0 
                 end
@@ -736,7 +737,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local targetLookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                -- Schlaue Wand-Scan Rotation (Kamera bleibt absolut frei)
                 local offsetAngle = math.sin(tick() * 20) * 0.35
                 local baseLookCFrame = CFrame.lookAt(finalPos, targetLookPos)
                 local scannedCFrame = baseLookCFrame * CFrame.Angles(0, offsetAngle, 0)
