@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (MULTI-SEA & DYNAMIC ISLAND SCANNER)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (LIVE-TRACKING AUTO-FARM EDITION)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -43,7 +43,7 @@ task.spawn(function()
     end
 end)
 
---// FESTE GPO DATEN (Getrennt nach Sea 1 und Sea 2 für Mobs & Quests)
+--// FESTE GPO DATEN (Getrennt nach Sea 1 und Sea 2)
 local StaticGPO = {
     Sea1 = {
         Mobs = {
@@ -116,7 +116,7 @@ local function GetDynamicLists()
         end
     end
 
-    -- 3. INSEL SCANNER (Liest direkt Workspace.Islands aus)
+    -- 3. INSEL SCANNER (Direkt aus Workspace.Islands)
     local islandsFolder = Workspace:FindFirstChild("Islands") or Workspace:FindFirstChild("Locations")
     if islandsFolder then
         for _, v in pairs(islandsFolder:GetChildren()) do
@@ -124,7 +124,6 @@ local function GetDynamicLists()
         end
     end
     
-    -- Fallback für Inseln falls Workspace.Islands noch unvollständig geladen ist
     if next(islandsDict) == nil then
         for _, v in ipairs(currentSea.Islands) do
             islandsDict[v] = true
@@ -522,7 +521,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-KICK SPIDER TP (SICHERE 150 Y-SPEED, AUFZUG RUNTER NACH DEM HINDERNIS)
+--// ANTI-KICK SPIDER TP
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -605,12 +604,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
-        
-        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN
         local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
         
         ToggleHover(true)
-        
         root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
         
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
@@ -669,7 +665,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
-            -- Permanentes Kletter-Remote aktivieren!
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
             end
@@ -731,36 +726,30 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
-                
                 local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
-                
                 local targetY = math.max(groundYCurrent, groundYAhead)
                 
                 local yVelocity = 0
                 local addTime = dt
 
-                -- KOLLISIONSSCHUTZ: Prüft exakt 2.5 Studs vor dir, um Noclip in eine Wand zu verhindern
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
-                        addTime = 0 -- VORWÄRTSBEWEGUNG STOPPT! Wir gehen nicht in die Wand rein.
+                        addTime = 0
                         targetY = math.max(targetY, wallTopY)
                     end
                 end
 
-                -- SICHERE Y-ACHSEN GESCHWINDIGKEIT (Anti-Kick)
-                local safeVerticalSpeed = 150 -- Reduziert von 2500 auf 150, um den "Y-axis too fast" Kick zu verhindern
+                local safeVerticalSpeed = 150
 
                 if currentY < targetY - 0.5 then
-                    -- AUFZUG NACH OBEN
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
                     yVelocity = 20
                 elseif currentY > targetY + 0.5 then
-                    -- AUFZUG NACH UNTEN (erst nachdem Hindernisse überwunden wurden)
                     currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
                     if currentY < groundYCurrent then currentY = groundYCurrent end
                     yVelocity = -20
@@ -770,7 +759,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 if currentY < 4 then currentY = 4 end
-                
                 currentY = math.max(currentY, 1)
                 
                 elapsedTime = elapsedTime + addTime
@@ -802,14 +790,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
-            
             root.Velocity = Vector3.new(0, 0, 0)
             
             return true
         end
         
         SpiderLerp(targetPos, RyuConfig.IslandSpeed)
-        
         if hum then hum.Jump = true end
         root.Velocity = Vector3.new(0, 0, 0)
         
@@ -1048,7 +1034,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SCHADENS-PRÜFUNG FÜR AUTO FARM)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -1126,7 +1112,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: 1-BY-1 FARM (TREFFERGARANTIE & SCHADENS-CHECK)
+--// QUEST SYSTEM & FAIL-SAFE
 --// ============================================================================
 local function CheckQuestActive()
     local active = false
@@ -1189,7 +1175,7 @@ local function FetchQuest()
     end
 end
 
---// FAIL-SAFE: QUEST SICHERUNG (5 SEC)
+-- FAIL-SAFE: QUEST SICHERUNG (5 SEC)
 task.spawn(function()
     while true do
         task.wait(5) 
@@ -1201,7 +1187,7 @@ task.spawn(function()
     end
 end)
 
---// AUTO STATS LOOP
+-- AUTO STATS LOOP
 task.spawn(function()
     while true do
         task.wait(3) 
@@ -1232,7 +1218,61 @@ task.spawn(function()
     end
 end)
 
---// MAIN FARM LOOP (3 STUDS ABSTAND, MIT HP-CHECK)
+--// ============================================================================
+--// DYNAMIC LIVE-TRACKING AUTO-FARM ENGINE
+--// ============================================================================
+local function TrackAndFarmMob(targetMob)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not root or not hum or not targetMob then return end
+
+    local mobRoot = targetMob:FindFirstChild("HumanoidRootPart")
+    local mobHum = targetMob:FindFirstChildOfClass("Humanoid")
+
+    local hitAttempts = 0
+    local lastHp = mobHum and mobHum.Health or 0
+
+    while RyuConfig.AutoFarm and mobHum and mobHum.Health > 0 and CheckQuestActive() do
+        local mobPos = mobRoot.Position
+        local playerPos = root.Position
+
+        -- Richtung zum sich bewegenden Mob berechnen
+        local flatDir = Vector3.new(playerPos.X - mobPos.X, 0, playerPos.Z - mobPos.Z)
+        if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
+
+        -- Ziel-CFrame exakt 3 Studs vor dem Mob + KillHeight in der Luft
+        local attackPos = mobPos + (flatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
+        local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mobPos.X, attackPos.Y, mobPos.Z))
+
+        local dist = (playerPos - attackPos).Magnitude
+        if dist > 15 then
+            SafeTween(targetCFrame)
+        else
+            -- Bei nahem Abstand flüssig kleben bleiben
+            root.CFrame = root.CFrame:Lerp(targetCFrame, 0.35)
+            local bp = root:FindFirstChild("RyuHover")
+            if bp then bp.Position = attackPos end
+        end
+
+        EquipTargetWeapon()
+        PerformMeleeAttack({targetMob})
+        
+        if mobHum.Health < lastHp then
+            lastHp = mobHum.Health
+            hitAttempts = 0
+        else
+            hitAttempts = hitAttempts + 1
+        end
+
+        -- Sicherheits-Break nach 25 ergebnislosen Schlägen
+        if hitAttempts > 25 then break end
+
+        task.wait(0.05)
+    end
+end
+
+--// MAIN FARM LOOP
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1261,148 +1301,27 @@ task.spawn(function()
         end
 
         if RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
-            local npcs = Workspace:FindFirstChild("NPCs")
+            local npcs = Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Live")
             if not npcs then continue end
             
             local targetMobs = {}
-            local centerPos = Vector3.new(0, 0, 0)
-            local mobCount = 0
-            
             for _, npc in pairs(npcs:GetChildren()) do
                 if npc.Name == RyuConfig.TargetMob then
                     local mHum = npc:FindFirstChildOfClass("Humanoid")
                     local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                    
                     local isRagdolled = npc:FindFirstChild("Rag") or (npc.Parent and npc.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
                     
                     if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
                         table.insert(targetMobs, npc)
-                        centerPos = centerPos + mRoot.Position
-                        mobCount = mobCount + 1
                     end
                 end
             end
             
-            if mobCount > 0 then
-                centerPos = centerPos / mobCount
-                local attackCenter = centerPos + Vector3.new(0, RyuConfig.KillHeight, 0)
-                
-                EquipTargetWeapon()
-                
-                -- PHASE 1: Mobs einzeln anvisieren (Mit 3 Studs Abstand)
-                for _, npc in ipairs(targetMobs) do
+            if #targetMobs > 0 then
+                -- PHASE 1: Jeden Mob einzeln mit Live-Tracking hitten & erledigen
+                for _, mob in ipairs(targetMobs) do
                     if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
-                    
-                    local mHum = npc:FindFirstChildOfClass("Humanoid")
-                    local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                    local isRagdolled = npc:FindFirstChild("Rag") or (npc.Parent and npc.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
-                    
-                    if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
-                        local initialHealth = mHum.Health
-                        local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
-                        if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
-                        
-                        local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
-                        local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mRoot.Position.X, attackPos.Y, mRoot.Position.Z))
-                        
-                        if (root.Position - attackPos).Magnitude > 5 then
-                            SafeTween(targetCFrame)
-                        end
-                        
-                        local bp = root:FindFirstChild("RyuHover")
-                        if bp then bp.Position = attackPos end
-                        root.CFrame = targetCFrame
-                        
-                        -- Wiederhole den Angriff, bis HP sinken (Treffer-Garantie)
-                        local hitConfirmed = false
-                        local hitAttempts = 0
-                        while RyuConfig.AutoFarm and mHum.Health > 0 and not hitConfirmed and hitAttempts < 15 do
-                            PerformMeleeAttack({npc})
-                            task.wait(0.2)
-                            hitAttempts = hitAttempts + 1
-                            if mHum.Health < initialHealth then
-                                hitConfirmed = true
-                            end
-                        end
-                    end
-                end
-                
-                -- PHASE 2: In die Mitte fliegen und Spammen
-                if RyuConfig.AutoFarm and CheckQuestActive() then
-                    local targetCFrameCenter = CFrame.new(attackCenter)
-                    
-                    if (root.Position - attackCenter).Magnitude > 5 then
-                        SafeTween(targetCFrameCenter)
-                    end
-                    
-                    local anyAlive = true
-                    local lastDamageTime = tick()
-                    local lastTotalHealth = 0
-                    
-                    for _, npc in ipairs(targetMobs) do
-                        local mHum = npc:FindFirstChildOfClass("Humanoid")
-                        if mHum then lastTotalHealth = lastTotalHealth + mHum.Health end
-                    end
-                    
-                    while RyuConfig.AutoFarm and anyAlive do
-                        if not CheckQuestActive() then break end
-                        anyAlive = false
-                        
-                        local currentTotalHealth = 0
-                        
-                        for _, npc in ipairs(targetMobs) do
-                            local mHum = npc:FindFirstChildOfClass("Humanoid")
-                            local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                            local isRagdolled = npc:FindFirstChild("Rag") or (npc.Parent and npc.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
-                            
-                            if mHum and mRoot and mHum.Health > 0 then
-                                anyAlive = true
-                                currentTotalHealth = currentTotalHealth + mHum.Health
-                                
-                                for _, part in pairs(npc:GetChildren()) do
-                                    if part:IsA("BasePart") then
-                                        part.CanCollide = false
-                                        part.Velocity = Vector3.new(0, 0, 0)
-                                        part.RotVelocity = Vector3.new(0, 0, 0)
-                                    end
-                                end
-                                
-                                if isRagdolled then
-                                    mRoot.Size = Vector3.new(2, 2, 1)
-                                else
-                                    mRoot.Size = Vector3.new(20, 20, 20)
-                                    mRoot.CanCollide = false
-                                    mRoot.Velocity = Vector3.new(0, 0, 0)
-                                    mRoot.RotVelocity = Vector3.new(0, 0, 0)
-                                end
-                            end
-                        end
-                        
-                        if currentTotalHealth < lastTotalHealth then
-                            lastTotalHealth = currentTotalHealth
-                            lastDamageTime = tick()
-                        end
-                        
-                        if tick() - lastDamageTime > 5 then
-                            RyuNotify:Send("Fail Safe", "5s kein Schaden. Repositioniere Gegner...", 2)
-                            break 
-                        end
-                        
-                        if anyAlive then
-                            local bp = root:FindFirstChild("RyuHover")
-                            if bp then bp.Position = attackCenter end
-                            root.CFrame = targetCFrameCenter
-                            
-                            PerformMeleeAttack(targetMobs)
-                            task.wait(0.05)
-                        end
-                    end
-                    
-                    -- Reset Hitboxes
-                    for _, npc in ipairs(targetMobs) do
-                        local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                        if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
-                    end
+                    TrackAndFarmMob(mob)
                 end
             end
         end
