@@ -52,6 +52,7 @@ local function GetDynamicLists()
     
     local mDict, qDict, iDict, wDict = {}, {}, {}, {}
     
+    -- Scanne NPCs (Mit präziser Unterscheidung Regen vs QuestMark)
     if Workspace:FindFirstChild("NPCs") then
         for _, v in pairs(Workspace.NPCs:GetChildren()) do
             if v:IsA("Model") then
@@ -70,6 +71,7 @@ local function GetDynamicLists()
         end
     end
     
+    -- Scanne Inseln direkt aus dem Islands Ordner
     local islandsFolder = Workspace:FindFirstChild("Islands")
     if islandsFolder then
         for _, v in pairs(islandsFolder:GetChildren()) do
@@ -80,6 +82,7 @@ local function GetDynamicLists()
         end
     end
     
+    -- Scanne Waffen im Unequiped Ordner (und Backpack)
     local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
     if unequiped then
         for _, item in pairs(unequiped:GetChildren()) do
@@ -97,11 +100,13 @@ local function GetDynamicLists()
         end
     end
     
+    -- Fallbacks
     if #mobs == 0 then mobs = {"Fishman Karate User"} end
     if #quests == 0 then quests = {"Becky"} end
     if #islands == 0 then islands = {"Fishman Cave"} end
     if #weapons == 0 then weapons = {"Combat"} end
     
+    -- WICHTIG FÜR REFRESH: Alphabetisch sortieren!
     table.sort(mobs)
     table.sort(quests)
     table.sort(islands)
@@ -471,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP - ZACK-RAUF/RUNTER, GPO RENN-ANIMATION, 5 STUDS HOVER
+--// SPIDER TP - REWORK (Laufanimation, Anti-Noclip, Kletter-Remote Perma, 5 Studs)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -555,23 +560,17 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
+        -- EXAKT 5 STUDS ABSTAND
         local floorOffset = 5
         
         ToggleHover(true)
         
-        -- Start Hover Position
         root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
         
-        -- GPO Remotes
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
         local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
         
-        -- Aktiviert Sprinting im Spiel, um Laufanimation zu erzwingen
-        if sprintEvent then
-            pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end)
-        end
-
         local function SpiderLerp(tPos, currentSpeed)
             local startPos = root.Position
             local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
@@ -597,15 +596,14 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
             rayParamsDown.IgnoreWater = true
 
-            -- Sucht den höchsten Punkt von GANZ OBEN (ZACK-RAUF Prinzip)
             local function GetTrueTopY(x, z)
                 local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                 local rParams = RaycastParams.new()
                 rParams.FilterType = Enum.RaycastFilterType.Exclude
                 rParams.IgnoreWater = true
                 
-                local origin = Vector3.new(x, 4000, z)
-                local dir = Vector3.new(0, -5000, 0)
+                local origin = Vector3.new(x, 3000, z)
+                local dir = Vector3.new(0, -4000, 0)
                 
                 for i = 1, 10 do
                     rParams.FilterDescendantsInstances = currentFilter
@@ -623,15 +621,31 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 return 0
             end
 
-            -- Statt PlatformStand nutzen wir Physics, um die Animationen weich spielen zu lassen, halten ihn aber über CFrame oben.
-            if hum then hum:ChangeState(Enum.HumanoidStateType.RunningNoPhysics) end
+            -- WICHTIG: Kein RunningNoPhysics, sonst fallt man durch den Boden!
+            if hum then hum.PlatformStand = false end
 
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
                 
+                -- Klettern PERMANENT AN während des Tweening
+                if climbEvent then
+                    pcall(function() climbEvent:InvokeServer(true) end)
+                end
+                
                 for _, part in pairs(char:GetChildren()) do
                     if part:IsA("BasePart") then part.CanCollide = false end
+                end
+                
+                if hum then
+                    local animator = hum:FindFirstChild("Animator")
+                    if animator then
+                        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                            if track.Priority == Enum.AnimationPriority.Movement or track.Priority == Enum.AnimationPriority.Core then
+                                track:Stop()
+                            end
+                        end
+                    end
                 end
                 
                 if isLookingForRobo and tick() - nextRoboCheck > 1 then
@@ -673,33 +687,31 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                -- Ermittle den exakten Boden und das mögliche Dach darüber
-                local roofY = GetTrueTopY(currentX, currentZ) + floorOffset
-                local groundY = GetTrueTopY(currentX, currentZ)
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 3)
                 
-                -- Snap auf die höchste Struktur (Zack-Rauf / Zack-Runter)
-                local targetY = math.max(groundY + floorOffset, roofY)
+                local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
+                local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
+                
+                local targetY = math.max(groundYCurrent, groundYAhead)
                 
                 local yVelocity = 0
                 local addTime = dt
 
-                -- Raycast um zu checken ob wir vorwärts in eine Wand fliegen
-                local wallCheckHit = Workspace:Raycast(Vector3.new(currentX, currentY, currentZ), flatMoveDir * 2.5, rayParamsDown)
+                -- KOLLISIONSSCHUTZ: Prüft exakt 3 Studs vor dir, um Noclip in eine Wand zu verhindern
+                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 3, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
-                    local wallTopY = GetTrueTopY(wallCheckHit.Position.X, wallCheckHit.Position.Z) + floorOffset
+                    local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
                         targetY = math.max(targetY, wallTopY)
                     end
                 end
-
-                -- KLETTER EVENT: Nur Feuern wenn wir wirklich frontal eine Wand berühren! (Dein Wunsch)
-                local touchCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 1.5, rayParamsDown)
-                local isTouchingWall = (touchCheckHit and touchCheckHit.Instance and touchCheckHit.Instance.Transparency < 1)
-                if climbEvent then
-                    pcall(function() climbEvent:InvokeServer(isTouchingWall) end)
+                
+                -- ANTI-NOCLIP (WICHTIG): Bleibt vor der Wand stehen, bis er hochgeklettert ist!
+                if targetY > currentY + 1 then
+                    addTime = 0 
                 end
 
-                -- Limitierter Y-Speed um Anti-Cheat Kicks zu verhindern
+                -- Kletter-Geschwindigkeit auf 60 (Rauf & Runter, um Anti-Cheat Kick zu vermeiden)
                 local safeVerticalSpeed = 60
 
                 if currentY < targetY - 0.5 then
@@ -707,7 +719,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     yVelocity = 20
                 elseif currentY > targetY + 0.5 then
                     currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
-                    if currentY < (groundY + floorOffset) then currentY = groundY + floorOffset end
+                    if currentY < groundYCurrent then currentY = groundYCurrent end
                     yVelocity = -20
                 else
                     currentY = targetY
@@ -715,6 +727,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 if currentY < 4 then currentY = 4 end
+                
                 currentY = math.max(currentY, 1)
                 
                 elapsedTime = elapsedTime + addTime
@@ -724,10 +737,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 root.CFrame = CFrame.lookAt(finalPos, lookPos)
                 
-                -- Lauf-Animation erzwingen: Wir nutzen Humanoid:Move, was das Script glauben lässt wir sprinten auf dem Boden
+                -- ANIMATION FIX: Sprint erzwingen, damit die Lauf- und nicht die Fallanimation abgespielt wird!
                 if hum then hum:Move(flatMoveDir, false) end
                 
-                -- Vertikale "Velocity" auf 0 setzen, damit der Server das GPO "fallingParticle" NICHT abspielt
+                -- Setzt Vertikale Velocity auf 0, um die FallingParticle-Detection zu umgehen
                 root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, 0, flatMoveDir.Z * currentSpeed)
                 
                 local bp = root:FindFirstChild("RyuHover")
