@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (LIVE-TRACKING AUTO-FARM EDITION)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (MULTI-TARGET AOE & AUTO-QUEST)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -93,12 +93,10 @@ local function GetDynamicLists()
     local mobsDict, questsDict, islandsDict, weaponsDict = {}, {}, {}, {}
     local mobs, quests, islands, weapons = {}, {}, {}, {}
 
-    -- 1. Meer-Daten laden für Mobs & Quests
     local currentSea = GetCurrentSeaData()
     for _, v in ipairs(currentSea.Mobs) do mobsDict[v] = true end
     for _, v in ipairs(currentSea.Quests) do questsDict[v] = true end
 
-    -- 2. LIVE SCANNER FOR MOBS & QUESTS
     local npcsFolder = Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Live")
     if npcsFolder then
         for _, v in pairs(npcsFolder:GetChildren()) do
@@ -116,7 +114,6 @@ local function GetDynamicLists()
         end
     end
 
-    -- 3. INSEL SCANNER (Direkt aus Workspace.Islands)
     local islandsFolder = Workspace:FindFirstChild("Islands") or Workspace:FindFirstChild("Locations")
     if islandsFolder then
         for _, v in pairs(islandsFolder:GetChildren()) do
@@ -130,7 +127,6 @@ local function GetDynamicLists()
         end
     end
 
-    -- 4. WAFFEN SCANNER
     local function scanTools(container)
         if not container then return end
         for _, item in pairs(container:GetChildren()) do
@@ -146,7 +142,6 @@ local function GetDynamicLists()
     scanTools(LocalPlayer.Character)
     if next(weaponsDict) == nil then weaponsDict["Combat"] = true end
 
-    -- 5. Umwandlung in sortierte Tabellen
     for k in pairs(mobsDict) do table.insert(mobs, k) end
     for k in pairs(questsDict) do table.insert(quests, k) end
     for k in pairs(islandsDict) do table.insert(islands, k) end
@@ -166,7 +161,6 @@ local InitMobs, InitQuests, InitIslands, InitWeapons = GetDynamicLists()
 local RyuConfig = {
     AutoFarm = false,
     AutoQuest = false,
-    QuestInterval = 45, 
     
     TargetMob = InitMobs[1], 
     TargetNPC = InitQuests[1],               
@@ -434,9 +428,6 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
 end)
 CreateToggle(SecAutoFarmMain, "Auto Quest Link", RyuConfig.AutoQuest, function(state) 
     RyuConfig.AutoQuest = state 
-end)
-CreateSlider(SecAutoFarmMain, "Quest Interval (Secs)", 10, 100, RyuConfig.QuestInterval, function(val) 
-    RyuConfig.QuestInterval = val 
 end)
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
@@ -919,7 +910,7 @@ CreateButton(SecCaveTP, "TP", function()
 end)
 
 --// ============================================================================
---// MODULE HOOKING: PURE RAW COMBAT (ANIMATION + DAMAGE REMOTES)
+--// MODULE HOOKING: COMBAT REMOTES
 --// ============================================================================
 local currentComboIndex = 1
 local lastSwing = 0
@@ -976,7 +967,7 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        if now - lastSwing >= 0.5 then
+        if now - lastSwing >= 0.2 then
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
@@ -1034,7 +1025,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE
+--// TWEEN ENGINE
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -1175,11 +1166,11 @@ local function FetchQuest()
     end
 end
 
--- FAIL-SAFE: QUEST SICHERUNG (5 SEC)
+-- FAIL-SAFE: QUEST SICHERUNG
 task.spawn(function()
     while true do
-        task.wait(5) 
-        if RyuConfig.AutoFarm and RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" then
+        task.wait(3) 
+        if RyuConfig.AutoFarm and RyuConfig.AutoQuest and RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" then
             if not CheckQuestActive() then
                 FetchQuest()
             end
@@ -1219,63 +1210,60 @@ task.spawn(function()
 end)
 
 --// ============================================================================
---// DYNAMIC LIVE-TRACKING AUTO-FARM ENGINE
+--// MULTI-TARGET AOE AUTO-FARM ENGINE
 --// ============================================================================
-local function TrackAndFarmMob(targetMob)
+local function MultiTargetFarm(targetMobs)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not root or not hum or not targetMob then return end
+    if not root or #targetMobs == 0 then return end
 
-    local mobRoot = targetMob:FindFirstChild("HumanoidRootPart")
-    local mobHum = targetMob:FindFirstChildOfClass("Humanoid")
+    local centerPos = Vector3.new(0, 0, 0)
+    local validMobs = {}
 
-    local hitAttempts = 0
-    local lastHp = mobHum and mobHum.Health or 0
-
-    while RyuConfig.AutoFarm and mobHum and mobHum.Health > 0 and CheckQuestActive() do
-        local mobPos = mobRoot.Position
-        local playerPos = root.Position
-
-        -- Richtung zum sich bewegenden Mob berechnen
-        local flatDir = Vector3.new(playerPos.X - mobPos.X, 0, playerPos.Z - mobPos.Z)
-        if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
-
-        -- Ziel-CFrame exakt 3 Studs vor dem Mob + KillHeight in der Luft
-        local attackPos = mobPos + (flatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
-        local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mobPos.X, attackPos.Y, mobPos.Z))
-
-        local dist = (playerPos - attackPos).Magnitude
-        if dist > 15 then
-            SafeTween(targetCFrame)
-        else
-            -- Bei nahem Abstand flüssig kleben bleiben
-            root.CFrame = root.CFrame:Lerp(targetCFrame, 0.35)
-            local bp = root:FindFirstChild("RyuHover")
-            if bp then bp.Position = attackPos end
+    -- Berechne das Zentrum aller Mobs
+    for _, mob in ipairs(targetMobs) do
+        local mRoot = mob:FindFirstChild("HumanoidRootPart")
+        local mHum = mob:FindFirstChildOfClass("Humanoid")
+        if mRoot and mHum and mHum.Health > 0 then
+            centerPos = centerPos + mRoot.Position
+            table.insert(validMobs, mob)
         end
-
-        EquipTargetWeapon()
-        PerformMeleeAttack({targetMob})
-        
-        if mobHum.Health < lastHp then
-            lastHp = mobHum.Health
-            hitAttempts = 0
-        else
-            hitAttempts = hitAttempts + 1
-        end
-
-        -- Sicherheits-Break nach 25 ergebnislosen Schlägen
-        if hitAttempts > 25 then break end
-
-        task.wait(0.05)
     end
+
+    if #validMobs == 0 then return end
+    centerPos = centerPos / #validMobs
+
+    -- Positioniere dich über dem Zentrum der Mob-Gruppe
+    local attackPos = centerPos + Vector3.new(0, RyuConfig.KillHeight, 0)
+    local targetCFrame = CFrame.new(attackPos)
+
+    if (root.Position - attackPos).Magnitude > 10 then
+        SafeTween(targetCFrame)
+    else
+        root.CFrame = targetCFrame
+        local bp = root:FindFirstChild("RyuHover")
+        if bp then bp.Position = attackPos end
+    end
+
+    -- Hitboxen erweitern & alle Mobs gleichzeitig angreifen
+    EquipTargetWeapon()
+
+    for _, mob in ipairs(validMobs) do
+        local mRoot = mob:FindFirstChild("HumanoidRootPart")
+        if mRoot then
+            mRoot.Size = Vector3.new(20, 20, 20)
+            mRoot.CanCollide = false
+            mRoot.Velocity = Vector3.new(0, 0, 0)
+        end
+    end
+
+    PerformMeleeAttack(validMobs)
 end
 
 --// MAIN FARM LOOP
 task.spawn(function()
     while true do
-        task.wait(0.1)
+        task.wait(0.05)
         
         if not RyuConfig.AutoFarm then
             local char = LocalPlayer.Character
@@ -1293,13 +1281,15 @@ task.spawn(function()
         ToggleHover(true)
         hum.AutoRotate = false 
         
-        if RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
+        -- Auto-Quest Handling
+        if RyuConfig.AutoQuest and RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             if not CheckQuestActive() then
                 FetchQuest()
                 continue
             end
         end
 
+        -- Multi-Target Mob Farming
         if RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local npcs = Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Live")
             if not npcs then continue end
@@ -1318,11 +1308,7 @@ task.spawn(function()
             end
             
             if #targetMobs > 0 then
-                -- PHASE 1: Jeden Mob einzeln mit Live-Tracking hitten & erledigen
-                for _, mob in ipairs(targetMobs) do
-                    if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
-                    TrackAndFarmMob(mob)
-                end
+                MultiTargetFarm(targetMobs)
             end
         end
     end
