@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP MIT 500 SPEED RAUF & 500 SPEED RUNTER (0 RANGE, KAMERA FREI)
+--// SPIDER TP MIT 500 SPEED, 0 RANGE, FREIER KAMERA & Y-ANSTIEG SCHUTZ-PAUSE
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -684,7 +684,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0) -- Kletter-Range auf 0
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0) -- Range 0
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
@@ -703,7 +703,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
 
-                -- KLETTER-GESCHWINDIGKEIT RAUF & RUNTER AUF JEWEILS 500 GESETZT!
+                -- 500 Speed rauf & runter
                 local safeVerticalSpeed = 500 
 
                 if currentY < targetY - 0.5 then
@@ -718,6 +718,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     yVelocity = 0
                 end
                 
+                --// SCHUTZ-SYSTEM BEI STARKEM Y-ANSTIEG: WARTEN BIS KLETTERN FERTIG IST //--
+                -- Wenn der Höhenunterschied extrem groß ist, stoppt die Vorwärtsbewegung (addTime = 0), bis Y aufgeholt hat
+                if math.abs(currentY - targetY) > 8 then
+                    addTime = 0 
+                end
+                
                 if currentY < 4 then currentY = 4 end
                 
                 currentY = math.max(currentY, 1)
@@ -727,7 +733,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local targetLookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                -- SCHLAUES WAND-SCAN SYSTEM (Character scannt mit leichtem Pendeln, Kamera bleibt frei)
+                -- SCHLAUES WAND-SCAN SYSTEM (Character scannt mit leichtem Pendeln, Kamera bleibt 100% frei)
                 local offsetAngle = math.sin(tick() * 20) * 0.35
                 local baseLookCFrame = CFrame.lookAt(finalPos, targetLookPos)
                 local scannedCFrame = baseLookCFrame * CFrame.Angles(0, offsetAngle, 0)
