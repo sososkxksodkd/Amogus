@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SKY-ARC NOCLIP-SAFE SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (GROUND & GEPPO SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -174,6 +174,7 @@ local RyuConfig = {
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
+    UseGeppo = false, -- Option 2: Geppo / Sky Walk Remote Mode
     
     AutoStrength = false, StrengthCap = 1500,
     AutoStamina = false,  StaminaCap = 1500,
@@ -511,7 +512,12 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// PRO SKY-HIGHWAY SPIDER TELEPORT (100% NOCLIP & Y-SPEED PROOF)
+-- GEPPO OPTION TOGGLE (OPTION 2)
+CreateToggle(SecIslandTP, "Use Geppo (Sky Walk)", RyuConfig.UseGeppo, function(state)
+    RyuConfig.UseGeppo = state
+end)
+
+--// SPIDER TELEPORT SYSTEM (GROUND MODE & OPTION 2 GEPPO REMOTE)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -587,120 +593,186 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             local hum = char:FindFirstChildOfClass("Humanoid")
+            local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
+            
             ToggleHover(true)
+            root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
             
             local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
             local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
-            local function SkySpiderLerp(tPos, currentSpeed)
-                local startPos = root.Position
-                local currentSpeed = currentSpeed > 0 and currentSpeed or RyuConfig.IslandSpeed
+            -- HELPER: OPTION 2 GEPPO REMOTE CALLER
+            local lastGeppo = 0
+            local function TriggerGeppoRemote()
+                if RyuConfig.UseGeppo and tick() - lastGeppo >= 0.25 then
+                    lastGeppo = tick()
+                    pcall(function()
+                        local args = {
+                            "Sky Walk2",
+                            {
+                                char = LocalPlayer.Character,
+                                cf = root.CFrame
+                            }
+                        }
+                        ReplicatedStorage:WaitForChild("Events"):WaitForChild("Skill"):InvokeServer(unpack(args))
+                    end)
+                end
+            end
 
-                -- Sky-Highway Reiseflughöhe (Sichere 120 Studs in der Luft über allen Wänden)
-                local skyY = math.max(startPos.Y, tPos.Y) + 120
-                if skyY < 180 then skyY = 180 end
+            local function GroundSpiderLerp(tPos, currentSpeed)
+                local startPos = root.Position
+                local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
+                local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
+                local totalDist = (flatStart - flatTarget).Magnitude
+                
+                if totalDist < 5 then return true end 
+                
+                currentSpeed = currentSpeed > 0 and currentSpeed or RyuConfig.IslandSpeed
+                local t = totalDist / currentSpeed
+                if t < 0.1 then return true end
+                
+                local elapsedTime = 0
+                local currentY = root.Position.Y
+                local lastFootstep = tick()
 
                 char:SetAttribute("evading", true)
                 _G.soruDashing = true
+
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                rayParams.IgnoreWater = true
+
+                local function GetTrueTopY(x, z)
+                    local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                    local rParams = RaycastParams.new()
+                    rParams.FilterType = Enum.RaycastFilterType.Exclude
+                    rParams.IgnoreWater = true
+                    
+                    local origin = Vector3.new(x, 3000, z)
+                    local dir = Vector3.new(0, -4000, 0)
+                    
+                    for i = 1, 10 do
+                        rParams.FilterDescendantsInstances = currentFilter
+                        local hit = Workspace:Raycast(origin, dir, rParams)
+                        if hit then
+                            if hit.Instance.Transparency < 1 then
+                                return hit.Position.Y
+                            else
+                                table.insert(currentFilter, hit.Instance)
+                            end
+                        else
+                            break
+                        end
+                    end
+                    return 0
+                end
+
                 if hum then hum.PlatformStand = false end
                 if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
 
-                -- PHASE 1: Sanfter vertikaler Aufstieg auf Reiseflughöhe (Limit 18 Studs/sek = Null Anticheat risk)
-                while root and char and RyuHub.Parent do
-                    local currentY = root.Position.Y
-                    if currentY >= skyY - 2 then break end
-
+                while elapsedTime < t do
                     local dt = RunService.Heartbeat:Wait()
                     dt = math.clamp(dt, 0.001, 0.05)
-
+                    
                     for _, part in pairs(char:GetChildren()) do
                         if part:IsA("BasePart") then part.CanCollide = false end
                     end
-
-                    local nextY = math.min(currentY + (18 * dt), skyY)
-                    local newPos = Vector3.new(root.Position.X, nextY, root.Position.Z)
-                    root.CFrame = CFrame.new(newPos) * root.CFrame.Rotation
-                    root.Velocity = Vector3.new(0, 0, 0)
-
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = newPos end
-                end
-
-                -- PHASE 2: Reiner horizontaler Highway-Flug über allen Hindernissen
-                local startHorizontal = Vector3.new(root.Position.X, 0, root.Position.Z)
-                local targetHorizontal = Vector3.new(tPos.X, 0, tPos.Z)
-                local totalDist = (startHorizontal - targetHorizontal).Magnitude
-                local travelTime = totalDist / currentSpeed
-                local elapsedTime = 0
-                local lastFootstep = tick()
-
-                while elapsedTime < travelTime and root and char and RyuHub.Parent do
-                    local dt = RunService.Heartbeat:Wait()
-                    dt = math.clamp(dt, 0.001, 0.05)
-                    elapsedTime = elapsedTime + dt
-
-                    for _, part in pairs(char:GetChildren()) do
-                        if part:IsA("BasePart") then part.CanCollide = false end
+                    
+                    if hum then
+                        local animator = hum:FindFirstChild("Animator")
+                        if animator then
+                            for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                                if track.Priority == Enum.AnimationPriority.Movement or track.Priority == Enum.AnimationPriority.Core then
+                                    track:Stop()
+                                end
+                            end
+                        end
                     end
-
-                    local alpha = math.clamp(elapsedTime / travelTime, 0, 1)
-                    local currentX = startHorizontal.X + (targetHorizontal.X - startHorizontal.X) * alpha
-                    local currentZ = startHorizontal.Z + (targetHorizontal.Z - startHorizontal.Z) * alpha
-
-                    local flatMoveDir = (targetHorizontal - Vector3.new(currentX, 0, currentZ))
+                    
+                    local currentPos = root.Position
+                    local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
+                    local flatTargetPos = Vector3.new(tPos.X, 0, tPos.Z)
+                    if (flatCurrent - flatTargetPos).Magnitude <= 5 then break end
+                    
+                    local alpha = math.clamp(elapsedTime / t, 0, 1)
+                    local currentX = startPos.X + (tPos.X - startPos.X) * alpha
+                    local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
+                    
+                    local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
                     if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
+                    
+                    local calcPos = Vector3.new(currentX, currentY, currentZ)
+                    
+                    -- MULTI-RAY NOCLIP PROTECTION
+                    local forwardHitCenter = Workspace:Raycast(calcPos, flatMoveDir * 8, rayParams)
+                    local forwardHitHead = Workspace:Raycast(calcPos + Vector3.new(0, 2.5, 0), flatMoveDir * 8, rayParams)
+                    local wallDetected = (forwardHitCenter and forwardHitCenter.Instance.Transparency < 1) or (forwardHitHead and forwardHitHead.Instance.Transparency < 1)
 
-                    local finalPos = Vector3.new(currentX, skyY, currentZ)
-                    local lookPos = Vector3.new(tPos.X, skyY, tPos.Z)
+                    local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
+                    local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 12)
+                    local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
+                    
+                    local targetY = math.max(groundYCurrent, groundYAhead)
 
+                    -- STOPP VORWÄRTSBEWEGUNG BEI WAND, BIS HÖHE REICHT (KEIN REINDRÜCKEN IN WÄNDE)
+                    local advanceFactor = 1
+                    if wallDetected then
+                        local hitPart = forwardHitCenter or forwardHitHead
+                        local obstacleY = GetTrueTopY(hitPart.Position.X + (flatMoveDir.X * 0.5), hitPart.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
+                        targetY = math.max(targetY, obstacleY)
+                        
+                        if currentY < targetY - 1.5 then
+                            advanceFactor = 0.05 
+                        end
+                    end
+
+                    -- SAFE Y-SPEED LIMIT (Max 24 Studs/sek für 100% Bypass des YAxis Fast Detection)
+                    local maxVerticalSpeed = 24
+                    local yDiff = targetY - currentY
+                    
+                    if yDiff > 0 then
+                        currentY = math.min(currentY + (maxVerticalSpeed * dt), targetY)
+                        TriggerGeppoRemote() -- OPTION 2 GEPPO REMOTE BEIM STEIGEN
+                    elseif yDiff < 0 then
+                        currentY = math.max(currentY - (maxVerticalSpeed * dt), targetY)
+                    end
+                    
+                    if currentY < 4 then currentY = 4 end
+                    currentY = math.max(currentY, 1)
+                    
+                    elapsedTime = elapsedTime + (dt * advanceFactor)
+                    
+                    local finalPos = Vector3.new(currentX, currentY, currentZ)
+                    local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
+                    
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                    if hum then hum:Move(flatMoveDir, false) end
-                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, 0, flatMoveDir.Z * currentSpeed)
-
+                    if hum then hum:Move(flatMoveDir * advanceFactor, false) end
+                    
+                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed * advanceFactor, 0, flatMoveDir.Z * currentSpeed * advanceFactor)
+                    
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = finalPos end
-
+                    
                     if tick() - lastFootstep > 0.3 then
                         lastFootstep = tick()
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
                 end
-
-                -- PHASE 3: Kontrollierter Sinkflug direkt zum Zielpunkt am Boden
-                local descentTargetY = tPos.Y + 3
-                while root and char and RyuHub.Parent do
-                    local currentY = root.Position.Y
-                    if currentY <= descentTargetY + 1 then break end
-
-                    local dt = RunService.Heartbeat:Wait()
-                    dt = math.clamp(dt, 0.001, 0.05)
-
-                    for _, part in pairs(char:GetChildren()) do
-                        if part:IsA("BasePart") then part.CanCollide = false end
-                    end
-
-                    local nextY = math.max(currentY - (22 * dt), descentTargetY)
-                    local newPos = Vector3.new(tPos.X, nextY, tPos.Z)
-                    root.CFrame = CFrame.new(newPos) * CFrame.Angles(0, root.CFrame.Rotation.Y, 0)
-                    root.Velocity = Vector3.new(0, 0, 0)
-
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = newPos end
-                end
-
+                
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
                 if climbEvent then task.spawn(function() pcall(function() climbEvent:InvokeServer(false) end) end) end
-
+                
                 char:SetAttribute("evading", nil)
                 _G.soruDashing = nil
                 root.Velocity = Vector3.new(0, 0, 0)
-
+                
                 return true
             end
 
-            SkySpiderLerp(targetPos, RyuConfig.IslandSpeed)
+            GroundSpiderLerp(targetPos, RyuConfig.IslandSpeed)
             if hum then hum.Jump = true end
             root.Velocity = Vector3.new(0, 0, 0)
         end)
