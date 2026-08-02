@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-KICK SPIDER TP (EXAKT 6 STUDS ABSTAND ÜBER ALLEM)
+--// ANTI-KICK SPIDER TP (800 KLETTER-GESCHWINDIGKEIT RAUF & RUNTER)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,8 +560,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- HIER GEÄNDERT: Exakt 6 Studs Abstand über allem
-        local floorOffset = 6
+        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN
+        local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
         
         ToggleHover(true)
         
@@ -706,8 +706,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
 
-                -- SICHERE Y-ACHSEN GESCHWINDIGKEIT (Anti-Kick)
-                local safeVerticalSpeed = 150 -- Reduziert von 2500 auf 150, um den "Y-axis too fast" Kick zu verhindern
+                -- KLETTER-GESCHWINDIGKEIT AUF 800 GESETZT (RAUF & RUNTER)
+                local safeVerticalSpeed = 800
 
                 if currentY < targetY - 0.5 then
                     -- AUFZUG NACH OBEN
