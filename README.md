@@ -130,7 +130,7 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
-    ElevatorSpeed = 300, -- NEU: Flexibel durch UI Slider
+    ElevatorSpeed = 500, -- PERMANENT AUF 500
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -477,11 +477,8 @@ DropIsland = CreateDropdown(SecIslandTP, "Select Island", InitIslands, "TargetIs
 CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
-CreateSlider(SecIslandTP, "Climb Speed", 60, 300, RyuConfig.ElevatorSpeed, function(val)
-    RyuConfig.ElevatorSpeed = val
-end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT CHECKPOINT 3 UPGRADES)
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT TOP-DOWN RADAR & 0 WARTEN & KEINE ANIMATION)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -563,8 +560,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
-        local hipHeight = hum and hum.HipHeight or 2.15
-        local floorOffset = hipHeight + (root.Size.Y / 2)
+        
+        -- 3 STUDS ABSTAND GARANTIERT: Halbe Spielerhöhe + HipHeight + 3 Studs Puffer
+        local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
         
         ToggleHover(true)
         
@@ -589,7 +587,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local isClimbing = false
             local lastFootstep = tick()
             local nextRoboCheck = tick()
-            local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -603,6 +600,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
+                
+                -- ANIMATION KILLER: Lauf Animation aus! Der Charakter schwebt optisch.
+                if hum then
+                    local animator = hum:FindFirstChild("Animator")
+                    if animator then
+                        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                            if track.Priority == Enum.AnimationPriority.Movement or track.Priority == Enum.AnimationPriority.Core then
+                                track:Stop()
+                            end
+                        end
+                    end
+                end
                 
                 if isLookingForRobo and tick() - nextRoboCheck > 1 then
                     nextRoboCheck = tick()
@@ -632,106 +641,86 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local currentPos = root.Position
                 if (currentPos - tPos).Magnitude <= 5 then break end
                 
+                -- KEIN WARTEN! Die horizontale Bewegung geht in jedem Frame erbarmungslos weiter!
+                elapsedTime = elapsedTime + dt
+                
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
                 local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
                 
-                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
+                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local calcPos = Vector3.new(currentX, currentY, currentZ)
+                -- 4 STUDS VORAUS RADAR & AKTUELLES RADAR
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
                 
-                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 4.5, rayParamsDown)
-                local wallCheckHigh = Workspace:Raycast(calcPos + Vector3.new(0, 15, 0), flatMoveDir * 4.5, rayParamsDown)
-                local ledgeCheckHit = Workspace:Raycast(calcPos + (flatMoveDir * 5) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
+                -- Raycast aktuell (Scannt von oben nach unten, durchdringt ALLES um die echte Höhe zu ermitteln)
+                local rayStartCurrent = Vector3.new(currentX, currentY + 2000, currentZ)
+                local hitCurrent = Workspace:Raycast(rayStartCurrent, Vector3.new(0, -4000, 0), rayParamsDown)
+                local groundYCurrent = hitCurrent and hitCurrent.Position.Y or 0
                 
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
-                local isWallBlockingHigh = wallCheckHigh and wallCheckHigh.Distance <= 4
-                local finalY = (ledgeCheckHit and ledgeCheckHit.Position.Y or 0) + floorOffset
+                -- Raycast 4 Studs voraus
+                local rayStartAhead = Vector3.new(checkPosAhead.X, currentY + 2000, checkPosAhead.Z)
+                local hitAhead = Workspace:Raycast(rayStartAhead, Vector3.new(0, -4000, 0), rayParamsDown)
+                local groundYAhead = hitAhead and hitAhead.Position.Y or 0
+                
+                -- HÖCHSTER PUNKT GEWINNT (Zieht uns frühzeitig über Kanten & unsichtbare Wände)
+                local targetY = math.max(groundYCurrent, groundYAhead) + floorOffset
                 
                 local yVelocity = 0
-                local addTime = dt
-
-                if isWallBlocking then 
-                    if not isWallBlockingHigh then
-                        -- SMALL OBJECT BYPASS: Gleitet über kleine Objekte (Zäune, Steine)
-                        currentY = currentY + 15
-                        addTime = dt
-                        yVelocity = 0
-                    else
-                        -- ECHTES KLETTERN (Steil hoch)
-                        if not isClimbing then
-                            isClimbing = true
-                            pcall(function() climbEvent:InvokeServer(true) end)
-                        end
-                        currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
-                        addTime = dt * 0.5 
-                        yVelocity = 20 -- Physische Geschwindigkeit für Anti-Cheat
-                    end
-                elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
-                    -- ABGRUND (Runterklettern) - Ignoriert Wasser!
-                    if not isClimbing then
-                        isClimbing = true
-                        pcall(function() climbEvent:InvokeServer(true) end)
+                local isClimbingAction = false
+                
+                -- FLÜSSIGES KLETTERN MIT 500 STUDS/SEC
+                if currentY < targetY - 1 then
+                    -- Wir müssen HOCH
+                    isClimbingAction = true
+                    currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), targetY)
+                    yVelocity = 20 -- Anti-Cheat Bypass Limit
+                elseif currentY > targetY + 1 then
+                    -- Wir müssen RUNTER
+                    isClimbingAction = true
+                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), targetY)
+                    
+                    -- NOCLIP SCHUTZ: Fällt niemals unter den Boden, der direkt unter uns ist!
+                    if currentY < (groundYCurrent + floorOffset) then
+                        currentY = groundYCurrent + floorOffset
                     end
                     
-                    -- NOCLIP FIX: Fällt niemals unter den echten Boden
-                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
-                    addTime = dt * 0.5 
-                    yVelocity = -20 
-                    
-                    if currentY - finalY <= 3 then
-                        isClimbing = false
-                        pcall(function() climbEvent:InvokeServer(false) end)
-                    end
+                    yVelocity = -20
                 else
-                    -- NORMALES LAUFEN / PLATEAU / WASSER
-                    if isClimbing then
-                        isClimbing = false
-                        pcall(function() climbEvent:InvokeServer(false) end)
-                    end
-                    
-                    if finalY > currentY then
-                        currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), finalY)
-                    elseif finalY < currentY then
-                        currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
-                    end
-                    
-                    -- Wasser Fix: Bei Y=0 bis Y=4 immer oben bleiben und schnell sein!
-                    if currentY < 4 then 
-                        currentY = 4 
-                    end
-                    
+                    -- FLACHLAND
+                    currentY = targetY
                     yVelocity = 0
-                    addTime = dt 
                 end
                 
-                currentY = math.max(currentY, 1)
+                -- Wasser Fix (Bleibt immer sicher über dem Meeresspiegel)
+                if currentY < 4 then currentY = 4 end
                 
-                elapsedTime = elapsedTime + addTime
+                -- Kletter Remotes triggern (ohne Bewegung zu stoppen)
+                if isClimbingAction and not isClimbing then
+                    isClimbing = true
+                    pcall(function() climbEvent:InvokeServer(true) end)
+                elseif not isClimbingAction and isClimbing then
+                    isClimbing = false
+                    pcall(function() climbEvent:InvokeServer(false) end)
+                end
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                local moveDir = (lookPos - finalPos).Unit
-                if moveDir ~= moveDir then moveDir = root.CFrame.LookVector end
+                root.CFrame = CFrame.lookAt(finalPos, lookPos)
                 
-                if (lookPos - finalPos).Magnitude > 0.1 then 
-                    root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                else
-                    root.CFrame = CFrame.new(finalPos)
-                end
+                if hum then hum:Move(flatMoveDir, false) end
                 
-                if hum then hum:Move(moveDir, false) end
-                
-                root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+                root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
                 
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = finalPos end
                 
+                -- SPRINT & LAUFEN REMOTES FEUERN WEITER! (Obwohl die Animation aus ist)
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
-                    if not isClimbing then
+                    if not isClimbingAction then
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
