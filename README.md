@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (OPTIMIZED SPIDER TP & NO REFRESH BTN)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMOOTH Y-ELEVATION SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -453,7 +453,7 @@ DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
 DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
 DropWep = CreateDropdown(SecFarmConfig, "Select Weapon", InitWeapons, "TargetWeapon")
 
--- AUTO REFRESH LOOP (Hintergrund-Aktualisierung bleibt aktiv)
+-- AUTO REFRESH LOOP
 task.spawn(function()
     local function listsEqual(a, b)
         if #a ~= #b then return false end
@@ -511,7 +511,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// OPTIMIERTER SPIDER TELEPORT
+--// ANTI-CHEAT SICHERER SPIDER TELEPORT (FLACHE Y-STEIGUNG)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -521,7 +521,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local targetIslandName = RyuConfig.TargetIsland
             local island = nil
             
-            -- Gezielte Insel-Suche (Schneller als Deep-Descendants Scan)
             local islandsFolder = Workspace:FindFirstChild("Islands") or Workspace:FindFirstChild("Locations")
             if islandsFolder then
                 island = islandsFolder:FindFirstChild(targetIslandName)
@@ -711,13 +710,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                     
                     local calcPos = Vector3.new(currentX, currentY, currentZ)
-                    local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
+                    -- Vorausschauende Raycast-Prüfung 15 Studs nach vorne für flachen Anstieg
+                    local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 15)
                     
                     local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                     local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
                     local targetY = math.max(groundYCurrent, groundYAhead)
                     
-                    local yVelocity = 0
                     local addTime = dt
 
                     local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
@@ -729,18 +728,16 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end
 
-                    local safeVerticalSpeed = 150
+                    -- Gedrosselte vertikale Steigrate (max 50 Studs/sek), um Anti-Cheat Y-Kick zu verhindern
+                    local maxVerticalSpeed = 50 
 
                     if currentY < targetY - 0.5 then
-                        currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
-                        yVelocity = 20
+                        currentY = math.min(currentY + (maxVerticalSpeed * dt), targetY)
                     elseif currentY > targetY + 0.5 then
-                        currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
+                        currentY = math.max(currentY - (maxVerticalSpeed * dt), targetY)
                         if currentY < groundYCurrent then currentY = groundYCurrent end
-                        yVelocity = -20
                     else
                         currentY = targetY
-                        yVelocity = 0
                     end
                     
                     if currentY < 4 then currentY = 4 end
@@ -753,7 +750,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
                     if hum then hum:Move(flatMoveDir, false) end
-                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
+                    
+                    -- Vertikale Geschwindigkeit strikt auf 0 setzen für Anti-Cheat Bypass
+                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, 0, flatMoveDir.Z * currentSpeed)
                     
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = finalPos end
@@ -1254,7 +1253,6 @@ local function GroupFarmMobs(targetMobs)
 
     local aggroedMobs = {}
 
-    -- Schritt 1: Fliege zu JEDEM Mob und schlage, bis HP sinken (Aggro Check)
     for _, mob in ipairs(targetMobs) do
         if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
 
@@ -1264,7 +1262,6 @@ local function GroupFarmMobs(targetMobs)
         if mobHum and mobRoot and mobHum.Health > 0 then
             local hpBefore = mobHum.Health
             
-            -- Anfliegen mit Live-Verfolgung
             local playerPos = root.Position
             local mobPos = mobRoot.Position
             local flatDir = Vector3.new(playerPos.X - mobPos.X, 0, playerPos.Z - mobPos.Z)
@@ -1278,7 +1275,6 @@ local function GroupFarmMobs(targetMobs)
 
             EquipTargetWeapon()
 
-            -- Hit-Check: Schlage solange, bis HP sinken (Treffer-Garantie)
             local hitConfirmed = false
             local attempts = 0
             while RyuConfig.AutoFarm and attempts < 10 and not hitConfirmed and mobHum.Health > 0 do
@@ -1293,7 +1289,6 @@ local function GroupFarmMobs(targetMobs)
         end
     end
 
-    -- Schritt 2: Mathematische Mitte (Centroid) aller gehitteten Mobs berechnen
     if #aggroedMobs > 0 and RyuConfig.AutoFarm then
         local sumPos = Vector3.new(0, 0, 0)
         local validCount = 0
@@ -1314,7 +1309,6 @@ local function GroupFarmMobs(targetMobs)
             SafeTween(centerCFrame)
             root.CFrame = centerCFrame
 
-            -- Schritt 3 & 4: Hitboxen vergrößern & Mobs im Zentrum spammen
             local anyAlive = true
             while RyuConfig.AutoFarm and anyAlive and CheckQuestActive() do
                 anyAlive = false
@@ -1341,7 +1335,6 @@ local function GroupFarmMobs(targetMobs)
                 end
             end
 
-            -- Hitbox-Reset nach dem Kill
             for _, mob in ipairs(aggroedMobs) do
                 local mobRoot = mob:FindFirstChild("HumanoidRootPart")
                 if mobRoot then
@@ -1399,13 +1392,11 @@ task.spawn(function()
             
             if #targetMobs > 0 then
                 if RyuConfig.FarmMode == "Single" then
-                    -- MODUS 1: Single Target Farm (1v1 Solo)
                     for _, mob in ipairs(targetMobs) do
                         if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                         TrackAndFarmMob(mob)
                     end
                 elseif RyuConfig.FarmMode == "Group" then
-                    -- MODUS 2: Group Killing Farm (Hit Aggro First + Stacking)
                     GroupFarmMobs(targetMobs)
                 end
             end
