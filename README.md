@@ -403,9 +403,7 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
--- NEUE FARM CONFIG FOLIE MIT LIVE SCANNER
 local DropMob, DropNPC, DropWep, DropIsland
-
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
 DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
 DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
@@ -481,7 +479,7 @@ CreateSlider(SecIslandTP, "Climb Speed", 60, 500, RyuConfig.ElevatorSpeed, funct
     RyuConfig.ElevatorSpeed = val
 end)
 
---// NEUES PERFEKTIONIERTES SPIDER TP (2 STUDS ABSTAND, 4 STUDS VORAUS-RADAR, KEIN WARTEN, 500 KLETTERN)
+--// MASTER SPIDER TP (PERMANENTE CLIMB-REMOTE, 2 STUDS ABSTAND, 4 STUDS RADAR & ULTRALUAG-FREE)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -564,7 +562,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- EXAKT 2 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN (Wie von dir gewünscht)
+        -- Strikter 2-Studs-Abstand über jedem Objekt
         local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 2
         
         ToggleHover(true)
@@ -587,14 +585,17 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             
             local elapsedTime = 0
             local currentY = root.Position.Y
-            local isClimbing = false
             local lastFootstep = tick()
             local nextRoboCheck = tick()
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
 
-            -- Top-Down Radar Helfer: Ignoriert unsichtbare Wände/Skyboxen, findet echte Gebäude & Bäume
+            local rayParamsDown = RaycastParams.new()
+            rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+            rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+
+            -- Top-Down Radar Helfer (Sichtbarkeits-Filter gegen unsichtbare Barrieren)
             local function GetTrueTopY(x, z)
                 local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                 local rParams = RaycastParams.new()
@@ -622,13 +623,28 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
+            -- WICHTIG: Kletter-Remote permanent aktiv schalten beim Start!
+            if climbEvent then
+                pcall(function() climbEvent:InvokeServer(true) end)
+            end
+
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
                 
-                -- Kollision temporär ausschalten für geschmeidiges Gleiten
                 for _, part in pairs(char:GetChildren()) do
                     if part:IsA("BasePart") then part.CanCollide = false end
+                end
+                
+                if hum then
+                    local animator = hum:FindFirstChild("Animator")
+                    if animator then
+                        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                            if track.Priority == Enum.AnimationPriority.Movement or track.Priority == Enum.AnimationPriority.Core then
+                                track:Stop()
+                            end
+                        end
+                    end
                 end
                 
                 if isLookingForRobo and tick() - nextRoboCheck > 1 then
@@ -659,7 +675,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local currentPos = root.Position
                 if (currentPos - tPos).Magnitude <= 5 then break end
                 
-                -- KEIN WARTEN! Die Zeit läuft in jedem Frame kontinuierlich weiter
+                -- Kein Warten, flüssige Zeit-Inkrementierung
                 elapsedTime = elapsedTime + dt
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
@@ -669,47 +685,30 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                -- 4 STUDS VORAUS RADAR (Reagiert 4 Studs vor dir!)
+                -- REAKTION BEI 4 STUDS ABSTAND VOR MIR
                 local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
                 
-                -- Höchster Punkt gewinnt -> zieht dich bei 4 Studs Abstand sofort hoch
                 local targetY = math.max(groundYCurrent, groundYAhead)
                 
                 local yVelocity = 0
-                local isClimbingAction = false
                 
-                -- ECHTES KLETTERN MIT BIS ZU 500 STUDS/SEC (Kein Teleport!)
-                if currentY < targetY - 1 then
-                    isClimbingAction = true
+                -- Ultra-flüssige Interpolation zur Zielhöhe mit der Slider-ElevatorSpeed
+                if currentY < targetY - 0.5 then
                     currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), targetY)
                     yVelocity = 20
-                elseif currentY > targetY + 1 then
-                    isClimbingAction = true
+                elseif currentY > targetY + 0.5 then
                     currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), targetY)
-                    
-                    -- Noclip-Schutz: Niemals unter den Boden fallen
-                    if currentY < groundYCurrent then
-                        currentY = groundYCurrent
-                    end
+                    if currentY < groundYCurrent then currentY = groundYCurrent end
                     yVelocity = -20
                 else
                     currentY = targetY
                     yVelocity = 0
                 end
                 
-                if currentY < 4 then currentY = 4 end -- Wasser Fix
-                
-                -- Kletter Remotes im Hintergrund aktivieren
-                if isClimbingAction and not isClimbing then
-                    isClimbing = true
-                    pcall(function() climbEvent:InvokeServer(true) end)
-                elseif not isClimbingAction and isClimbing then
-                    isClimbing = false
-                    pcall(function() climbEvent:InvokeServer(false) end)
-                end
+                if currentY < 4 then currentY = 4 end
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
@@ -724,18 +723,16 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
-                    if not isClimbingAction then
-                        if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
-                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-                    end
+                    if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
+                    if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                 end
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
-            if isClimbing then
-                task.spawn(function()
-                    if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
-                end)
+            
+            -- Kletter-Remote am Ende sauber ausschalten
+            if climbEvent then
+                pcall(function() climbEvent:InvokeServer(false) end)
             end
             
             char:SetAttribute("evading", nil)
@@ -986,7 +983,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (FÜR DEN AUTO FARM)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB FÜR AUTO FARM)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -1130,7 +1127,7 @@ end
 --// FAIL-SAFE: QUEST SICHERUNG
 task.spawn(function()
     while true do
-        task.wait(5) -- Geändert auf 5 Sekunden Fail-Safe wie von dir gewünscht!
+        task.wait(5) 
         if RyuConfig.AutoFarm and RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" then
             if not CheckQuestActive() then
                 FetchQuest()
@@ -1314,7 +1311,7 @@ task.spawn(function()
                             lastDamageTime = tick()
                         end
                         
-                        if tick() - lastDamageTime > 5 then -- Fail-Safe für Mobs auf 5 Sekunden verkürzt!
+                        if tick() - lastDamageTime > 5 then
                             RyuNotify:Send("Fail Safe", "5s kein Schaden. Repositioniere Gegner...", 2)
                             break 
                         end
