@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP MIT INTELLIGENTEM WAND-SCAN (KLETTER-RANGE 0, KAMERA BLEIBT FREI)
+--// SPIDER TP MIT 500 SPEED RAUF & 500 SPEED RUNTER (0 RANGE, KAMERA FREI)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -684,7 +684,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0) -- Kletter-Range auf 0 reduziert wie gewünscht!
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0) -- Kletter-Range auf 0
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
@@ -703,7 +703,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
 
-                local safeVerticalSpeed = 150 
+                -- KLETTER-GESCHWINDIGKEIT RAUF & RUNTER AUF JEWEILS 500 GESETZT!
+                local safeVerticalSpeed = 500 
 
                 if currentY < targetY - 0.5 then
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
@@ -726,8 +727,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local targetLookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                --// SCHLAUES WAND-SCAN SYSTEM (Character schaut zum Ziel und pendelt sanft rechts/links für perfekten Grip)
-                local offsetAngle = math.sin(tick() * 20) * 0.35 -- Schwingt leicht nach links und rechts
+                -- SCHLAUES WAND-SCAN SYSTEM (Character scannt mit leichtem Pendeln, Kamera bleibt frei)
+                local offsetAngle = math.sin(tick() * 20) * 0.35
                 local baseLookCFrame = CFrame.lookAt(finalPos, targetLookPos)
                 local scannedCFrame = baseLookCFrame * CFrame.Angles(0, offsetAngle, 0)
                 
