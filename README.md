@@ -372,7 +372,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// ANTI-FLING HOVER SYSTEM 
+--// ANTI-FLING PURE PHYSICS SYSTEM (BODYPOSITION + BODYGYRO)
 --// ============================================================================
 local function ToggleHover(state)
     local char = LocalPlayer.Character
@@ -390,9 +390,22 @@ local function ToggleHover(state)
             bp.Parent = root
         end
         bp.Position = root.Position
+        
+        local bg = root:FindFirstChild("RyuGyro")
+        if not bg then
+            bg = Instance.new("BodyGyro")
+            bg.Name = "RyuGyro"
+            bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            bg.D = 100
+            bg.P = 10000
+            bg.Parent = root
+        end
+        bg.CFrame = root.CFrame
     else
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp:Destroy() end
+        local bg = root:FindFirstChild("RyuGyro")
+        if bg then bg:Destroy() end
     end
 end
 
@@ -458,7 +471,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-KICK SPIDER TP MIT UNSICHTBARER PLATTFORM & AUTO-ABBRUCH
+--// ANTI-KICK PURE PHYSICS SPIDER TP MIT UNSICHTBARER PLATTFORM & AUTO-ABBRUCH
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -546,8 +559,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         ToggleHover(true)
         
-        root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
-        
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
         local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
@@ -634,7 +645,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                                     local txt = guiElem.Text:lower()
                                     if txt:find("tp check") or txt:find("too fast") or txt:find("strike:") then
                                         shouldAbort = true
-                                        guiElem.Visible = false -- Versteckt die rote Warnung
+                                        guiElem.Visible = false 
                                         break
                                     end
                                 end
@@ -708,7 +719,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local targetY = math.max(groundYCurrent, groundYAhead)
                 
-                local yVelocity = 0
                 local addTime = dt
 
                 -- WANDSCHUTZ
@@ -726,14 +736,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
                 if currentY < targetY - 0.5 then
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
-                    yVelocity = 20
                 elseif currentY > targetY + 0.5 then
                     currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
                     if currentY < groundYCurrent then currentY = groundYCurrent end
-                    yVelocity = -20
                 else
                     currentY = targetY
-                    yVelocity = 0
                 end
                 
                 if currentY < 4 then currentY = 4 end
@@ -745,18 +752,21 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                if hum then hum:Move(flatMoveDir, false) end
-                
-                root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
-                
                 -- Anti-Cheat Plattform exakt 8 Studs unter den Füßen platzieren (täuscht das Limit)
                 if antiCheatFloor then
                     antiCheatFloor.CFrame = CFrame.new(currentX, currentY - 8, currentZ)
                 end
                 
+                --// PURE PHYSICS MOVEMENT //--
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = finalPos end
+                
+                local bg = root:FindFirstChild("RyuGyro")
+                if bg then 
+                    if (lookPos - finalPos).Magnitude > 0.1 then
+                        bg.CFrame = CFrame.lookAt(finalPos, lookPos)
+                    end
+                end
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -770,7 +780,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 pcall(function() antiCheatFloor:Destroy() end)
             end
             
-            if hum then hum:Move(Vector3.new(0,0,0), false) end
             if climbEvent then
                 task.spawn(function()
                     pcall(function() climbEvent:InvokeServer(false) end)
@@ -779,8 +788,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
-            
-            root.Velocity = Vector3.new(0, 0, 0)
             
             return true
         end
