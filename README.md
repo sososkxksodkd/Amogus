@@ -403,7 +403,9 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
+-- NEUE FARM CONFIG FOLIE MIT LIVE SCANNER
 local DropMob, DropNPC, DropWep, DropIsland
+
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
 DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
 DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
@@ -476,7 +478,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// NEUES TOP-DOWN RADAR SPIDER TP (KEIN WARTEN, 4 STUDS VORAUS, IMMER 100% SPEED)
+--// NEUES TOP-DOWN RADAR SPIDER TP (PERMANENT HOVER & 4 STUDS VORAUS-SCANNER)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -558,8 +560,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
-        local hipHeight = hum and hum.HipHeight or 2.15
-        local floorOffset = hipHeight + (root.Size.Y / 2)
+        -- FIX: Permanent 2 Studs Höhe
+        local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 2
         
         ToggleHover(true)
         
@@ -598,6 +600,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
                 
+                -- ANIMATION KILLER: Lauf Animation stoppen, damit es wie Hover aussieht
+                if hum then
+                    local animator = hum:FindFirstChild("Animator")
+                    if animator then
+                        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                            if track.Priority == Enum.AnimationPriority.Movement or track.Priority == Enum.AnimationPriority.Core then
+                                track:Stop()
+                            end
+                        end
+                    end
+                end
+                
                 if isLookingForRobo and tick() - nextRoboCheck > 1 then
                     nextRoboCheck = tick()
                     local npcsFolder = Workspace:FindFirstChild("NPCs")
@@ -630,52 +644,42 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
                 local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
                 
-                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
+                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                -- TOP-DOWN RADAR: Scannt 4 Studs im Voraus vom Himmel herab
+                -- TOP-DOWN RADAR: Scannt aktuelle Position UND 4 Studs voraus von ganz oben
+                local rayStartCurrent = Vector3.new(currentX, currentY + 2500, currentZ)
+                local hitCurrent = Workspace:Raycast(rayStartCurrent, Vector3.new(0, -5000, 0), rayParamsDown)
+                local groundYCurrent = (hitCurrent and hitCurrent.Position.Y or 0) + floorOffset
+                
                 local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
                 local rayStartAhead = Vector3.new(checkPosAhead.X, currentY + 2500, checkPosAhead.Z)
                 local hitAhead = Workspace:Raycast(rayStartAhead, Vector3.new(0, -5000, 0), rayParamsDown)
+                local groundYAhead = (hitAhead and hitAhead.Position.Y or 0) + floorOffset
                 
-                -- Höchster Punkt 4 Studs vor uns
-                local targetY = hitAhead and (hitAhead.Position.Y + floorOffset) or 4
+                -- HÖCHSTER PUNKT gewinnt (damit wir vor der Wand schon hochziehen)
+                local targetY = math.max(groundYCurrent, groundYAhead)
                 
-                -- Top-Down für aktuelle Position (Noclip-Schutz)
-                local rayStartCurrent = Vector3.new(currentX, currentY + 2500, currentZ)
-                local hitCurrent = Workspace:Raycast(rayStartCurrent, Vector3.new(0, -5000, 0), rayParamsDown)
-                local currentGroundY = hitCurrent and (hitCurrent.Position.Y + floorOffset) or 4
-
                 local yVelocity = 0
                 local isClimbingAction = false
                 
-                -- REAKTION: Wenn der Zielpunkt 4 Studs voraus höher ist, sofort ohne Warten hochziehen!
-                if targetY > currentY + 3 then
+                if targetY > currentY + 1 then
                     isClimbingAction = true
-                    currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
-                    yVelocity = 20 -- Anti-Cheat Bypass
-                elseif targetY < currentY - 3 then
+                    currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), targetY)
+                    yVelocity = 20 -- Anti-Cheat Limit
+                elseif targetY < currentY - 1 then
                     isClimbingAction = true
-                    currentY = currentY - (RyuConfig.ElevatorSpeed * dt)
+                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), targetY)
+                    if currentY < groundYCurrent then currentY = groundYCurrent end -- Noclip Schutz
                     yVelocity = -20
                 else
-                    -- Flacher Boden
-                    if currentGroundY > currentY then
-                        currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), currentGroundY)
-                    elseif currentGroundY < currentY then
-                        currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), currentGroundY)
-                    end
+                    currentY = targetY
                     yVelocity = 0
                 end
                 
-                -- NOCLIP FIX: Niemals unter den echten aktuellen Boden fallen!
-                if currentY < currentGroundY then
-                    currentY = currentGroundY
-                end
+                if currentY < 4 then currentY = 4 end -- Wasser Fix
                 
-                -- WASSER FIX
-                if currentY < 4 then currentY = 4 end
-                
+                -- Remotes verarbeiten
                 if isClimbingAction and not isClimbing then
                     isClimbing = true
                     pcall(function() climbEvent:InvokeServer(true) end)
@@ -684,8 +688,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     pcall(function() climbEvent:InvokeServer(false) end)
                 end
                 
-                -- KEIN WARTEN! Wir bewegen uns immer vorwärts.
-                elapsedTime = elapsedTime + dt
+                -- NIEMALS WARTEN ODER STOPPEN: Laufgeschwindigkeit bleibt konstant 100%
+                elapsedTime = elapsedTime + dt 
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
