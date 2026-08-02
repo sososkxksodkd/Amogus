@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMOOTH Y-ELEVATION SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PRO SLOPE-VECTOR SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -511,7 +511,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-CHEAT SICHERER SPIDER TELEPORT (FLACHE Y-STEIGUNG)
+--// PRO-LEVEL SPIDER TELEPORT (SLOPE VECTORING & ANTI-Y-KICK)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -710,40 +710,38 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                     
                     local calcPos = Vector3.new(currentX, currentY, currentZ)
-                    -- Vorausschauende Raycast-Prüfung 15 Studs nach vorne für flachen Anstieg
-                    local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 15)
                     
+                    -- RAYCAST FÜR PROFI-WANDGLEITEN (SLOPE VECTOR)
+                    local wallHit = Workspace:Raycast(calcPos, flatMoveDir * 6, rayParamsDown)
                     local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
-                    local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
-                    local targetY = math.max(groundYCurrent, groundYAhead)
-                    
-                    local addTime = dt
+                    local targetY = groundYCurrent
 
-                    local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
-                    if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
-                        local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
-                        if wallTopY > currentY then
-                            addTime = 0
-                            targetY = math.max(targetY, wallTopY)
-                        end
+                    if wallHit and wallHit.Instance and wallHit.Instance.Transparency < 1 then
+                        -- Wand-Oberflächen-Normale berechnen & sanft an der Wand hochgleiten (Wall Sliding)
+                        local wallNormal = wallHit.Normal
+                        local wallTopY = GetTrueTopY(wallHit.Position.X + (flatMoveDir.X * 0.2), wallHit.Position.Z + (flatMoveDir.Z * 0.2)) + floorOffset
+                        targetY = math.max(targetY, wallTopY)
+                    else
+                        local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 12)
+                        local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
+                        targetY = math.max(groundYCurrent, groundYAhead)
                     end
 
-                    -- Gedrosselte vertikale Steigrate (max 50 Studs/sek), um Anti-Cheat Y-Kick zu verhindern
-                    local maxVerticalSpeed = 50 
-
-                    if currentY < targetY - 0.5 then
-                        currentY = math.min(currentY + (maxVerticalSpeed * dt), targetY)
-                    elseif currentY > targetY + 0.5 then
-                        currentY = math.max(currentY - (maxVerticalSpeed * dt), targetY)
-                        if currentY < groundYCurrent then currentY = groundYCurrent end
-                    else
-                        currentY = targetY
+                    -- BERECHNUNG DER MAXIMALEN VERTIKALEN SCHRITT-GESCHWINDIGKEIT PRO FRAME
+                    -- Verhindert den Server-Check für "Y-axis too fast"
+                    local yDiff = targetY - currentY
+                    local maxYSpeed = 38 -- Max Vertikal-Speed für Anti-Cheat Bypass
+                    
+                    if yDiff > 0 then
+                        currentY = math.min(currentY + (maxYSpeed * dt), targetY)
+                    elseif yDiff < 0 then
+                        currentY = math.max(currentY - (maxYSpeed * dt), targetY)
                     end
                     
                     if currentY < 4 then currentY = 4 end
                     currentY = math.max(currentY, 1)
                     
-                    elapsedTime = elapsedTime + addTime
+                    elapsedTime = elapsedTime + dt
                     
                     local finalPos = Vector3.new(currentX, currentY, currentZ)
                     local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
@@ -751,7 +749,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
                     if hum then hum:Move(flatMoveDir, false) end
                     
-                    -- Vertikale Geschwindigkeit strikt auf 0 setzen für Anti-Cheat Bypass
+                    -- Vertikale Geschwindigkeit strikt auf 0 sperren!
                     root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, 0, flatMoveDir.Z * currentSpeed)
                     
                     local bp = root:FindFirstChild("RyuHover")
