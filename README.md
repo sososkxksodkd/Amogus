@@ -43,70 +43,80 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (SORTIERT & PERFEKTIONIERT FÜR AUTO-REFRESH)
+--// DYNAMISCHER WORKSPACE SCANNER (CRASH-FREE & PERFEKTIONIERT FÜR AUTO-REFRESH)
 local function GetDynamicLists()
-    local mobs = {}
-    local quests = {}
-    local islands = {}
-    local weapons = {}
-    
+    local mobs, quests, islands, weapons = {}, {}, {}, {}
     local mDict, qDict, iDict, wDict = {}, {}, {}, {}
     
-    -- Scanne NPCs (Mit präziser Unterscheidung Regen vs QuestMark)
-    if Workspace:FindFirstChild("NPCs") then
-        for _, v in pairs(Workspace.NPCs:GetChildren()) do
-            if v:IsA("Model") then
-                if v:FindFirstChild("Regen") then
-                    if not mDict[v.Name] then
-                        table.insert(mobs, v.Name)
-                        mDict[v.Name] = true
-                    end
-                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
-                    if not qDict[v.Name] then
-                        table.insert(quests, v.Name)
-                        qDict[v.Name] = true
+    pcall(function()
+        if Workspace:FindFirstChild("NPCs") then
+            for _, v in pairs(Workspace.NPCs:GetChildren()) do
+                if v:IsA("Model") then
+                    if v:FindFirstChild("Regen") then
+                        if not mDict[v.Name] then
+                            table.insert(mobs, v.Name)
+                            mDict[v.Name] = true
+                        end
+                    elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
+                        if not qDict[v.Name] then
+                            table.insert(quests, v.Name)
+                            qDict[v.Name] = true
+                        end
                     end
                 end
             end
         end
-    end
+    end)
     
-    -- Scanne Inseln direkt aus dem Islands Ordner
-    local islandsFolder = Workspace:FindFirstChild("Islands")
-    if islandsFolder then
-        for _, v in pairs(islandsFolder:GetChildren()) do
-            if not iDict[v.Name] then
-                table.insert(islands, v.Name)
-                iDict[v.Name] = true
+    pcall(function()
+        local islandsFolder = Workspace:FindFirstChild("Islands")
+        if islandsFolder then
+            for _, v in pairs(islandsFolder:GetChildren()) do
+                if not iDict[v.Name] then
+                    table.insert(islands, v.Name)
+                    iDict[v.Name] = true
+                end
             end
         end
-    end
+    end)
     
-    -- Scanne Waffen im Unequiped Ordner (und Backpack)
-    local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
-    if unequiped then
-        for _, item in pairs(unequiped:GetChildren()) do
-            if item:IsA("Tool") and not wDict[item.Name] then
-                table.insert(weapons, item.Name)
-                wDict[item.Name] = true
+    pcall(function()
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            local unequiped = backpack:FindFirstChild("Unequiped")
+            if unequiped then
+                for _, item in pairs(unequiped:GetChildren()) do
+                    if item:IsA("Tool") and not wDict[item.Name] then
+                        table.insert(weapons, item.Name)
+                        wDict[item.Name] = true
+                    end
+                end
+            end
+            
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") and item.Name ~= "Unequiped" and not wDict[item.Name] then
+                    table.insert(weapons, item.Name)
+                    wDict[item.Name] = true
+                end
             end
         end
-    end
-    
-    for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-        if item:IsA("Tool") and item.Name ~= "Unequiped" and not wDict[item.Name] then
-            table.insert(weapons, item.Name)
-            wDict[item.Name] = true
+        
+        local char = LocalPlayer.Character
+        if char then
+            for _, item in pairs(char:GetChildren()) do
+                if item:IsA("Tool") and not wDict[item.Name] then
+                    table.insert(weapons, item.Name)
+                    wDict[item.Name] = true
+                end
+            end
         end
-    end
+    end)
     
-    -- Fallbacks
     if #mobs == 0 then mobs = {"Fishman Karate User"} end
     if #quests == 0 then quests = {"Becky"} end
     if #islands == 0 then islands = {"Fishman Cave"} end
     if #weapons == 0 then weapons = {"Combat"} end
     
-    -- WICHTIG FÜR REFRESH: Alphabetisch sortieren!
     table.sort(mobs)
     table.sort(quests)
     table.sort(islands)
@@ -306,6 +316,7 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
+--// GEFIXTES DROPDOWN (Lädt immer 100% verlässlich)
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -316,18 +327,31 @@ local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
         for _, child in pairs(scroll:GetChildren()) do
             if child:IsA("TextButton") then child:Destroy() end
         end
+        
+        local totalY = 0
         for _, itemName in ipairs(list) do
-            local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. tostring(itemName); btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-            btn.Activated:Connect(function() RyuConfig[targetConfigKey] = itemName; header.Text = headerText .. ": " .. tostring(itemName) end)
+            local btn = Instance.new("TextButton", scroll)
+            btn.Size = UDim2.new(0.94, 0, 0, 26)
+            btn.BackgroundColor3 = Theme.SectionBG
+            btn.Text = "  " .. tostring(itemName)
+            btn.TextColor3 = Theme.Text
+            btn.Font = Enum.Font.GothamBold
+            btn.TextSize = 12
+            btn.TextXAlignment = Enum.TextXAlignment.Left
+            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+            
+            btn.Activated:Connect(function() 
+                RyuConfig[targetConfigKey] = itemName
+                header.Text = headerText .. ": " .. tostring(itemName) 
+            end)
+            
+            totalY = totalY + 30 -- Manuelle Berechnung fixt den Roblox-Unsichtbarkeits-Bug!
         end
-        task.defer(function()
-            scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
-        end)
+        
+        scroll.CanvasSize = UDim2.new(0, 0, 0, totalY + 10)
     end
     
-    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
     populate(itemsList)
-    
     return { Refresh = populate }
 end
 
@@ -410,41 +434,46 @@ DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetN
 DropWep = CreateDropdown(SecFarmConfig, "Select Weapon", InitWeapons, "TargetWeapon")
 
 CreateButton(SecFarmConfig, "Refresh All Lists", function()
-    local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
-    if DropMob then DropMob:Refresh(newMobs) end
-    if DropNPC then DropNPC:Refresh(newQuests) end
-    if DropWep then DropWep:Refresh(newWeaps) end
-    if DropIsland then DropIsland:Refresh(newIslands) end
-    RyuNotify:Send("Lists Refreshed", "Listen manuell aktualisiert!", 3)
+    pcall(function()
+        local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
+        if DropMob then DropMob:Refresh(newMobs) end
+        if DropNPC then DropNPC:Refresh(newQuests) end
+        if DropWep then DropWep:Refresh(newWeaps) end
+        if DropIsland then DropIsland:Refresh(newIslands) end
+        RyuNotify:Send("Lists Refreshed", "Listen manuell aktualisiert!", 3)
+    end)
 end)
 
 -- AUTO REFRESH LOOP
 task.spawn(function()
     local function listsEqual(a, b)
+        if not a or not b then return false end
         if #a ~= #b then return false end
         for i = 1, #a do if a[i] ~= b[i] then return false end end
         return true
     end
     local lastMobs, lastQuests, lastIslands, lastWeaps = InitMobs, InitQuests, InitIslands, InitWeapons
     while true do
-        task.wait(3)
-        local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
-        if not listsEqual(lastMobs, newMobs) then
-            lastMobs = newMobs
-            if DropMob then DropMob:Refresh(newMobs) end
-        end
-        if not listsEqual(lastQuests, newQuests) then
-            lastQuests = newQuests
-            if DropNPC then DropNPC:Refresh(newQuests) end
-        end
-        if not listsEqual(lastWeaps, newWeaps) then
-            lastWeaps = newWeaps
-            if DropWep then DropWep:Refresh(newWeaps) end
-        end
-        if not listsEqual(lastIslands, newIslands) then
-            lastIslands = newIslands
-            if DropIsland then DropIsland:Refresh(newIslands) end
-        end
+        task.wait(4)
+        pcall(function()
+            local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
+            if not listsEqual(lastMobs, newMobs) then
+                lastMobs = newMobs
+                if DropMob then DropMob:Refresh(newMobs) end
+            end
+            if not listsEqual(lastQuests, newQuests) then
+                lastQuests = newQuests
+                if DropNPC then DropNPC:Refresh(newQuests) end
+            end
+            if not listsEqual(lastWeaps, newWeaps) then
+                lastWeaps = newWeaps
+                if DropWep then DropWep:Refresh(newWeaps) end
+            end
+            if not listsEqual(lastIslands, newIslands) then
+                lastIslands = newIslands
+                if DropIsland then DropIsland:Refresh(newIslands) end
+            end
+        end)
     end
 end)
 
@@ -476,7 +505,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-KICK SPIDER TP (SICHERE 150 Y-SPEED, AUFZUG RUNTER NACH DEM HINDERNIS)
+--// SPIDER TP: SICHERE 150 Y-SPEED, AUFZUG RUNTER NACH DEM HINDERNIS (ANTI-KICK)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -707,7 +736,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
 
                 -- SICHERE Y-ACHSEN GESCHWINDIGKEIT (Anti-Kick)
-                local safeVerticalSpeed = 150 -- Reduziert von 2500 auf 150, um den "Y-axis too fast" Kick zu verhindern
+                local safeVerticalSpeed = 150 -- Reduziert auf sichere Geschwindigkeit, um den "Y-axis too fast" Kick zu verhindern
 
                 if currentY < targetY - 0.5 then
                     -- AUFZUG NACH OBEN
