@@ -479,7 +479,7 @@ CreateSlider(SecIslandTP, "Climb Speed", 60, 500, RyuConfig.ElevatorSpeed, funct
     RyuConfig.ElevatorSpeed = val
 end)
 
---// PERFEKTIONIERTES SPIDER TP (2-STUDS-WAND-AKTIVATOR & KOLLISIONSSCHUTZ)
+--// PERFEKTIONIERTES SPIDER TP (EXAKT GEWÜNSCHTE ÄNDERUNGEN)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -562,12 +562,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- Strikter 2 Studs Abstand über jedem Untergrund
-        local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 2
-        
         ToggleHover(true)
         
-        local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
         local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
         
@@ -621,10 +617,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
 
             if hum then hum.PlatformStand = false end
-
-            if climbEvent then
-                pcall(function() climbEvent:InvokeServer(true) end)
-            end
 
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
@@ -682,18 +674,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                -- WAND-SCHUTZ & 2-STUDS AKTIVATOR: Prüft exakt 2 Studs vor dir auf Wände, um Durchglitchen zu verhindern
+                -- Nur direkter Wandschutz auf der X/Z-Achse ohne Extra-Offset
                 local wallCheck = Workspace:Raycast(Vector3.new(currentX, currentY, currentZ), flatMoveDir * 2, rayParamsDown)
                 local isWallNear = wallCheck and wallCheck.Instance.Transparency < 1
                 
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * (isWallNear and 1 or 2))
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 2)
                 
-                local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
-                local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
+                local groundYCurrent = GetTrueTopY(currentX, currentZ)
+                local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z)
                 
                 local targetY = math.max(groundYCurrent, groundYAhead)
                 if isWallNear then
-                    targetY = targetY + 5 -- Sofortiger Aufwärts-Boost bei Wandkontakt im 2-Stud-Bereich
+                    targetY = targetY + 5 
                 end
                 
                 local yVelocity = 0
@@ -731,10 +723,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
-            
-            if climbEvent then
-                pcall(function() climbEvent:InvokeServer(false) end)
-            end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
