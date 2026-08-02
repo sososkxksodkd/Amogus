@@ -124,7 +124,7 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
-    ElevatorSpeed = 500, -- Permanent auf 500 fixiert!
+    ElevatorSpeed = 500, -- Permanent auf 500 fixiert
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -301,6 +301,7 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
+-- Verbessertes Dropdown mit UI-Fix für Refresh
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -472,7 +473,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT PERFEKTEM SCANNER SPEED)
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT WASSER-FIX & ANTI-CHEAT BYPASS)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -668,30 +669,37 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         pcall(function() climbEvent:InvokeServer(true) end)
                     end
                     currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
-                    addTime = 0 
-                    yVelocity = RyuConfig.ElevatorSpeed
-                elseif (not ledgeCheckHit or finalY < currentY - 5) then
-                    -- ABGRUND (Runterklettern)
+                    addTime = dt * 0.05 -- Sanft vorwärts drücken (verhindert Feststecken)
+                    yVelocity = 20 -- Anti-Cheat Fix: Physische Geschwindigkeit limitieren
+                elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 5) then
+                    -- ABGRUND (Runterklettern) - Ignoriert Wasser!
                     if not isClimbing then
                         isClimbing = true
                         pcall(function() climbEvent:InvokeServer(true) end)
                     end
                     currentY = currentY - (RyuConfig.ElevatorSpeed * dt)
                     addTime = dt * 0.5 
-                    yVelocity = -RyuConfig.ElevatorSpeed
+                    yVelocity = -20 -- Anti-Cheat Fix
                 else
-                    -- NORMALES LAUFEN / PLATEAU (100% Full Speed)
+                    -- NORMALES LAUFEN / PLATEAU / WASSER (100% Full Speed)
                     if isClimbing then
                         isClimbing = false
                         pcall(function() climbEvent:InvokeServer(false) end)
                     end
+                    
                     if finalY > currentY then
                         currentY = math.min(currentY + (150 * dt), finalY)
                     elseif finalY < currentY then
                         currentY = math.max(currentY - (150 * dt), finalY)
                     end
+                    
+                    -- Wasser Fix: Bei Y=0 bis Y=4 immer oben bleiben und schnell sein!
+                    if currentY < 4 then 
+                        currentY = 4 
+                    end
+                    
                     yVelocity = 0
-                    addTime = dt -- Erzeugt volle Geschwindigkeit am Boden
+                    addTime = dt -- Erzeugt volle Geschwindigkeit am Boden / Wasser
                 end
                 
                 currentY = math.max(currentY, 1)
