@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// PERFEKTIONIERTES SPIDER TP (0 WARTEN, SOFORT-FLÜSSIG-AUFZUG, WASSER BUG FIX)
+--// SPIDER TP OHNE RUNTERZIEHEN (BEHÄLT HOHE FLUGHÖHE BEI)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,7 +560,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN
+        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN (Halbe Spielerhöhe + HipHeight + 3)
         local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
         
         ToggleHover(true)
@@ -594,13 +594,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
-            rayParamsDown.IgnoreWater = true -- FIX FÜR DEN WASSER BUG!
+            rayParamsDown.IgnoreWater = true
 
             local function GetTrueTopY(x, z)
                 local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                 local rParams = RaycastParams.new()
                 rParams.FilterType = Enum.RaycastFilterType.Exclude
-                rParams.IgnoreWater = true -- FIX FÜR DEN WASSER BUG!
+                rParams.IgnoreWater = true
                 
                 local origin = Vector3.new(x, 3000, z)
                 local dir = Vector3.new(0, -4000, 0)
@@ -623,7 +623,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
-            -- Permanentes Kletter-Remote aktivieren!
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
             end
@@ -686,7 +685,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                -- WANDSCHUTZ & 4 STUDS RADAR VORAUS
                 local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
@@ -697,27 +695,22 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
-                -- KOLLISIONSSCHUTZ: Prüft exakt 2.5 Studs vor dir, um Noclip in eine Wand zu verhindern
+                -- WANDSCHUTZ: Prüft 2.5 Studs vor dir
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
-                    -- Exakte Höhe der Wand ermitteln, gegen die wir laufen
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
-                        addTime = 0 -- VORWÄRTSBEWEGUNG STOPPT! Wir gehen nicht in die Wand rein.
+                        addTime = 0 -- Bewegung stoppt, um nicht in die Wand zu glitchen
                         targetY = math.max(targetY, wallTopY)
                     end
                 end
 
                 -- SOFORT ZUM HÖCHSTEN PUNKT FLÜSSIG (EXTREM SCHNELLER AUFZUG: 2500 Speed)
-                if currentY < targetY - 0.5 then
+                if currentY < targetY then
                     currentY = math.min(currentY + (2500 * dt), targetY)
                     yVelocity = 20
-                elseif currentY > targetY + 0.5 then
-                    currentY = math.max(currentY - (1500 * dt), targetY)
-                    if currentY < groundYCurrent then currentY = groundYCurrent end
-                    yVelocity = -20
                 else
-                    currentY = targetY
+                    -- RUNTERZIEHEN ENTFERNT: Bleibt einfach auf der aktuellen Höhe, bis man das Ziel erreicht
                     yVelocity = 0
                 end
                 
@@ -1024,7 +1017,6 @@ local function SafeTween(targetCFrame, customSpeed)
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), Workspace:FindFirstChild("Water")}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
-    rayParams.IgnoreWater = true
 
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm then break end
@@ -1242,7 +1234,7 @@ task.spawn(function()
                 
                 EquipTargetWeapon()
                 
-                -- PHASE 1: Mobs einzeln anvisieren (Mit 3 Studs Abstand)
+                -- PHASE 1: Mobs einzeln anvisieren (Mit 3 Studs Abstand, wie gewünscht!)
                 for _, npc in ipairs(targetMobs) do
                     if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                     
@@ -1255,6 +1247,7 @@ task.spawn(function()
                         local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                         if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
                         
+                        -- Exakt wie vorher: 3 Studs Abstand!
                         local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
                         local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mRoot.Position.X, attackPos.Y, mRoot.Position.Z))
                         
