@@ -639,7 +639,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 -- SMARTER EDGE DETECTION RAYCASTS
                 local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
                 local wallCheckHigh = Workspace:Raycast(currentPos + Vector3.new(0, 6, 0), flatMoveDir * 4.5, rayParamsDown)
-                local ledgeCheckHit = Workspace:Raycast(currentPos + (flatMoveDir * 5) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
+                
+                -- KURVEN- UND HÜGEL-FIX: Scanner schaut nun 25 Studs nach oben, um runden Untergrund besser abzutasten
+                local ledgeCheckHit = Workspace:Raycast(currentPos + (flatMoveDir * 5) + Vector3.new(0, 25, 0), Vector3.new(0, -100, 0), rayParamsDown)
                 
                 local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
                 local isWallBlockingHigh = wallCheckHigh and wallCheckHigh.Distance <= 4
@@ -661,7 +663,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         addTime = dt * 0.8
                         currentY = currentY + 5 
                     else
-                        addTime = dt * 0.05 
+                        -- FIX FÜR KURVEN & KREISE: Charakter geht weiter nach vorne,
+                        -- um sich an runden/schrägen Wänden perfekt hochzuziehen!
+                        addTime = dt * 0.45 
                     end
                     
                     yVelocity = 20 -- Anti-Cheat Fix: Physische Geschwindigkeit limitieren
@@ -936,7 +940,7 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        if now - lastSwing >= 0.5 then
+        if now - lastSwing >= 0.55 then
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
@@ -1337,6 +1341,7 @@ task.spawn(function()
                         end
                     end
                     
+                    -- Reset Hitboxes
                     for _, npc in ipairs(targetMobs) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
                         if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
