@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FAST & SMOOTH SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (4-STUD HOVER & SMART CLIMB SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -511,7 +511,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// INSTANT WALL-TOP CLIMB SPIDER TELEPORT
+--// 4-STUD HOVER & SMART CLIMB SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -591,7 +591,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             local hum = char:FindFirstChildOfClass("Humanoid")
-            local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 5
+            -- Exakt 4 Studs Abstand zum Boden festlegen
+            local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 4
             
             ToggleHover(true)
             root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
@@ -608,7 +609,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 if totalDist < 5 then return true end 
                 
-                currentSpeed = currentSpeed > 0 and currentSpeed or RyuConfig.IslandSpeed
+                -- Standard-Geschwindigkeit am Boden ist 60 Studs/Sek
+                currentSpeed = (currentSpeed and currentSpeed > 0) and currentSpeed or 60
                 local t = totalDist / currentSpeed
                 if t < 0.1 then return true end
                 
@@ -651,6 +653,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
 
                 if hum then hum.PlatformStand = false end
+
+                -- Permanentes Klettern, Sprinten & Steps aktivieren
+                if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
 
                 while elapsedTime < t do
                     local dt = RunService.Heartbeat:Wait()
@@ -709,38 +714,38 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local calcPos = Vector3.new(currentX, currentY, currentZ)
                     
-                    -- SOFORT-ERKENNUNG MIT REMOTE-CLIMB (FLÜSSIGE SCHNELL-KLETTER LOGIK)
-                    local wallCheck = Workspace:Raycast(calcPos, flatMoveDir * 8, rayParams) or Workspace:Raycast(calcPos + Vector3.new(0, 3, 0), flatMoveDir * 8, rayParams)
+                    -- Prüft exakt 4 Studs vor dir auf eine Wand
+                    local wallCheck = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams) or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 4, rayParams)
                     local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                     local targetY = groundYCurrent
 
                     local isClimbingWall = false
                     if wallCheck and wallCheck.Instance and wallCheck.Instance.Transparency < 1 then
                         isClimbingWall = true
+                        -- Höchsten Punkt der Wand ermitteln
                         local obstacleTopY = GetTrueTopY(wallCheck.Position.X + (flatMoveDir.X * 0.5), wallCheck.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
                         targetY = math.max(targetY, obstacleTopY)
-                        
-                        -- Triggere Remote-Climb Event für schnelles Hochklettern
-                        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                     else
-                        local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 12)
+                        local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 8)
                         local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
 
-                    -- DYNAMISCHE DROSSELUNG: Flüssiges Weiterlaufen (0.55x) statt abruptem Stoppen (0.05x)
+                    -- Vorwärtsbewegung stoppen, wenn du die Wand berühren könntest
                     local advanceSpeed = 1
-                    if isClimbingWall and currentY < targetY - 2 then
-                        advanceSpeed = 0.55
+                    if isClimbingWall and currentY < targetY - 1.5 then
+                        advanceSpeed = 0 -- Kein Vorwärtsgehen in die Wand hinein!
                     end
 
-                    -- DYNAMISCH ANGEPASSTE STEIG-GESCHWINDIGKEIT (Erhöht bei erkanntem Klettern für schnellen Aufstieg)
-                    local maxVerticalSpeed = isClimbingWall and 38 or 26 
+                    -- Schnelle Steig- und Senkgeschwindigkeit für Wände & Kanten
+                    local maxVerticalSpeed = isClimbingWall and 45 or 32 
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
+                        -- Schnelles Hochklettern
                         currentY = math.min(currentY + (maxVerticalSpeed * dt), targetY)
                     elseif yDiff < 0 then
+                        -- Schnelles Klettern/Absinken an der anderen Kante
                         currentY = math.max(currentY - (maxVerticalSpeed * dt), targetY)
                     end
                     
@@ -760,10 +765,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = finalPos end
                     
-                    if tick() - lastFootstep > 0.3 then
+                    -- Permanentes Senden der Remotes
+                    if tick() - lastFootstep > 0.2 then
                         lastFootstep = tick()
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
+                        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                     end
                 end
                 
