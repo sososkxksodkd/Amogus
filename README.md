@@ -424,7 +424,7 @@ end)
 
 local DropWep, DropIsland
 
---// CONFIG TAB MIT TEXTBOXEN (Kein Refresh-Bug mehr)
+--// CONFIG TAB MIT TEXTBOXEN 
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
 CreateTextBox(SecFarmConfig, "Enemie NPC", RyuConfig.TargetMob, "TargetMob")
 CreateTextBox(SecFarmConfig, "Quest NPC", RyuConfig.TargetNPC, "TargetNPC")
@@ -458,7 +458,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-KICK SPIDER TP MIT AUTO-ABBRUCH BEI TP CHECK
+--// ANTI-KICK SPIDER TP MIT UNSICHTBARER PLATTFORM & AUTO-ABBRUCH
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -577,9 +577,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
             rayParamsDown.IgnoreWater = true
+            
+            --// ANTI-CHEAT PLATTFORM ERSCHAFFEN //--
+            local antiCheatFloor = Instance.new("Part")
+            antiCheatFloor.Name = "RyuHub_AC_Bypass"
+            antiCheatFloor.Size = Vector3.new(50, 2, 50)
+            antiCheatFloor.Anchored = true
+            antiCheatFloor.CanCollide = true
+            antiCheatFloor.Transparency = 1
+            antiCheatFloor.Parent = Workspace
 
             local function GetTrueTopY(x, z)
-                local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                local currentFilter = {char, antiCheatFloor, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                 local rParams = RaycastParams.new()
                 rParams.FilterType = Enum.RaycastFilterType.Exclude
                 rParams.IgnoreWater = true
@@ -702,8 +711,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
+                -- WANDSCHUTZ
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
-                if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
+                if wallCheckHit and wallCheckHit.Instance.Transparency < 1 and wallCheckHit.Instance ~= antiCheatFloor then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
                         addTime = 0 
@@ -711,16 +721,16 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
 
-                -- SICHERE Y-ACHSEN GESCHWINDIGKEIT (Anti-Kick) - Das Limit des Servers liegt bei 42.
-                local safeVerticalSpeed = 40 
+                -- GESCHWINDIGKEIT WIEDER AUF 500 (Dank Anti-Cheat Bypass)
+                local safeVerticalSpeed = 500 
 
                 if currentY < targetY - 0.5 then
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
-                    yVelocity = safeVerticalSpeed
+                    yVelocity = 20
                 elseif currentY > targetY + 0.5 then
                     currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
                     if currentY < groundYCurrent then currentY = groundYCurrent end
-                    yVelocity = -safeVerticalSpeed
+                    yVelocity = -20
                 else
                     currentY = targetY
                     yVelocity = 0
@@ -740,6 +750,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
                 
+                -- Anti-Cheat Plattform exakt 8 Studs unter den Füßen platzieren (täuscht das Limit)
+                if antiCheatFloor then
+                    antiCheatFloor.CFrame = CFrame.new(currentX, currentY - 8, currentZ)
+                end
+                
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = finalPos end
                 
@@ -748,6 +763,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                     if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                 end
+            end
+            
+            -- Anti Cheat Plattform löschen wenn der Loop vorbei ist
+            if antiCheatFloor then
+                pcall(function() antiCheatFloor:Destroy() end)
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
