@@ -479,7 +479,7 @@ CreateSlider(SecIslandTP, "Climb Speed", 60, 500, RyuConfig.ElevatorSpeed, funct
     RyuConfig.ElevatorSpeed = val
 end)
 
---// MASTER SPIDER TP (PERMANENTE CLIMB-REMOTE, 2 STUDS ABSTAND, 4 STUDS RADAR & ULTRALUAG-FREE)
+--// ULTIMATIVES SPIDER TP (2-STUD-WAND AKTIVATOR & PERMANENTES KLIMMEN)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -562,7 +562,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- Strikter 2-Studs-Abstand über jedem Objekt
+        -- Permanent 2 Studs Abstand überall
         local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 2
         
         ToggleHover(true)
@@ -595,7 +595,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
 
-            -- Top-Down Radar Helfer (Sichtbarkeits-Filter gegen unsichtbare Barrieren)
             local function GetTrueTopY(x, z)
                 local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                 local rParams = RaycastParams.new()
@@ -623,7 +622,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
-            -- WICHTIG: Kletter-Remote permanent aktiv schalten beim Start!
+            -- Permanent Kletter-Remote aktiv schalten
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
             end
@@ -675,7 +674,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local currentPos = root.Position
                 if (currentPos - tPos).Magnitude <= 5 then break end
                 
-                -- Kein Warten, flüssige Zeit-Inkrementierung
                 elapsedTime = elapsedTime + dt
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
@@ -685,8 +683,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                -- REAKTION BEI 4 STUDS ABSTAND VOR MIR
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
+                -- REAKTION BEI EXAKT 2 STUDS ABSTAND VOR MIR
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 2)
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
@@ -695,7 +693,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local yVelocity = 0
                 
-                -- Ultra-flüssige Interpolation zur Zielhöhe mit der Slider-ElevatorSpeed
                 if currentY < targetY - 0.5 then
                     currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), targetY)
                     yVelocity = 20
@@ -730,7 +727,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
             
-            -- Kletter-Remote am Ende sauber ausschalten
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(false) end)
             end
@@ -983,7 +979,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB FÜR AUTO FARM)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SCHADENS-PRÜFUNG FÜR AUTO FARM)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -1061,7 +1057,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: 1-BY-1 FARM (MOB GROUPING)
+--// HARMONY CORE: 1-BY-1 FARM (TREFFERGARANTIE & SCHADENS-CHECK)
 --// ============================================================================
 local function CheckQuestActive()
     local active = false
@@ -1124,7 +1120,7 @@ local function FetchQuest()
     end
 end
 
---// FAIL-SAFE: QUEST SICHERUNG
+--// FAIL-SAFE: QUEST SICHERUNG (5 SEC)
 task.spawn(function()
     while true do
         task.wait(5) 
@@ -1136,7 +1132,7 @@ task.spawn(function()
     end
 end)
 
---// AUTO STATS LOOP (MIT INTELLIGENTEM LIMITER)
+--// AUTO STATS LOOP
 task.spawn(function()
     while true do
         task.wait(3) 
@@ -1167,7 +1163,7 @@ task.spawn(function()
     end
 end)
 
---// MAIN FARM LOOP (KITING / GROUPING REWORK)
+--// MAIN FARM LOOP (STRIKTE SCHADENS- UND TREFFERPRÜFUNG)
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1188,7 +1184,6 @@ task.spawn(function()
         ToggleHover(true)
         hum.AutoRotate = false 
         
-        --// 1. QUEST CHECK
         if RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             if not CheckQuestActive() then
                 FetchQuest()
@@ -1196,7 +1191,6 @@ task.spawn(function()
             end
         end
 
-        --// 2. MOB GROUPING / KITING (ALLE PULLEN & IN DER MITTE TÖTEN)
         if RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local npcs = Workspace:FindFirstChild("NPCs")
             if not npcs then continue end
@@ -1226,7 +1220,7 @@ task.spawn(function()
                 
                 EquipTargetWeapon()
                 
-                -- Phase 1: Jeden Mob einmal anhitten (Pulling)
+                -- PHASE 1: Jeden Mob zwingend treffen und auf Schadensregistrierung warten!
                 for _, npc in ipairs(targetMobs) do
                     if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                     
@@ -1235,14 +1229,14 @@ task.spawn(function()
                     local isRagdolled = npc:FindFirstChild("Rag") or (npc.Parent and npc.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
                     
                     if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
+                        local initialHealth = mHum.Health
                         local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                         if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
                         
                         local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
                         local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mRoot.Position.X, attackPos.Y, mRoot.Position.Z))
                         
-                        local distToPos = (root.Position - attackPos).Magnitude
-                        if distToPos > 5 then
+                        if (root.Position - attackPos).Magnitude > 5 then
                             SafeTween(targetCFrame)
                         end
                         
@@ -1250,12 +1244,21 @@ task.spawn(function()
                         if bp then bp.Position = attackPos end
                         root.CFrame = targetCFrame
                         
-                        PerformMeleeAttack({npc})
-                        task.wait(0.05)
+                        -- Wiederhole den Schlag, BIS der Mob definitiv Schaden genommen hat!
+                        local hitConfirmed = false
+                        local hitAttempts = 0
+                        while RyuConfig.AutoFarm and mHum.Health > 0 and not hitConfirmed and hitAttempts < 15 do
+                            PerformMeleeAttack({npc})
+                            task.wait(0.2)
+                            hitAttempts = hitAttempts + 1
+                            if mHum.Health < initialHealth then
+                                hitConfirmed = true
+                            end
+                        end
                     end
                 end
                 
-                -- Phase 2: In die Mitte fliegen und Spammen
+                -- PHASE 2: In die Mitte fliegen und solange angreifen, bis alle tot sind
                 if RyuConfig.AutoFarm and CheckQuestActive() then
                     local targetCFrameCenter = CFrame.new(attackCenter)
                     
@@ -1326,7 +1329,6 @@ task.spawn(function()
                         end
                     end
                     
-                    -- Reset Hitboxes
                     for _, npc in ipairs(targetMobs) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
                         if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
