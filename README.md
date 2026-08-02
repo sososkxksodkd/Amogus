@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PRO SLOPE-VECTOR SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PRO NOCLIP-PROOF SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -511,7 +511,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// PRO-LEVEL SPIDER TELEPORT (SLOPE VECTORING & ANTI-Y-KICK)
+--// NOCLIP-PROOF & ANTI-Y-KICK SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -591,7 +591,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             local hum = char:FindFirstChildOfClass("Humanoid")
-            local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
+            local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 5
             
             ToggleHover(true)
             root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
@@ -620,10 +620,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 char:SetAttribute("evading", true)
                 _G.soruDashing = true
 
-                local rayParamsDown = RaycastParams.new()
-                rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-                rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
-                rayParamsDown.IgnoreWater = true
+                local rayParams = RaycastParams.new()
+                rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                rayParams.FilterType = Enum.RaycastFilterType.Exclude
+                rayParams.IgnoreWater = true
 
                 local function GetTrueTopY(x, z)
                     local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
@@ -711,46 +711,52 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local calcPos = Vector3.new(currentX, currentY, currentZ)
                     
-                    -- RAYCAST FÜR PROFI-WANDGLEITEN (SLOPE VECTOR)
-                    local wallHit = Workspace:Raycast(calcPos, flatMoveDir * 6, rayParamsDown)
-                    local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
-                    local targetY = groundYCurrent
+                    -- MULTI-RAY NOCLIP PROTECTION (Verhindert OverlapHead Kicks)
+                    local forwardHitCenter = Workspace:Raycast(calcPos, flatMoveDir * 10, rayParams)
+                    local forwardHitHead = Workspace:Raycast(calcPos + Vector3.new(0, 2.5, 0), flatMoveDir * 10, rayParams)
+                    local wallDetected = (forwardHitCenter and forwardHitCenter.Instance.Transparency < 1) or (forwardHitHead and forwardHitHead.Instance.Transparency < 1)
 
-                    if wallHit and wallHit.Instance and wallHit.Instance.Transparency < 1 then
-                        -- Wand-Oberflächen-Normale berechnen & sanft an der Wand hochgleiten (Wall Sliding)
-                        local wallNormal = wallHit.Normal
-                        local wallTopY = GetTrueTopY(wallHit.Position.X + (flatMoveDir.X * 0.2), wallHit.Position.Z + (flatMoveDir.Z * 0.2)) + floorOffset
-                        targetY = math.max(targetY, wallTopY)
-                    else
-                        local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 12)
-                        local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
-                        targetY = math.max(groundYCurrent, groundYAhead)
+                    local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
+                    local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 15)
+                    local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
+                    
+                    local targetY = math.max(groundYCurrent, groundYAhead)
+
+                    -- Falls eine Wand/Gebäude direkt voraus steht, stoppe das Vorwärtsgehen und passe die Höhe an
+                    local advanceFactor = 1
+                    if wallDetected then
+                        local hitPart = forwardHitCenter or forwardHitHead
+                        local obstacleY = GetTrueTopY(hitPart.Position.X + (flatMoveDir.X * 0.5), hitPart.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
+                        targetY = math.max(targetY, obstacleY)
+                        
+                        -- Verlangsamt/stoppt das Vorwärtsgehen solange die Höhe nicht reicht
+                        if currentY < targetY - 2 then
+                            advanceFactor = 0.1 
+                        end
                     end
 
-                    -- BERECHNUNG DER MAXIMALEN VERTIKALEN SCHRITT-GESCHWINDIGKEIT PRO FRAME
-                    -- Verhindert den Server-Check für "Y-axis too fast"
+                    -- SAFE Y-SPEED LIMIT (Max 28 Studs/sek für 100% Bypass der YAxis fast Detection)
+                    local maxVerticalSpeed = 28
                     local yDiff = targetY - currentY
-                    local maxYSpeed = 38 -- Max Vertikal-Speed für Anti-Cheat Bypass
                     
                     if yDiff > 0 then
-                        currentY = math.min(currentY + (maxYSpeed * dt), targetY)
+                        currentY = math.min(currentY + (maxVerticalSpeed * dt), targetY)
                     elseif yDiff < 0 then
-                        currentY = math.max(currentY - (maxYSpeed * dt), targetY)
+                        currentY = math.max(currentY - (maxVerticalSpeed * dt), targetY)
                     end
                     
                     if currentY < 4 then currentY = 4 end
                     currentY = math.max(currentY, 1)
                     
-                    elapsedTime = elapsedTime + dt
+                    elapsedTime = elapsedTime + (dt * advanceFactor)
                     
                     local finalPos = Vector3.new(currentX, currentY, currentZ)
                     local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                     
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                    if hum then hum:Move(flatMoveDir, false) end
+                    if hum then hum:Move(flatMoveDir * advanceFactor, false) end
                     
-                    -- Vertikale Geschwindigkeit strikt auf 0 sperren!
-                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, 0, flatMoveDir.Z * currentSpeed)
+                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed * advanceFactor, 0, flatMoveDir.Z * currentSpeed * advanceFactor)
                     
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = finalPos end
