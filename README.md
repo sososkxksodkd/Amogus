@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-KICK SPIDER TP (EXAKT 4 STUDS ÜBER ALLEM SCHWEBEND)
+--// SPIDER TP MIT PERMANENTEM 4-STUDS-ABSTAND ÜBER ALLEM (PERMA-REMOTE & TOUCH-GEKOPPELT)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,7 +560,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- PERMANENT EXAKT 4 STUDS ABSTAND ÜBER ALLEM (BODEN, WÄNDEN, ETC.)
+        -- HIER GEÄNDERT: Exakt 4 Studs Abstand über jedem Untergrund/Wand!
         local floorOffset = 4
         
         ToggleHover(true)
@@ -623,7 +623,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
-            -- Permanentes Kletter-Remote aktivieren!
+            -- Permanentes Kletter-Remote aktiv lassen (wie im Original)
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
             end
