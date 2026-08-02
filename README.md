@@ -43,70 +43,79 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (NUR NOCH FÜR INSELN & WAFFEN)
+--// DYNAMISCHER WORKSPACE SCANNER (SORTIERT & PERFEKTIONIERT FÜR AUTO-REFRESH)
 local function GetDynamicLists()
+    local mobs = {}
+    local quests = {}
     local islands = {}
     local weapons = {}
     
-    local iDict, wDict = {}, {}
+    local mDict, qDict, iDict, wDict = {}, {}, {}, {}
     
-    -- Scanne Inseln direkt aus dem Islands Ordner
-    pcall(function()
-        local islandsFolder = Workspace:FindFirstChild("Islands")
-        if islandsFolder then
-            for _, v in pairs(islandsFolder:GetChildren()) do
-                if not iDict[v.Name] then
-                    table.insert(islands, v.Name)
-                    iDict[v.Name] = true
-                end
-            end
-        end
-    end)
-    
-    -- Scanne Waffen im Unequiped Ordner (und Backpack)
-    pcall(function()
-        local backpack = LocalPlayer:FindFirstChild("Backpack")
-        if backpack then
-            local unequiped = backpack:FindFirstChild("Unequiped")
-            if unequiped then
-                for _, item in pairs(unequiped:GetChildren()) do
-                    if item:IsA("Tool") and not wDict[item.Name] then
-                        table.insert(weapons, item.Name)
-                        wDict[item.Name] = true
+    -- Scanne NPCs (Mit präziser Unterscheidung Regen vs QuestMark)
+    if Workspace:FindFirstChild("NPCs") then
+        for _, v in pairs(Workspace.NPCs:GetChildren()) do
+            if v:IsA("Model") then
+                if v:FindFirstChild("Regen") then
+                    if not mDict[v.Name] then
+                        table.insert(mobs, v.Name)
+                        mDict[v.Name] = true
+                    end
+                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
+                    if not qDict[v.Name] then
+                        table.insert(quests, v.Name)
+                        qDict[v.Name] = true
                     end
                 end
             end
-            
-            for _, item in pairs(backpack:GetChildren()) do
-                if item:IsA("Tool") and item.Name ~= "Unequiped" and not wDict[item.Name] then
-                    table.insert(weapons, item.Name)
-                    wDict[item.Name] = true
-                end
+        end
+    end
+    
+    -- Scanne Inseln direkt aus dem Islands Ordner
+    local islandsFolder = Workspace:FindFirstChild("Islands")
+    if islandsFolder then
+        for _, v in pairs(islandsFolder:GetChildren()) do
+            if not iDict[v.Name] then
+                table.insert(islands, v.Name)
+                iDict[v.Name] = true
             end
         end
-        
-        local char = LocalPlayer.Character
-        if char then
-            for _, item in pairs(char:GetChildren()) do
-                if item:IsA("Tool") and not wDict[item.Name] then
-                    table.insert(weapons, item.Name)
-                    wDict[item.Name] = true
-                end
+    end
+    
+    -- Scanne Waffen im Unequiped Ordner (und Backpack)
+    local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
+    if unequiped then
+        for _, item in pairs(unequiped:GetChildren()) do
+            if item:IsA("Tool") and not wDict[item.Name] then
+                table.insert(weapons, item.Name)
+                wDict[item.Name] = true
             end
         end
-    end)
+    end
+    
+    for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
+        if item:IsA("Tool") and item.Name ~= "Unequiped" and not wDict[item.Name] then
+            table.insert(weapons, item.Name)
+            wDict[item.Name] = true
+        end
+    end
     
     -- Fallbacks
+    if #mobs == 0 then mobs = {"Fishman Karate User"} end
+    if #quests == 0 then quests = {"Becky"} end
     if #islands == 0 then islands = {"Fishman Cave"} end
     if #weapons == 0 then weapons = {"Combat"} end
     
+    -- WICHTIG FÜR REFRESH: Alphabetisch sortieren!
+    table.sort(mobs)
+    table.sort(quests)
     table.sort(islands)
     table.sort(weapons)
     
-    return islands, weapons
+    return mobs, quests, islands, weapons
 end
 
-local InitIslands, InitWeapons = GetDynamicLists()
+local InitMobs, InitQuests, InitIslands, InitWeapons = GetDynamicLists()
 
 --// RYU CONFIGURATION
 local RyuConfig = {
@@ -114,8 +123,8 @@ local RyuConfig = {
     AutoQuest = false,
     QuestInterval = 45, 
     
-    TargetMob = "Bandit",      
-    TargetNPC = "Gila",                  
+    TargetMob = InitMobs[1], 
+    TargetNPC = InitQuests[1],               
     TargetWeapon = InitWeapons[1],           
     
     TweenSpeed = 50, 
@@ -307,48 +316,19 @@ local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
         for _, child in pairs(scroll:GetChildren()) do
             if child:IsA("TextButton") then child:Destroy() end
         end
-        local totalY = 0
         for _, itemName in ipairs(list) do
             local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. tostring(itemName); btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
             btn.Activated:Connect(function() RyuConfig[targetConfigKey] = itemName; header.Text = headerText .. ": " .. tostring(itemName) end)
-            totalY = totalY + 30
         end
-        scroll.CanvasSize = UDim2.new(0, 0, 0, totalY + 10)
+        task.defer(function()
+            scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10)
+        end)
     end
     
+    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
     populate(itemsList)
+    
     return { Refresh = populate }
-end
-
-local function CreateTextBox(section, headerText, defaultText, targetConfigKey)
-    local frame = Instance.new("Frame", section)
-    frame.Size = UDim2.new(0.92, 0, 0, 56)
-    frame.BackgroundTransparency = 1
-    
-    local header = Instance.new("TextLabel", frame)
-    header.Size = UDim2.new(1, 0, 0, 20)
-    header.BackgroundTransparency = 1
-    header.Text = headerText
-    header.TextColor3 = Theme.SubText
-    header.Font = Enum.Font.GothamMedium
-    header.TextSize = 12
-    header.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local box = Instance.new("TextBox", frame)
-    box.Size = UDim2.new(1, 0, 0, 30)
-    box.Position = UDim2.new(0, 0, 0, 24)
-    box.BackgroundColor3 = Theme.SectionBG
-    box.TextColor3 = Theme.Text
-    box.Font = Enum.Font.GothamBold
-    box.TextSize = 12
-    box.Text = tostring(defaultText)
-    box.PlaceholderText = "Eingeben..."
-    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 4)
-    
-    box.FocusLost:Connect(function()
-        RyuConfig[targetConfigKey] = box.Text
-        RyuNotify:Send("Config Updated", headerText .. " gesetzt auf: " .. box.Text, 2)
-    end)
 end
 
 local function CreateSlider(section, text, min, max, default, callback)
@@ -422,13 +402,51 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
-local DropWep, DropIsland
+local DropMob, DropNPC, DropWep, DropIsland
 
---// CONFIG TAB MIT TEXTBOXEN (Enemie NPC & Quest NPC)
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
-CreateTextBox(SecFarmConfig, "Enemie NPC", RyuConfig.TargetMob, "TargetMob")
-CreateTextBox(SecFarmConfig, "Quest NPC", RyuConfig.TargetNPC, "TargetNPC")
+DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
+DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
 DropWep = CreateDropdown(SecFarmConfig, "Select Weapon", InitWeapons, "TargetWeapon")
+
+CreateButton(SecFarmConfig, "Refresh All Lists", function()
+    local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
+    if DropMob then DropMob:Refresh(newMobs) end
+    if DropNPC then DropNPC:Refresh(newQuests) end
+    if DropWep then DropWep:Refresh(newWeaps) end
+    if DropIsland then DropIsland:Refresh(newIslands) end
+    RyuNotify:Send("Lists Refreshed", "Listen manuell aktualisiert!", 3)
+end)
+
+-- AUTO REFRESH LOOP
+task.spawn(function()
+    local function listsEqual(a, b)
+        if #a ~= #b then return false end
+        for i = 1, #a do if a[i] ~= b[i] then return false end end
+        return true
+    end
+    local lastMobs, lastQuests, lastIslands, lastWeaps = InitMobs, InitQuests, InitIslands, InitWeapons
+    while true do
+        task.wait(3)
+        local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
+        if not listsEqual(lastMobs, newMobs) then
+            lastMobs = newMobs
+            if DropMob then DropMob:Refresh(newMobs) end
+        end
+        if not listsEqual(lastQuests, newQuests) then
+            lastQuests = newQuests
+            if DropNPC then DropNPC:Refresh(newQuests) end
+        end
+        if not listsEqual(lastWeaps, newWeaps) then
+            lastWeaps = newWeaps
+            if DropWep then DropWep:Refresh(newWeaps) end
+        end
+        if not listsEqual(lastIslands, newIslands) then
+            lastIslands = newIslands
+            if DropIsland then DropIsland:Refresh(newIslands) end
+        end
+    end
+end)
 
 --// AUTO STATS UI
 local SecAutoStats = CreateSection(SubStats, "Auto Stats System")
@@ -458,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// PERFEKTIONIERTES SPIDER TP (ECHTE REMOTES + ANTI-KICK 40 Y-SPEED)
+--// ANTI-KICK SPIDER TP (SICHERE 150 Y-SPEED, AUFZUG RUNTER NACH DEM HINDERNIS)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -542,6 +560,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
+        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN
         local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
         
         ToggleHover(true)
@@ -568,8 +587,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local currentY = root.Position.Y
             local lastFootstep = tick()
             local nextRoboCheck = tick()
-            local lastAntiCheatCheck = tick()
-            local lastRemoteFire = tick()
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -606,7 +623,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
-            -- Kletter-Remote initial starten, damit das Spiel das Klettern registriert
+            -- Permanentes Kletter-Remote aktivieren!
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
             end
@@ -614,39 +631,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
-                
-                --// ECHTE REMOTE-SYNCHRONISATION (Füttert den Server permanent mit Kletter-Signalen) //--
-                if tick() - lastRemoteFire > 0.2 then
-                    lastRemoteFire = tick()
-                    if climbEvent then
-                        pcall(function() climbEvent:InvokeServer(true) end)
-                    end
-                end
-                
-                --// ANTI CHEAT SCANNER (Bricht Spider TP sofort ab, wenn GPO misstrauisch wird)
-                if tick() - lastAntiCheatCheck > 0.5 then
-                    lastAntiCheatCheck = tick()
-                    local shouldAbort = false
-                    pcall(function()
-                        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                        if pg then
-                            for _, guiElem in pairs(pg:GetDescendants()) do
-                                if guiElem:IsA("TextLabel") and guiElem.Text then
-                                    local txt = guiElem.Text:lower()
-                                    if txt:find("tp check") or txt:find("too fast") or txt:find("strike:") then
-                                        shouldAbort = true
-                                        guiElem.Visible = false 
-                                        break
-                                    end
-                                end
-                            end
-                        end
-                    end)
-                    if shouldAbort then
-                        RyuNotify:Send("Anti-Cheat System", "TP Check erkannt! Teleport zur Sicherheit gestoppt.", 4)
-                        break 
-                    end
-                end
                 
                 for _, part in pairs(char:GetChildren()) do
                     if part:IsA("BasePart") then part.CanCollide = false end
@@ -712,22 +696,25 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
+                -- KOLLISIONSSCHUTZ: Prüft exakt 2.5 Studs vor dir, um Noclip in eine Wand zu verhindern
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
-                        addTime = 0 
+                        addTime = 0 -- VORWÄRTSBEWEGUNG STOPPT! Wir gehen nicht in die Wand rein.
                         targetY = math.max(targetY, wallTopY)
                     end
                 end
 
-                -- EXAKT UNTER DEM ANTI-CHEAT LIMIT (Limit ist 42, wir nutzen sichere 40)
-                local safeVerticalSpeed = 40 
+                -- SICHERE Y-ACHSEN GESCHWINDIGKEIT (Anti-Kick)
+                local safeVerticalSpeed = 150 -- Reduziert von 2500 auf 150, um den "Y-axis too fast" Kick zu verhindern
 
                 if currentY < targetY - 0.5 then
+                    -- AUFZUG NACH OBEN
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
                     yVelocity = 20
                 elseif currentY > targetY + 0.5 then
+                    -- AUFZUG NACH UNTEN (erst nachdem Hindernisse überwunden wurden)
                     currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
                     if currentY < groundYCurrent then currentY = groundYCurrent end
                     yVelocity = -20
