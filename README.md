@@ -478,7 +478,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT STRIKTEM WARTE-FIX BEIM KLETTERN)
+--// NEUES TOP-DOWN RADAR SPIDER TP (2 STUDS PERMANENT HOVER & 4 STUDS VORAUS-SCANNER)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,8 +560,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
-        local hipHeight = hum and hum.HipHeight or 2.15
-        local floorOffset = hipHeight + (root.Size.Y / 2)
+        -- FIX: Permanent 2 Studs Höhe
+        local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 2
         
         ToggleHover(true)
         
@@ -586,7 +586,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local isClimbing = false
             local lastFootstep = tick()
             local nextRoboCheck = tick()
-            local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -594,6 +593,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+            rayParamsDown.IgnoreWater = true -- Wasser wird ignoriert, Fallback sorgt für Y=4
 
             if hum then hum.PlatformStand = false end
 
@@ -636,84 +636,47 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                -- SMARTER EDGE DETECTION RAYCASTS
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
-                local wallCheckHigh = Workspace:Raycast(currentPos + Vector3.new(0, 6, 0), flatMoveDir * 4.5, rayParamsDown)
+                -- TOP-DOWN RADAR: Wir checken exakt 4 Studs voraus und holen uns den höchsten Punkt von ganz oben.
+                -- Dadurch erkennt das Skript auch unsichtbare Tore und Blätter an Bäumen direkt von der Spitze!
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
+                local highPoint = Vector3.new(checkPosAhead.X, currentY + 1500, checkPosAhead.Z)
+                local topHit = Workspace:Raycast(highPoint, Vector3.new(0, -2000, 0), rayParamsDown)
                 
-                -- KURVEN- UND HÜGEL-FIX: Scanner schaut nun 25 Studs nach oben, um runden Untergrund besser abzutasten
-                local ledgeCheckHit = Workspace:Raycast(currentPos + (flatMoveDir * 5) + Vector3.new(0, 25, 0), Vector3.new(0, -100, 0), rayParamsDown)
-                
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
-                local isWallBlockingHigh = wallCheckHigh and wallCheckHigh.Distance <= 4
-                local finalY = (ledgeCheckHit and ledgeCheckHit.Position.Y or 0) + floorOffset
-                
-                local yVelocity = 0
-                local addTime = dt
-
-                if isWallBlocking then 
-                    -- KLETTERN (Steil hoch)
-                    if not isClimbing then
-                        isClimbing = true
-                        pcall(function() climbEvent:InvokeServer(true) end)
-                    end
-                    currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
-                    
-                    if not isWallBlockingHigh then
-                        -- Kante fast erreicht: Ganz leichter Push, damit der Char nicht hängen bleibt
-                        addTime = dt * 0.2 
-                    else
-                        -- WARTEN: Kein horizontaler Fortschritt beim Klettern! Er geht nur hoch!
-                        addTime = 0 
-                    end
-                    
-                    yVelocity = 20 -- Anti-Cheat Fix: Physische Geschwindigkeit limitieren
-                    
-                elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
-                    -- ABGRUND (Runterklettern) - Ignoriert Wasser!
-                    if not isClimbing then
-                        isClimbing = true
-                        pcall(function() climbEvent:InvokeServer(true) end)
-                    end
-                    
-                    -- NOCLIP FIX: Er geht NIE unter den echten Boden (finalY)!
-                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
-                    
-                    -- WARTEN: Runterklettern ohne Vorwärtsbewegung!
-                    addTime = 0 
-                    yVelocity = -20 -- Anti-Cheat Fix
-                    
-                    -- Sanftes Landen (Stoppt Klettern kurz vor dem Boden)
-                    if currentY - finalY <= 3 then
-                        isClimbing = false
-                        pcall(function() climbEvent:InvokeServer(false) end)
-                    end
-                    
-                else
-                    -- NORMALES LAUFEN / PLATEAU / WASSER (100% Full Speed)
-                    if isClimbing then
-                        isClimbing = false
-                        pcall(function() climbEvent:InvokeServer(false) end)
-                    end
-                    
-                    -- Schnelles Angleichen
-                    if finalY > currentY then
-                        currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), finalY)
-                    elseif finalY < currentY then
-                        currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
-                    end
-                    
-                    -- Wasser Fix: Bei Y=0 bis Y=4 immer oben bleiben und schnell sein!
-                    if currentY < 4 then 
-                        currentY = 4 
-                    end
-                    
-                    yVelocity = 0
-                    addTime = dt -- Erzeugt volle Geschwindigkeit am Boden / Wasser
+                local targetY = 4 -- Base/Wasser Limit
+                if topHit then
+                    targetY = topHit.Position.Y + floorOffset
                 end
                 
-                currentY = math.max(currentY, 1)
+                -- Sanfte & schnelle Höhenanpassung (Immer 100% Speed)
+                local yVelocity = 0
+                local isClimbingAction = false
                 
-                elapsedTime = elapsedTime + addTime
+                if targetY > currentY + 2 then
+                    currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), targetY)
+                    yVelocity = 20 -- Anti-Cheat Limit
+                    isClimbingAction = true
+                elseif targetY < currentY - 2 then
+                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), targetY)
+                    yVelocity = -20 -- Anti-Cheat Limit
+                    isClimbingAction = true
+                else
+                    yVelocity = 0
+                end
+                
+                -- Wasser Fix
+                if currentY < 4 then currentY = 4 end 
+                
+                -- Remotes feuern ohne zu stoppen
+                if isClimbingAction and not isClimbing then
+                    isClimbing = true
+                    pcall(function() climbEvent:InvokeServer(true) end)
+                elseif not isClimbingAction and isClimbing then
+                    isClimbing = false
+                    pcall(function() climbEvent:InvokeServer(false) end)
+                end
+                
+                -- WICHTIG: Das Skript wartet oder stoppt NIEMALS! Du gehst immer mit 100% Speed weiter.
+                elapsedTime = elapsedTime + dt
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
