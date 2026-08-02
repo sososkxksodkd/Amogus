@@ -403,9 +403,7 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
--- NEUE FARM CONFIG FOLIE MIT LIVE SCANNER
 local DropMob, DropNPC, DropWep, DropIsland
-
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
 DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
 DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
@@ -478,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// NEUES TOP-DOWN RADAR SPIDER TP (2 STUDS PERMANENT HOVER & 4 STUDS VORAUS-SCANNER)
+--// NEUES TOP-DOWN RADAR SPIDER TP (KEIN WARTEN, 4 STUDS VORAUS, IMMER 100% SPEED)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,8 +558,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
-        -- FIX: Permanent 2 Studs Höhe
-        local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 2
+        local hipHeight = hum and hum.HipHeight or 2.15
+        local floorOffset = hipHeight + (root.Size.Y / 2)
         
         ToggleHover(true)
         
@@ -593,7 +591,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
-            rayParamsDown.IgnoreWater = true -- Wasser wird ignoriert, Fallback sorgt für Y=4
 
             if hum then hum.PlatformStand = false end
 
@@ -633,40 +630,52 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
                 local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
                 
-                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
+                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                -- TOP-DOWN RADAR: Wir checken exakt 4 Studs voraus und holen uns den höchsten Punkt von ganz oben.
-                -- Dadurch erkennt das Skript auch unsichtbare Tore und Blätter an Bäumen direkt von der Spitze!
+                -- TOP-DOWN RADAR: Scannt 4 Studs im Voraus vom Himmel herab
                 local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
-                local highPoint = Vector3.new(checkPosAhead.X, currentY + 1500, checkPosAhead.Z)
-                local topHit = Workspace:Raycast(highPoint, Vector3.new(0, -2000, 0), rayParamsDown)
+                local rayStartAhead = Vector3.new(checkPosAhead.X, currentY + 2500, checkPosAhead.Z)
+                local hitAhead = Workspace:Raycast(rayStartAhead, Vector3.new(0, -5000, 0), rayParamsDown)
                 
-                local targetY = 4 -- Base/Wasser Limit
-                if topHit then
-                    targetY = topHit.Position.Y + floorOffset
-                end
+                -- Höchster Punkt 4 Studs vor uns
+                local targetY = hitAhead and (hitAhead.Position.Y + floorOffset) or 4
                 
-                -- Sanfte & schnelle Höhenanpassung (Immer 100% Speed)
+                -- Top-Down für aktuelle Position (Noclip-Schutz)
+                local rayStartCurrent = Vector3.new(currentX, currentY + 2500, currentZ)
+                local hitCurrent = Workspace:Raycast(rayStartCurrent, Vector3.new(0, -5000, 0), rayParamsDown)
+                local currentGroundY = hitCurrent and (hitCurrent.Position.Y + floorOffset) or 4
+
                 local yVelocity = 0
                 local isClimbingAction = false
                 
-                if targetY > currentY + 2 then
-                    currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), targetY)
-                    yVelocity = 20 -- Anti-Cheat Limit
+                -- REAKTION: Wenn der Zielpunkt 4 Studs voraus höher ist, sofort ohne Warten hochziehen!
+                if targetY > currentY + 3 then
                     isClimbingAction = true
-                elseif targetY < currentY - 2 then
-                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), targetY)
-                    yVelocity = -20 -- Anti-Cheat Limit
+                    currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
+                    yVelocity = 20 -- Anti-Cheat Bypass
+                elseif targetY < currentY - 3 then
                     isClimbingAction = true
+                    currentY = currentY - (RyuConfig.ElevatorSpeed * dt)
+                    yVelocity = -20
                 else
+                    -- Flacher Boden
+                    if currentGroundY > currentY then
+                        currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), currentGroundY)
+                    elseif currentGroundY < currentY then
+                        currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), currentGroundY)
+                    end
                     yVelocity = 0
                 end
                 
-                -- Wasser Fix
-                if currentY < 4 then currentY = 4 end 
+                -- NOCLIP FIX: Niemals unter den echten aktuellen Boden fallen!
+                if currentY < currentGroundY then
+                    currentY = currentGroundY
+                end
                 
-                -- Remotes feuern ohne zu stoppen
+                -- WASSER FIX
+                if currentY < 4 then currentY = 4 end
+                
                 if isClimbingAction and not isClimbing then
                     isClimbing = true
                     pcall(function() climbEvent:InvokeServer(true) end)
@@ -675,7 +684,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     pcall(function() climbEvent:InvokeServer(false) end)
                 end
                 
-                -- WICHTIG: Das Skript wartet oder stoppt NIEMALS! Du gehst immer mit 100% Speed weiter.
+                -- KEIN WARTEN! Wir bewegen uns immer vorwärts.
                 elapsedTime = elapsedTime + dt
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
