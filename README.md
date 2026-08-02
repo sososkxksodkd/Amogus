@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (HYBRID SCANNER + NO ERRORS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (MULTI-SEA & DYNAMIC ISLAND SCANNER)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -43,37 +43,62 @@ task.spawn(function()
     end
 end)
 
---// FESTE GPO DATEN (Fallback für StreamingEnabled)
+--// FESTE GPO DATEN (Getrennt nach Sea 1 und Sea 2 für Mobs & Quests)
 local StaticGPO = {
-    Mobs = {
-        "Bandit", "Bandit Boss", "Desert Bandit", "Lucid", "Corrupt Marine", 
-        "Shell's Bandit", "Axe Hand Logan", "Krieg Pirate", "Star Clown", 
-        "Monkey", "Gorilla King", "Saw Shark Pirate", "Saw Shark", "Fishman Karate User", 
-        "Ryu", "Neptune", "Sky Bandit", "Castle Guard", "Head Guardian", "Enel", 
-        "Gravito's Guard", "Gravito", "Marine Fort Gunner", "Flame Admiral Zeke"
+    Sea1 = {
+        Mobs = {
+            "Bandit", "Bandit Boss", "Desert Bandit", "Lucid", "Corrupt Marine", 
+            "Shell's Bandit", "Axe Hand Logan", "Krieg Pirate", "Star Clown", 
+            "Monkey", "Gorilla King", "Saw Shark Pirate", "Saw Shark", "Fishman Karate User", 
+            "Ryu", "Neptune", "Sky Bandit", "Castle Guard", "Head Guardian", "Enel"
+        },
+        Quests = {
+            "Daph", "Ronny", "Robert", "Kevin", "Gozen", "Waby", "Vi", "Becky", 
+            "Jenny", "Janny", "Vego", "Bibby", "Viva"
+        },
+        Islands = {
+            "Town of Beginnings", "Sandora", "Shell's Town", "Island Of Zou", "Baratie", 
+            "Orange Town", "Sphinx Island", "Arlong Park", "Kori Island", "Land of the Sky", 
+            "Gravito's Fort", "Fishman Island", "Fishman Cave", "Marine Base G-1"
+        }
     },
-    Quests = {
-        "Daph", "Ronny", "Robert", "Kevin", "Gozen", "Waby", "Vi", "Becky", 
-        "Jenny", "Janny", "Vego", "Bibby", "Viva", "Miska", "Yourg", "Verga"
-    },
-    Islands = {
-        "Town of Beginnings", "Sandora", "Shell's Town", "Island Of Zou", "Baratie", 
-        "Orange Town", "Sphinx Island", "Arlong Park", "Kori Island", "Land of the Sky", 
-        "Gravito's Fort", "Fishman Island", "Fishman Cave", "Marine Base G-1", "Desert Kingdom"
+    Sea2 = {
+        Mobs = {
+            "Desert Kingdom Bandit", "Pharaoh Akshan", "Moria Guard", "Borj",
+            "Ryuma", "Musashi", "Donmingo", "Lucy", "Pica", "Kraken"
+        },
+        Quests = {
+            "Rovo Quest NPC", "Sashi Quest NPC", "Desert Kingdom Quest NPC", "Foro Quest NPC"
+        },
+        Islands = {
+            "Rovo Island", "Desert Kingdom", "Sphinx Island", "Sashi Island", 
+            "Reverse Mountain", "Foro Island", "Thriller Bark"
+        }
     }
 }
 
---// HYBRIDER SCANNER (Feste Daten + Live Scan)
+--// SEA DETECTOR
+local function GetCurrentSeaData()
+    local islandsFolder = Workspace:FindFirstChild("Islands") or Workspace:FindFirstChild("Locations")
+    if islandsFolder then
+        if islandsFolder:FindFirstChild("Rovo Island") or islandsFolder:FindFirstChild("Desert Kingdom") then
+            return StaticGPO.Sea2
+        end
+    end
+    return StaticGPO.Sea1
+end
+
+--// HYBRIDER SCANNER
 local function GetDynamicLists()
     local mobsDict, questsDict, islandsDict, weaponsDict = {}, {}, {}, {}
     local mobs, quests, islands, weapons = {}, {}, {}, {}
 
-    -- 1. Feste GPO-Daten als Basis laden
-    for _, v in ipairs(StaticGPO.Mobs) do mobsDict[v] = true end
-    for _, v in ipairs(StaticGPO.Quests) do questsDict[v] = true end
-    for _, v in ipairs(StaticGPO.Islands) do islandsDict[v] = true end
+    -- 1. Meer-Daten laden für Mobs & Quests
+    local currentSea = GetCurrentSeaData()
+    for _, v in ipairs(currentSea.Mobs) do mobsDict[v] = true end
+    for _, v in ipairs(currentSea.Quests) do questsDict[v] = true end
 
-    -- 2. LIVE SCANNER (Fügt Umgebungsobjekte hinzu, falls geladen)
+    -- 2. LIVE SCANNER FOR MOBS & QUESTS
     local npcsFolder = Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Live")
     if npcsFolder then
         for _, v in pairs(npcsFolder:GetChildren()) do
@@ -91,14 +116,22 @@ local function GetDynamicLists()
         end
     end
 
+    -- 3. INSEL SCANNER (Liest direkt Workspace.Islands aus)
     local islandsFolder = Workspace:FindFirstChild("Islands") or Workspace:FindFirstChild("Locations")
     if islandsFolder then
         for _, v in pairs(islandsFolder:GetChildren()) do
             islandsDict[v.Name] = true
         end
     end
+    
+    -- Fallback für Inseln falls Workspace.Islands noch unvollständig geladen ist
+    if next(islandsDict) == nil then
+        for _, v in ipairs(currentSea.Islands) do
+            islandsDict[v] = true
+        end
+    end
 
-    -- 3. WAFFEN SCANNER (Backpack + Charakter)
+    -- 4. WAFFEN SCANNER
     local function scanTools(container)
         if not container then return end
         for _, item in pairs(container:GetChildren()) do
@@ -112,9 +145,9 @@ local function GetDynamicLists()
 
     scanTools(LocalPlayer:FindFirstChild("Backpack"))
     scanTools(LocalPlayer.Character)
-    if #weaponsDict == 0 then weaponsDict["Combat"] = true end
+    if next(weaponsDict) == nil then weaponsDict["Combat"] = true end
 
-    -- 4. Wörterbücher in sortierte Tabellen umwandeln
+    -- 5. Umwandlung in sortierte Tabellen
     for k in pairs(mobsDict) do table.insert(mobs, k) end
     for k in pairs(questsDict) do table.insert(quests, k) end
     for k in pairs(islandsDict) do table.insert(islands, k) end
@@ -1256,7 +1289,7 @@ task.spawn(function()
                 
                 EquipTargetWeapon()
                 
-                -- PHASE 1: Mobs einzeln anvisieren (Mit 3 Studs Abstand, wie gewünscht!)
+                -- PHASE 1: Mobs einzeln anvisieren (Mit 3 Studs Abstand)
                 for _, npc in ipairs(targetMobs) do
                     if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                     
@@ -1269,7 +1302,6 @@ task.spawn(function()
                         local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                         if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
                         
-                        -- Exakt wie vorher: 3 Studs Abstand!
                         local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
                         local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mRoot.Position.X, attackPos.Y, mRoot.Position.Z))
                         
