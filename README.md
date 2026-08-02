@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP MIT PENDEL-BEWEGUNG, 0 RANGE, 500 SPEED & UNBERÜHRTER KAMERA
+--// ANTI-KICK SPIDER TP (SICHERE 150 Y-SPEED, AUFZUG RUNTER NACH DEM HINDERNIS)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,6 +560,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
+        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN
         local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
         
         ToggleHover(true)
@@ -622,6 +623,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
+            -- Permanentes Kletter-Remote aktivieren!
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
             end
@@ -684,7 +686,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0) -- Range auf 0 reduziert
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
@@ -694,21 +696,25 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
-                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 1.5, rayParamsDown)
+                -- KOLLISIONSSCHUTZ: Prüft exakt 2.5 Studs vor dir, um Noclip in eine Wand zu verhindern
+                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
-                        addTime = 0 
+                        addTime = 0 -- VORWÄRTSBEWEGUNG STOPPT! Wir gehen nicht in die Wand rein.
                         targetY = math.max(targetY, wallTopY)
                     end
                 end
 
-                local safeVerticalSpeed = 500 -- 500 Speed rauf & runter
+                -- SICHERE Y-ACHSEN GESCHWINDIGKEIT (Anti-Kick)
+                local safeVerticalSpeed = 150 -- Reduziert von 2500 auf 150, um den "Y-axis too fast" Kick zu verhindern
 
                 if currentY < targetY - 0.5 then
+                    -- AUFZUG NACH OBEN
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
                     yVelocity = 20
                 elseif currentY > targetY + 0.5 then
+                    -- AUFZUG NACH UNTEN (erst nachdem Hindernisse überwunden wurden)
                     currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
                     if currentY < groundYCurrent then currentY = groundYCurrent end
                     yVelocity = -20
@@ -724,14 +730,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 elapsedTime = elapsedTime + addTime
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
-                local targetLookPos = Vector3.new(tPos.X, currentY, tPos.Z)
+                local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                -- Pendel-Bewegung für schlauen Wand-Scan
-                local offsetAngle = math.sin(tick() * 20) * 0.35 
-                local baseLookCFrame = CFrame.lookAt(finalPos, targetLookPos)
-                local scannedCFrame = baseLookCFrame * CFrame.Angles(0, offsetAngle, 0)
-                
-                root.CFrame = scannedCFrame
+                root.CFrame = CFrame.lookAt(finalPos, lookPos)
                 if hum then hum:Move(flatMoveDir, false) end
                 
                 root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
