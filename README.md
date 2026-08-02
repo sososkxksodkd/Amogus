@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP MIT 360-GRAD CHARAKTER-ROTATION (KAMERA BLEIBT 100% FREI)
+--// SPIDER TP MIT INTELLIGENTEM WAND-SCAN (KLETTER-RANGE 0, KAMERA BLEIBT FREI)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -684,7 +684,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0) -- Kletter-Range auf 0 reduziert wie gewünscht!
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
@@ -694,7 +694,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
-                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
+                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 1.5, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
@@ -724,12 +724,14 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 elapsedTime = elapsedTime + addTime
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
+                local targetLookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                --// 360-GRAD ROTATION NUR FÜR DEN CHARAKTER (Kamera bleibt völlig unberührt!) //--
-                local spinAngle = tick() * 15 -- Dreht den Charakter blitzschnell im Kreis, damit er jede Wand berührt
-                local rotatedLookVec = Vector3.new(math.sin(spinAngle), 0, math.cos(spinAngle))
+                --// SCHLAUES WAND-SCAN SYSTEM (Character schaut zum Ziel und pendelt sanft rechts/links für perfekten Grip)
+                local offsetAngle = math.sin(tick() * 20) * 0.35 -- Schwingt leicht nach links und rechts
+                local baseLookCFrame = CFrame.lookAt(finalPos, targetLookPos)
+                local scannedCFrame = baseLookCFrame * CFrame.Angles(0, offsetAngle, 0)
                 
-                root.CFrame = CFrame.lookAt(finalPos, finalPos + rotatedLookVec)
+                root.CFrame = scannedCFrame
                 if hum then hum:Move(flatMoveDir, false) end
                 
                 root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
