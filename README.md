@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP - REWORK (Laufanimation, Anti-Noclip, Kletter-Remote Perma, 5 Studs)
+--// SPIDER TP - REWORK (Perfekte Laufanimation, Smart Kletter-Remote, 5 Studs Hover)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,7 +560,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- EXAKT 5 STUDS ABSTAND
+        -- EXAKT 5 STUDS ABSTAND ÜBER ALLEM
         local floorOffset = 5
         
         ToggleHover(true)
@@ -621,33 +621,28 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 return 0
             end
 
-            -- WICHTIG: Kein RunningNoPhysics, sonst fallt man durch den Boden!
             if hum then hum.PlatformStand = false end
+
+            -- LÖSUNG FÜR LAUF-ANIMATION:
+            -- Wir feuern das Sprint-Remote EINMAL vor der Schleife, damit der Server weiß, wir sprinten.
+            if sprintEvent then
+                pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end)
+            end
+
+            -- Zustand fürs smarte Klettern
+            local isClimbingState = false
 
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
                 
-                -- Klettern PERMANENT AN während des Tweening
-                if climbEvent then
-                    pcall(function() climbEvent:InvokeServer(true) end)
-                end
-                
                 for _, part in pairs(char:GetChildren()) do
                     if part:IsA("BasePart") then part.CanCollide = false end
                 end
                 
-                if hum then
-                    local animator = hum:FindFirstChild("Animator")
-                    if animator then
-                        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-                            if track.Priority == Enum.AnimationPriority.Movement or track.Priority == Enum.AnimationPriority.Core then
-                                track:Stop()
-                            end
-                        end
-                    end
-                end
-                
+                -- HIER WURDE DER CODE ENTFERNT, DER DIE BEWEGUNGS-ANIMATIONEN STOPPT!
+                -- Dadurch läuft die Rennanimation jetzt flüssig weiter.
+
                 if isLookingForRobo and tick() - nextRoboCheck > 1 then
                     nextRoboCheck = tick()
                     local npcsFolder = Workspace:FindFirstChild("NPCs")
@@ -697,7 +692,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
-                -- KOLLISIONSSCHUTZ: Prüft exakt 3 Studs vor dir, um Noclip in eine Wand zu verhindern
+                -- KOLLISIONSSCHUTZ: Wand Check
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 3, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
@@ -706,12 +701,23 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
                 
-                -- ANTI-NOCLIP (WICHTIG): Bleibt vor der Wand stehen, bis er hochgeklettert ist!
-                if targetY > currentY + 1 then
+                -- SCHLAUES KLETTERN: Wir prüfen, ob wirklich eine Wand da ist, um hochzugehen.
+                local isWallInFront = (targetY > currentY + 1)
+                
+                if isWallInFront and not isClimbingState then
+                    isClimbingState = true
+                    if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                elseif not isWallInFront and isClimbingState then
+                    isClimbingState = false
+                    if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+                end
+
+                -- ANTI-NOCLIP: Wenn eine Wand da ist, warten bis wir hochgeklettert sind
+                if isWallInFront then
                     addTime = 0 
                 end
 
-                -- Kletter-Geschwindigkeit auf 60 (Rauf & Runter, um Anti-Cheat Kick zu vermeiden)
+                -- KLETTER-GESCHWINDIGKEIT auf 60 (Damit umgehen wir Anti-Cheat "Y-axis too fast")
                 local safeVerticalSpeed = 60
 
                 if currentY < targetY - 0.5 then
@@ -727,7 +733,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 if currentY < 4 then currentY = 4 end
-                
                 currentY = math.max(currentY, 1)
                 
                 elapsedTime = elapsedTime + addTime
@@ -737,27 +742,26 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 root.CFrame = CFrame.lookAt(finalPos, lookPos)
                 
-                -- ANIMATION FIX: Sprint erzwingen, damit die Lauf- und nicht die Fallanimation abgespielt wird!
+                -- GPO ANIMATION BYPASS: Wir bewegen den Humanoid in die Tween-Richtung, so spielt er die Animation!
                 if hum then hum:Move(flatMoveDir, false) end
                 
-                -- Setzt Vertikale Velocity auf 0, um die FallingParticle-Detection zu umgehen
+                -- Horizontale Velocity aktiv, Y auf 0 setzen -> Trickst den FallingParticle Ground Check aus!
                 root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, 0, flatMoveDir.Z * currentSpeed)
                 
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = finalPos end
                 
-                if tick() - lastFootstep > 0.3 then
+                -- Footstep Spam reduziert (realistischer Rhythmus)
+                if tick() - lastFootstep > 0.35 then
                     lastFootstep = tick()
-                    if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                     if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                 end
             end
             
+            -- RESET nach dem TP
             if hum then hum:Move(Vector3.new(0,0,0), false) end
-            if climbEvent then
-                task.spawn(function()
-                    pcall(function() climbEvent:InvokeServer(false) end)
-                end)
+            if climbEvent and isClimbingState then
+                pcall(function() climbEvent:InvokeServer(false) end)
             end
             
             char:SetAttribute("evading", nil)
