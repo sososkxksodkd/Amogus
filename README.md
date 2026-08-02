@@ -130,6 +130,7 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
+    ElevatorSpeed = 300, 
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -402,6 +403,7 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
+-- NEUE FARM CONFIG FOLIE MIT LIVE SCANNER
 local DropMob, DropNPC, DropWep, DropIsland
 
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
@@ -476,7 +478,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT WANDSCHUTZ, 3 STUDS & 800 SPEED AUFZUG)
+--// SPIDER TP: 3 STUDS PERMANENT HOVER, 2 STUDS WAND-AKTIVATOR, KEIN WARTEN!
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -595,6 +597,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
+            -- Permanentes Kletter-Remote aktivieren!
+            if climbEvent then
+                pcall(function() climbEvent:InvokeServer(true) end)
+            end
+
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
@@ -636,7 +643,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                -- WANDSCHUTZ & 2 STUDS AKTIVATOR (Erkennt Wände ab 2 Studs vor dir)
+                -- WANDSCHUTZ & 2 STUDS AKTIVATOR (Erkennt Wände exakt 2 Studs vor dir)
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2, rayParamsDown)
                 local wallCheckHigh = Workspace:Raycast(calcPos + Vector3.new(0, 15, 0), flatMoveDir * 2, rayParamsDown)
                 local ledgeCheckHit = Workspace:Raycast(calcPos + (flatMoveDir * 3) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
@@ -662,7 +669,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                         -- EXTREM SCHNELLER AUFZUG OHNE LIMIT (800 Studs/Sekunde)
                         currentY = currentY + (800 * dt)
-                        addTime = 0 -- WAND-SCHUTZ: Bewegung stoppt, du läufst nicht in die Wand!
+                        addTime = dt -- KEIN WARTEN MEHR! Immer weiter laufen.
                         yVelocity = 20 -- Physische Geschwindigkeit für Anti-Cheat
                     end
                 elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
@@ -674,7 +681,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     -- NOCLIP FIX: Fällt niemals unter den echten Boden
                     currentY = math.max(currentY - (800 * dt), finalY)
-                    addTime = dt * 0.5 
+                    addTime = dt -- KEIN WARTEN/VERLANGSAMEN MEHR!
                     yVelocity = -20 
                     
                     if currentY - finalY <= 3 then
@@ -728,20 +735,15 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
-                    if not isClimbing then
-                        if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
-                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-                    else
-                        -- Permanentes Kletter-Remote während der Aufzug aktiv ist
-                        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-                    end
+                    if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
+                    if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                 end
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
-            if isClimbing then
+            if climbEvent then
                 task.spawn(function()
-                    if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+                    pcall(function() climbEvent:InvokeServer(false) end)
                 end)
             end
             
@@ -1177,7 +1179,7 @@ task.spawn(function()
     end
 end)
 
---// MAIN FARM LOOP (3 STUDS ABSTAND, MIT HP-CHECK)
+--// MAIN FARM LOOP (EXAKT IM NPC INNEN STEHEN & SCHADENS-PRÜFUNG)
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1234,7 +1236,7 @@ task.spawn(function()
                 
                 EquipTargetWeapon()
                 
-                -- PHASE 1: Mobs einzeln anvisieren (Mit 3 Studs Abstand, wie gewünscht!)
+                -- PHASE 1: Mobs einzeln anvisieren und DIREKT IN IHNEN DRIN STEHEN!
                 for _, npc in ipairs(targetMobs) do
                     if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                     
@@ -1244,12 +1246,9 @@ task.spawn(function()
                     
                     if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
                         local initialHealth = mHum.Health
-                        local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
-                        if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
-                        
-                        -- Exakt wie vorher: 3 Studs Abstand!
-                        local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
-                        local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mRoot.Position.X, attackPos.Y, mRoot.Position.Z))
+                        -- Direkt auf der exakten Position des Mobs platzieren (Mitten in ihm drin!)
+                        local attackPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
+                        local targetCFrame = CFrame.new(attackPos)
                         
                         if (root.Position - attackPos).Magnitude > 5 then
                             SafeTween(targetCFrame)
@@ -1259,7 +1258,7 @@ task.spawn(function()
                         if bp then bp.Position = attackPos end
                         root.CFrame = targetCFrame
                         
-                        -- Wiederhole den Angriff, bis HP sinken (Treffer-Garantie)
+                        -- Wiederhole den Angriff, bis HP sinken
                         local hitConfirmed = false
                         local hitAttempts = 0
                         while RyuConfig.AutoFarm and mHum.Health > 0 and not hitConfirmed and hitAttempts < 15 do
@@ -1273,7 +1272,7 @@ task.spawn(function()
                     end
                 end
                 
-                -- PHASE 2: In die Mitte fliegen und Spammen
+                -- PHASE 2: In die exakte Mitte aller Mobs fliegen und angreifen
                 if RyuConfig.AutoFarm and CheckQuestActive() then
                     local targetCFrameCenter = CFrame.new(attackCenter)
                     
@@ -1344,7 +1343,6 @@ task.spawn(function()
                         end
                     end
                     
-                    -- Reset Hitboxes
                     for _, npc in ipairs(targetMobs) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
                         if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
