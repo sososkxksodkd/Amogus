@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP OHNE RUNTERZIEHEN (BEHÄLT HOHE FLUGHÖHE BEI)
+--// ANTI-KICK SPIDER TP (SICHERE 150 Y-SPEED, AUFZUG RUNTER NACH DEM HINDERNIS)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,7 +560,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN (Halbe Spielerhöhe + HipHeight + 3)
+        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN
         local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
         
         ToggleHover(true)
@@ -623,6 +623,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
+            -- Permanentes Kletter-Remote aktivieren!
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
             end
@@ -695,22 +696,30 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
-                -- WANDSCHUTZ: Prüft 2.5 Studs vor dir
+                -- KOLLISIONSSCHUTZ: Prüft exakt 2.5 Studs vor dir, um Noclip in eine Wand zu verhindern
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
-                        addTime = 0 -- Bewegung stoppt, um nicht in die Wand zu glitchen
+                        addTime = 0 -- VORWÄRTSBEWEGUNG STOPPT! Wir gehen nicht in die Wand rein.
                         targetY = math.max(targetY, wallTopY)
                     end
                 end
 
-                -- SOFORT ZUM HÖCHSTEN PUNKT FLÜSSIG (EXTREM SCHNELLER AUFZUG: 2500 Speed)
-                if currentY < targetY then
-                    currentY = math.min(currentY + (2500 * dt), targetY)
+                -- SICHERE Y-ACHSEN GESCHWINDIGKEIT (Anti-Kick)
+                local safeVerticalSpeed = 150 -- Reduziert von 2500 auf 150, um den "Y-axis too fast" Kick zu verhindern
+
+                if currentY < targetY - 0.5 then
+                    -- AUFZUG NACH OBEN
+                    currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
                     yVelocity = 20
+                elseif currentY > targetY + 0.5 then
+                    -- AUFZUG NACH UNTEN (erst nachdem Hindernisse überwunden wurden)
+                    currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
+                    if currentY < groundYCurrent then currentY = groundYCurrent end
+                    yVelocity = -20
                 else
-                    -- RUNTERZIEHEN ENTFERNT: Bleibt einfach auf der aktuellen Höhe, bis man das Ziel erreicht
+                    currentY = targetY
                     yVelocity = 0
                 end
                 
