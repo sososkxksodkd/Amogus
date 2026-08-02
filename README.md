@@ -479,7 +479,7 @@ CreateSlider(SecIslandTP, "Climb Speed", 60, 500, RyuConfig.ElevatorSpeed, funct
     RyuConfig.ElevatorSpeed = val
 end)
 
---// ULTIMATIVES SPIDER TP (2-STUD-WAND AKTIVATOR & PERMANENTES KLIMMEN)
+--// PERFEKTIONIERTES SPIDER TP (2-STUDS-WAND-AKTIVATOR & KOLLISIONSSCHUTZ)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -562,7 +562,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- Permanent 2 Studs Abstand überall
+        -- Strikter 2 Studs Abstand über jedem Untergrund
         local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 2
         
         ToggleHover(true)
@@ -622,7 +622,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
-            -- Permanent Kletter-Remote aktiv schalten
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
             end
@@ -683,13 +682,19 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                -- REAKTION BEI EXAKT 2 STUDS ABSTAND VOR MIR
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 2)
+                -- WAND-SCHUTZ & 2-STUDS AKTIVATOR: Prüft exakt 2 Studs vor dir auf Wände, um Durchglitchen zu verhindern
+                local wallCheck = Workspace:Raycast(Vector3.new(currentX, currentY, currentZ), flatMoveDir * 2, rayParamsDown)
+                local isWallNear = wallCheck and wallCheck.Instance.Transparency < 1
+                
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * (isWallNear and 1 or 2))
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
                 
                 local targetY = math.max(groundYCurrent, groundYAhead)
+                if isWallNear then
+                    targetY = targetY + 5 -- Sofortiger Aufwärts-Boost bei Wandkontakt im 2-Stud-Bereich
+                end
                 
                 local yVelocity = 0
                 
@@ -1163,7 +1168,7 @@ task.spawn(function()
     end
 end)
 
---// MAIN FARM LOOP (STRIKTE SCHADENS- UND TREFFERPRÜFUNG)
+--// MAIN FARM LOOP (EXAKT IM NPC INNEN STEHEN & SCHADENS-PRÜFUNG)
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1220,7 +1225,7 @@ task.spawn(function()
                 
                 EquipTargetWeapon()
                 
-                -- PHASE 1: Jeden Mob zwingend treffen und auf Schadensregistrierung warten!
+                -- PHASE 1: Mobs einzeln anvisieren und DIREKT IN IHNEN DRIN STEHEN!
                 for _, npc in ipairs(targetMobs) do
                     if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                     
@@ -1230,11 +1235,9 @@ task.spawn(function()
                     
                     if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
                         local initialHealth = mHum.Health
-                        local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
-                        if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
-                        
-                        local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
-                        local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mRoot.Position.X, attackPos.Y, mRoot.Position.Z))
+                        -- Direkt auf der exakten Position des Mobs platzieren (Mitten in ihm drin!)
+                        local attackPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
+                        local targetCFrame = CFrame.new(attackPos)
                         
                         if (root.Position - attackPos).Magnitude > 5 then
                             SafeTween(targetCFrame)
@@ -1244,7 +1247,7 @@ task.spawn(function()
                         if bp then bp.Position = attackPos end
                         root.CFrame = targetCFrame
                         
-                        -- Wiederhole den Schlag, BIS der Mob definitiv Schaden genommen hat!
+                        -- Wiederhole den Angriff, bis HP sinken
                         local hitConfirmed = false
                         local hitAttempts = 0
                         while RyuConfig.AutoFarm and mHum.Health > 0 and not hitConfirmed and hitAttempts < 15 do
@@ -1258,7 +1261,7 @@ task.spawn(function()
                     end
                 end
                 
-                -- PHASE 2: In die Mitte fliegen und solange angreifen, bis alle tot sind
+                -- PHASE 2: In die exakte Mitte aller Mobs fliegen und angreifen
                 if RyuConfig.AutoFarm and CheckQuestActive() then
                     local targetCFrameCenter = CFrame.new(attackCenter)
                     
