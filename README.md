@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP MIT EXAKT 4 STUDS SCHWEBE-HÖHE & KOPF-WAND-BERÜHRUNGS-TRIGGER
+--// ANTI-KICK SPIDER TP (EXAKT 4 STUDS ÜBER ALLEM SCHWEBEND)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,7 +560,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- Immer exakt 4 Studs über dem Boden/Objekt stehen
+        -- PERMANENT EXAKT 4 STUDS ABSTAND ÜBER ALLEM (BODEN, WÄNDEN, ETC.)
         local floorOffset = 4
         
         ToggleHover(true)
@@ -623,6 +623,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
             if hum then hum.PlatformStand = false end
 
+            -- Permanentes Kletter-Remote aktivieren!
+            if climbEvent then
+                pcall(function() climbEvent:InvokeServer(true) end)
+            end
+
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
@@ -681,7 +686,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0)
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
@@ -691,41 +696,31 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
-                -- KOPF-WAND-BERÜHRUNGS-TRIGGER: Startet erst ab Kopf-Höhe, damit der flache Boden ignoriert wird!
-                local headPart = char:FindFirstChild("Head")
-                local headPos = headPart and headPart.Position or (calcPos + Vector3.new(0, 3, 0))
-                local headCheckHit = Workspace:Raycast(headPos, flatMoveDir * 2, rayParamsDown)
-                local isHeadTouchingWall = (headCheckHit and headCheckHit.Instance and headCheckHit.Instance.Transparency < 1)
-                
-                if climbEvent then
-                    pcall(function() climbEvent:InvokeServer(isHeadTouchingWall) end)
-                end
-
+                -- KOLLISIONSSCHUTZ: Prüft exakt 2.5 Studs vor dir, um Noclip in eine Wand zu verhindern
+                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
-                        addTime = 0 
+                        addTime = 0 -- VORWÄRTSBEWEGUNG STOPPT! Wir gehen nicht in die Wand rein.
                         targetY = math.max(targetY, wallTopY)
                     end
                 end
 
-                -- 500 Speed rauf & runter
-                local safeVerticalSpeed = 500 
+                -- SICHERE Y-ACHSEN GESCHWINDIGKEIT (Anti-Kick)
+                local safeVerticalSpeed = 150 -- Reduziert von 2500 auf 150, um den "Y-axis too fast" Kick zu verhindern
 
                 if currentY < targetY - 0.5 then
+                    -- AUFZUG NACH OBEN
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
                     yVelocity = 20
                 elseif currentY > targetY + 0.5 then
+                    -- AUFZUG NACH UNTEN (erst nachdem Hindernisse überwunden wurden)
                     currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
                     if currentY < groundYCurrent then currentY = groundYCurrent end
                     yVelocity = -20
                 else
                     currentY = targetY
                     yVelocity = 0
-                end
-                
-                if math.abs(currentY - targetY) > 8 then
-                    addTime = 0 
                 end
                 
                 if currentY < 4 then currentY = 4 end
@@ -735,13 +730,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 elapsedTime = elapsedTime + addTime
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
-                local targetLookPos = Vector3.new(tPos.X, currentY, tPos.Z)
+                local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                local offsetAngle = math.sin(tick() * 20) * 0.35
-                local baseLookCFrame = CFrame.lookAt(finalPos, targetLookPos)
-                local scannedCFrame = baseLookCFrame * CFrame.Angles(0, offsetAngle, 0)
-                
-                root.CFrame = scannedCFrame
+                root.CFrame = CFrame.lookAt(finalPos, lookPos)
                 if hum then hum:Move(flatMoveDir, false) end
                 
                 root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
