@@ -424,7 +424,7 @@ end)
 
 local DropWep, DropIsland
 
---// CONFIG TAB MIT TEXTBOXEN 
+--// CONFIG TAB MIT TEXTBOXEN (Enemie NPC & Quest NPC)
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
 CreateTextBox(SecFarmConfig, "Enemie NPC", RyuConfig.TargetMob, "TargetMob")
 CreateTextBox(SecFarmConfig, "Quest NPC", RyuConfig.TargetNPC, "TargetNPC")
@@ -458,7 +458,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-KICK SPIDER TP MIT EINGEFRORENER PHYSIK & SICHEREM Y-SPEED
+--// PERFEKTIONIERTES SPIDER TP (ECHTE REMOTES + ANTI-KICK 40 Y-SPEED)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -569,6 +569,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local lastFootstep = tick()
             local nextRoboCheck = tick()
             local lastAntiCheatCheck = tick()
+            local lastRemoteFire = tick()
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -603,10 +604,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 return 0
             end
 
-            --// BYPASS PHYSIK-SYSTEM START //--
-            if hum then hum.PlatformStand = true end
-            root.Anchored = true 
+            if hum then hum.PlatformStand = false end
 
+            -- Kletter-Remote initial starten, damit das Spiel das Klettern registriert
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
             end
@@ -614,6 +614,14 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
+                
+                --// ECHTE REMOTE-SYNCHRONISATION (Füttert den Server permanent mit Kletter-Signalen) //--
+                if tick() - lastRemoteFire > 0.2 then
+                    lastRemoteFire = tick()
+                    if climbEvent then
+                        pcall(function() climbEvent:InvokeServer(true) end)
+                    end
+                end
                 
                 --// ANTI CHEAT SCANNER (Bricht Spider TP sofort ab, wenn GPO misstrauisch wird)
                 if tick() - lastAntiCheatCheck > 0.5 then
@@ -701,6 +709,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local targetY = math.max(groundYCurrent, groundYAhead)
                 
+                local yVelocity = 0
                 local addTime = dt
 
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
@@ -712,16 +721,19 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
 
-                --// GPO ANTI-CHEAT LIMIT IST EXAKT 42! Wir nutzen die sicheren 40 Studs pro Sekunde. //--
+                -- EXAKT UNTER DEM ANTI-CHEAT LIMIT (Limit ist 42, wir nutzen sichere 40)
                 local safeVerticalSpeed = 40 
 
                 if currentY < targetY - 0.5 then
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
+                    yVelocity = 20
                 elseif currentY > targetY + 0.5 then
                     currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
                     if currentY < groundYCurrent then currentY = groundYCurrent end
+                    yVelocity = -20
                 else
                     currentY = targetY
+                    yVelocity = 0
                 end
                 
                 if currentY < 4 then currentY = 4 end
@@ -733,9 +745,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                -- Keine Physik-Spikes mehr! CFrame wird sicher angewendet während RootPart Anchored ist.
                 root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                root.Velocity = Vector3.new(0, 0, 0) 
+                if hum then hum:Move(flatMoveDir, false) end
+                
+                root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
                 
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = finalPos end
@@ -746,10 +759,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                 end
             end
-            
-            --// BYPASS PHYSIK-SYSTEM ENDE //--
-            root.Anchored = false
-            if hum then hum.PlatformStand = false end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
             if climbEvent then
