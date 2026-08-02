@@ -114,8 +114,8 @@ local RyuConfig = {
     AutoQuest = false,
     QuestInterval = 45, 
     
-    TargetMob = "Bandit",      -- Standardwert für Textbox
-    TargetNPC = "Gila",        -- Standardwert für Textbox          
+    TargetMob = "Bandit",      
+    TargetNPC = "Gila",                  
     TargetWeapon = InitWeapons[1],           
     
     TweenSpeed = 50, 
@@ -320,7 +320,6 @@ local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     return { Refresh = populate }
 end
 
---// NEU: TEXTBOX SYSTEM (Ersatz für verbuggte Listen)
 local function CreateTextBox(section, headerText, defaultText, targetConfigKey)
     local frame = Instance.new("Frame", section)
     frame.Size = UDim2.new(0.92, 0, 0, 56)
@@ -425,10 +424,10 @@ end)
 
 local DropWep, DropIsland
 
---// CONFIG TAB MIT TEXTBOXEN
+--// CONFIG TAB MIT TEXTBOXEN (Kein Refresh-Bug mehr)
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
-CreateTextBox(SecFarmConfig, "Enemie name", RyuConfig.TargetMob, "TargetMob")
-CreateTextBox(SecFarmConfig, "Quest gives", RyuConfig.TargetNPC, "TargetNPC")
+CreateTextBox(SecFarmConfig, "Enemie NPC", RyuConfig.TargetMob, "TargetMob")
+CreateTextBox(SecFarmConfig, "Quest NPC", RyuConfig.TargetNPC, "TargetNPC")
 DropWep = CreateDropdown(SecFarmConfig, "Select Weapon", InitWeapons, "TargetWeapon")
 
 --// AUTO STATS UI
@@ -614,7 +613,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
                 
-                --// ANTI CHEAT SCANNER (Sucht nach Tp Check) //--
+                --// ANTI CHEAT SCANNER (Bricht Spider TP sofort ab, wenn GPO misstrauisch wird)
                 if tick() - lastAntiCheatCheck > 0.5 then
                     lastAntiCheatCheck = tick()
                     local shouldAbort = false
@@ -624,9 +623,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                             for _, guiElem in pairs(pg:GetDescendants()) do
                                 if guiElem:IsA("TextLabel") and guiElem.Text then
                                     local txt = guiElem.Text:lower()
-                                    if txt:find("tp check") or txt:find("too fast") then
+                                    if txt:find("tp check") or txt:find("too fast") or txt:find("strike:") then
                                         shouldAbort = true
-                                        guiElem.Visible = false -- Versteckt die Warnung
+                                        guiElem.Visible = false -- Versteckt die rote Warnung
                                         break
                                     end
                                 end
@@ -634,8 +633,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end)
                     if shouldAbort then
-                        RyuNotify:Send("Anti-Cheat System", "TP Check umgangen! Teleport gestoppt.", 4)
-                        break -- Bricht den Teleport SOFORT ab!
+                        RyuNotify:Send("Anti-Cheat System", "TP Check erkannt! Teleport zur Sicherheit gestoppt.", 4)
+                        break 
                     end
                 end
                 
@@ -712,15 +711,16 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
 
-                local safeVerticalSpeed = 150 
+                -- SICHERE Y-ACHSEN GESCHWINDIGKEIT (Anti-Kick) - Das Limit des Servers liegt bei 42.
+                local safeVerticalSpeed = 40 
 
                 if currentY < targetY - 0.5 then
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
-                    yVelocity = 20
+                    yVelocity = safeVerticalSpeed
                 elseif currentY > targetY + 0.5 then
                     currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
                     if currentY < groundYCurrent then currentY = groundYCurrent end
-                    yVelocity = -20
+                    yVelocity = -safeVerticalSpeed
                 else
                     currentY = targetY
                     yVelocity = 0
