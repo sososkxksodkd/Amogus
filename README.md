@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (AGGRO + STATE MACHINE EDITION)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FULL SPIDER TP + TP-CHECK BYPASS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -166,12 +166,12 @@ local RyuConfig = {
     TargetNPC = InitQuests[1],               
     TargetWeapon = InitWeapons[1],           
     
-    TweenSpeed = 50, 
+    TweenSpeed = 45, -- Sicherer Speed-Wert unter Anticheat-Limit
     KillHeight = 8, 
     FishmanSpeed = 65, 
     
     TargetIsland = InitIslands[1],
-    IslandSpeed = 60, 
+    IslandSpeed = 50, 
     
     AutoStrength = false, StrengthCap = 1500,
     AutoStamina = false,  StaminaCap = 1500,
@@ -391,7 +391,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// ANTI-FLING HOVER SYSTEM (SAUBERE STABILISIERUNG OHNE PHYSICS-KAMPF)
+--// ANTI-FLING & STABILE HOVER LOGIK
 --// ============================================================================
 local function ToggleHover(state)
     local char = LocalPlayer.Character
@@ -417,7 +417,7 @@ local function ToggleHover(state)
     end
 end
 
---// UI AUFBAU: FARM & CONFIG
+--// UI AUFBAU
 local TabFarm = CreateMainTab("Farm")
 local SubLeveling = CreateSubTab(TabFarm, "Leveling")
 local SubConfig = CreateSubTab(TabFarm, "Config")
@@ -433,7 +433,7 @@ CreateToggle(SecAutoFarmMain, "Auto Quest Link", RyuConfig.AutoQuest, function(s
 end)
 
 local SecFarmAdvanced = CreateSection(SubLeveling, "Advanced Options")
-CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 10, 85, RyuConfig.TweenSpeed, function(val) 
+CreateSlider(SecFarmAdvanced, "Movement Speed (Tween)", 10, 65, RyuConfig.TweenSpeed, function(val) 
     RyuConfig.TweenSpeed = val 
 end)
 CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeight, function(val) 
@@ -486,27 +486,22 @@ task.spawn(function()
     end
 end)
 
---// AUTO STATS UI
+-- AUTO STATS
 local SecAutoStats = CreateSection(SubStats, "Auto Stats System")
-
 CreateToggle(SecAutoStats, "Auto Strength", RyuConfig.AutoStrength, function(state) RyuConfig.AutoStrength = state end)
 CreateSlider(SecAutoStats, "Strength Cap", 1, 2000, 1500, function(val) RyuConfig.StrengthCap = val end)
-
 CreateToggle(SecAutoStats, "Auto Stamina", RyuConfig.AutoStamina, function(state) RyuConfig.AutoStamina = state end)
 CreateSlider(SecAutoStats, "Stamina Cap", 1, 2000, 1500, function(val) RyuConfig.StaminaCap = val end)
-
 CreateToggle(SecAutoStats, "Auto Defense", RyuConfig.AutoDefense, function(state) RyuConfig.AutoDefense = state end)
 CreateSlider(SecAutoStats, "Defense Cap", 1, 2000, 1500, function(val) RyuConfig.DefenseCap = val end)
-
 CreateToggle(SecAutoStats, "Auto Sword", RyuConfig.AutoSword, function(state) RyuConfig.AutoSword = state end)
 CreateSlider(SecAutoStats, "Sword Cap", 1, 2000, 1500, function(val) RyuConfig.SwordCap = val end)
-
 CreateToggle(SecAutoStats, "Auto Gun", RyuConfig.AutoGun, function(state) RyuConfig.AutoGun = state end)
 CreateSlider(SecAutoStats, "Gun Cap", 1, 2000, 1500, function(val) RyuConfig.GunCap = val end)
 
---// MOBILITY TAB -> TRANSPORTATION
+--// MOBILITY TAB
 local TabMobility = CreateMainTab("Mobility")
-local SubTransport = CreateSubTab(TabMobility, "Spider TP")
+SubTransport = CreateSubTab(TabMobility, "Spider TP")
 
 local SecIslandTP = CreateSection(SubTransport, "Spider Teleportation")
 DropIsland = CreateDropdown(SecIslandTP, "Select Island", InitIslands, "TargetIsland")
@@ -514,7 +509,85 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-KICK SPIDER TP
+--// ============================================================================
+--// VOLLSTÄNDIGER, ORIGINALER SPIDER-TP ENGINEMANAGER (MIT CLIMB-EVENTS & RAYCAST)
+--// ============================================================================
+local function FireClimbEvents()
+    pcall(function()
+        local eventsFolder = ReplicatedStorage:FindFirstChild("Events")
+        if eventsFolder and eventsFolder:FindFirstChild("Climb") then
+            eventsFolder.Climb:FireServer()
+        end
+    end)
+end
+
+local function FullSpiderLerp(targetCFrame, travelSpeed)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+
+    local startPos = root.Position
+    local targetPos = targetCFrame.Position
+    local totalDist = (targetPos - startPos).Magnitude
+
+    if totalDist < 5 then
+        root.CFrame = targetCFrame
+        return true
+    end
+
+    ToggleHover(true)
+
+    -- 1. Sichere Flug-Höhe berechnen (Raycast & Sky Check)
+    local highY = math.max(startPos.Y, targetPos.Y) + 35
+    local ray = Ray.new(Vector3.new(startPos.X, highY, startPos.Z), Vector3.new(0, 150, 0))
+    local hit = Workspace:FindPartOnRayWithIgnoreList(ray, {char})
+    if hit then highY = startPos.Y + 20 end
+
+    local waypoints = {
+        Vector3.new(startPos.X, highY, startPos.Z),
+        Vector3.new(targetPos.X, highY, targetPos.Z),
+        targetPos
+    }
+
+    local currentPos = startPos
+    for idx, nextPoint in ipairs(waypoints) do
+        local segmentDist = (nextPoint - currentPos).Magnitude
+        if segmentDist > 1 then
+            local duration = segmentDist / travelSpeed
+            local elapsed = 0
+            
+            while elapsed < duration do
+                if not _G.RyuIsTweening and not RyuConfig.AutoFarm then break end
+                local dt = RunService.Heartbeat:Wait()
+                elapsed = elapsed + dt
+                local alpha = math.clamp(elapsed / duration, 0, 1)
+                
+                -- Anticheat Distance Capping (Max 25 Studs pro Step -> Kein TP Check)
+                local nextStep = currentPos:Lerp(nextPoint, alpha)
+                if (nextStep - root.Position).Magnitude > 25 then
+                    nextStep = root.Position + (nextStep - root.Position).Unit * 25
+                end
+                
+                root.CFrame = CFrame.new(nextStep) * targetCFrame.Rotation
+                FireClimbEvents()
+            end
+            currentPos = nextPoint
+        end
+    end
+
+    -- Robo-Landing Safety Check
+    local landingRay = Ray.new(targetPos + Vector3.new(0, 10, 0), Vector3.new(0, -50, 0))
+    local landHit, landPoint = Workspace:FindPartOnRayWithIgnoreList(landingRay, {char})
+    if landHit then
+        root.CFrame = CFrame.new(landPoint + Vector3.new(0, 3.5, 0)) * targetCFrame.Rotation
+    else
+        root.CFrame = targetCFrame
+    end
+
+    ToggleHover(false)
+    return true
+end
+
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -524,53 +597,32 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         local island = Workspace:FindFirstChild(targetIslandName, true)
         
         if not island then 
+            RyuNotify:Send("Spider TP Error", "Insel nicht gefunden!", 3)
             _G.RyuIsTweening = false
             return 
         end
         
-        local rawPos
+        local targetCFrame
         pcall(function()
             if island:IsA("Model") then
-                rawPos = island:GetPivot().Position
+                targetCFrame = island:GetPivot()
             elseif island:IsA("BasePart") then
-                rawPos = island.Position
+                targetCFrame = island.CFrame
             end
         end)
         
-        if not rawPos then _G.RyuIsTweening = false return end
-        local char = LocalPlayer.Character
-        local root = char and char:FindFirstChild("HumanoidRootPart")
-        if not root then _G.RyuIsTweening = false return end
-
-        ToggleHover(true)
-        root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
-        
-        local function SafeLerp(tPos, currentSpeed)
-            local startPos = root.Position
-            local totalDist = (startPos - tPos).Magnitude
-            if totalDist < 5 then return true end 
-            
-            local t = totalDist / currentSpeed
-            local elapsedTime = 0
-            
-            while elapsedTime < t do
-                local dt = RunService.Heartbeat:Wait()
-                elapsedTime = elapsedTime + dt
-                local alpha = math.clamp(elapsedTime / t, 0, 1)
-                local currentPos = startPos:Lerp(tPos, alpha)
-                root.CFrame = CFrame.new(currentPos)
-            end
-            return true
+        if targetCFrame then
+            RyuNotify:Send("Spider TP", "Reise nach " .. targetIslandName, 3)
+            FullSpiderLerp(targetCFrame, RyuConfig.IslandSpeed)
+            RyuNotify:Send("Spider TP", "Angekommen!", 3)
         end
         
-        SafeLerp(rawPos + Vector3.new(0, 10, 0), RyuConfig.IslandSpeed)
-        ToggleHover(false)
         _G.RyuIsTweening = false
     end)
 end)
 
 --// ============================================================================
---// MODULE HOOKING: COMBAT REMOTES
+--// COMBAT & AGGRO MODULES
 --// ============================================================================
 local currentComboIndex = 1
 local lastSwing = 0
@@ -663,9 +715,7 @@ local function PerformMeleeAttack(targets)
     end)
 end
 
---// ============================================================================
---// TWEEN ENGINE
---// ============================================================================
+-- ANTI-CHEAT SAFE TWEEN FOR AUTO FARM (KEIN TP CHECK MEHR)
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -678,23 +728,33 @@ local function SafeTween(targetCFrame, customSpeed)
     local speed = customSpeed or RyuConfig.TweenSpeed 
     local timeToTake = dist / speed
     
-    if timeToTake < 0.1 then 
+    if timeToTake < 0.05 then 
         root.CFrame = targetCFrame
         return 
     end
 
     local startTime = tick()
+    local lastPos = startPos
+    
     while tick() - startTime < timeToTake do
-        if not RyuConfig.AutoFarm then break end
+        if not RyuConfig.AutoFarm and not _G.RyuIsTweening then break end
         local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
+        
+        -- Anticheat Step Cap (verhindert 'Tp Check Threshold: 36')
+        if (intermediatePos - lastPos).Magnitude > 20 then
+            intermediatePos = lastPos + (intermediatePos - lastPos).Unit * 20
+        end
+        lastPos = intermediatePos
+        
         root.CFrame = CFrame.new(intermediatePos) * targetCFrame.Rotation
+        FireClimbEvents()
         RunService.Heartbeat:Wait()
     end
     root.CFrame = targetCFrame
 end
 
--- Anti-Fling & Noclip
+-- Anti-Fling & Noclip Loop
 RunService.Stepped:Connect(function()
     if RyuConfig.Noclip or RyuConfig.AutoFarm then
         local char = LocalPlayer.Character
@@ -711,7 +771,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// QUEST SYSTEM (STRIKTE PRÜFUNG & SYSTEM-KOPPLUNG)
+--// QUEST ENGINE & STATE MACHINE
 --// ============================================================================
 local function CheckQuestActive()
     local active = false
@@ -763,7 +823,6 @@ local function FetchQuest()
             root.CFrame = targetCFrame
             task.wait(0.2)
             
-            -- Quest Remotes abfeuern
             pcall(function()
                 local QuestEvent = ReplicatedStorage.Events.Quest
                 QuestEvent:InvokeServer({"npcChat", true})
@@ -810,7 +869,7 @@ task.spawn(function()
 end)
 
 --// ============================================================================
---// CORE AUTO-FARM ENGINE (AGGRO + AOE MULTI-KILL)
+--// CORE AUTO-FARM ENGINE (SAFE AGGRO + AOE MULTI-KILL)
 --// ============================================================================
 local function GetTargetMobs()
     local npcs = Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Live")
@@ -854,7 +913,7 @@ task.spawn(function()
         if not root or not hum or hum.Health <= 0 then continue end
         hum.AutoRotate = false 
 
-        -- 1. QUEST STEP (Automatischer NPC-Anflug falls Quest inaktiv)
+        -- 1. QUEST AUTOMATION
         if RyuConfig.AutoQuest then
             if not CheckQuestActive() then
                 root.Anchored = false
@@ -862,12 +921,12 @@ task.spawn(function()
                 FetchQuest()
                 task.wait(0.5)
                 if not CheckQuestActive() then
-                    continue -- Versucht es im nächsten Durchlauf erneut
+                    continue
                 end
             end
         end
 
-        -- 2. MOB SCANNING & AGGRO PHASE
+        -- 2. TARGET SCANNING & SAFE AGGRO PULL
         local targetMobs = GetTargetMobs()
         
         if #targetMobs > 0 then
@@ -875,7 +934,7 @@ task.spawn(function()
             ToggleHover(true)
             EquipTargetWeapon()
 
-            -- PHASEN-SCHRITT A: Jeden Mob einmal an-hitten (Aggro ziehen)
+            -- AGGRO PHASE (Sicherer Flug zu jedem Mob ohne TP Check)
             RyuNotify:Send("Auto Farm", "Ziehe Aggro von " .. #targetMobs .. " Mobs...", 1.5)
             for _, mob in ipairs(targetMobs) do
                 if not RyuConfig.AutoFarm or (RyuConfig.AutoQuest and not CheckQuestActive()) then break end
@@ -884,13 +943,16 @@ task.spawn(function()
                 local mHum = mob:FindFirstChildOfClass("Humanoid")
                 if mRoot and mHum and mHum.Health > 0 then
                     local hitPos = mRoot.Position + Vector3.new(0, 2, 2)
-                    root.CFrame = CFrame.lookAt(hitPos, mRoot.Position)
+                    local safeTargetCFrame = CFrame.lookAt(hitPos, mRoot.Position)
+                    
+                    -- Sanfter Anflug statt Sprung-TP
+                    SafeTween(safeTargetCFrame, RyuConfig.TweenSpeed)
                     PerformMeleeAttack({mob})
                     task.wait(0.12)
                 end
             end
 
-            -- PHASEN-SCHRITT B: Zentrum berechnen, hochfliegen & Mobs stacken
+            -- STACKING & AOE KILL PHASE
             local centerPos = Vector3.new(0, 0, 0)
             local validCount = 0
             for _, mob in ipairs(targetMobs) do
@@ -906,14 +968,12 @@ task.spawn(function()
                 local attackPos = centerPos + Vector3.new(0, RyuConfig.KillHeight, 0)
                 local attackCFrame = CFrame.new(attackPos)
 
-                -- Fliege exakt über die Mitte der Gruppe
-                SafeTween(attackCFrame)
+                -- Fliege über die Mob-Mitte
+                SafeTween(attackCFrame, RyuConfig.TweenSpeed)
                 root.CFrame = attackCFrame
-                
-                -- Verankern verhindert jegliches Ruckeln / Erschüttern
-                root.Anchored = true 
+                root.Anchored = true -- Stabilisieren über den Mobs
 
-                -- PHASEN-SCHRITT C: Multi-Kill AoE Loop
+                -- Multi-Kill Loop
                 local farmTimer = tick()
                 while RyuConfig.AutoFarm and (tick() - farmTimer < 8) do
                     if RyuConfig.AutoQuest and not CheckQuestActive() then break end
@@ -924,7 +984,7 @@ task.spawn(function()
                     for _, mob in ipairs(activeMobs) do
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         if mRoot then
-                            mRoot.Size = Vector3.new(25, 25, 25) -- Starke Hitbox-Erweiterung
+                            mRoot.Size = Vector3.new(25, 25, 25)
                             mRoot.CanCollide = false
                             mRoot.Velocity = Vector3.new(0, 0, 0)
                         end
@@ -937,7 +997,6 @@ task.spawn(function()
                 root.Anchored = false
             end
         else
-            -- Falls keine Mobs auf der Map geladen sind
             task.wait(0.5)
         end
     end
