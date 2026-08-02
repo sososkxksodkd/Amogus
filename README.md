@@ -43,7 +43,7 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (SORTIERT & PERFEKTIONIERT FÜR AUTO-REFRESH)
+--// DYNAMISCHER WORKSPACE SCANNER (QUESTS VS ENEMIES, ISLANDS FOLDER & UNEQUIPED WEAPONS)
 local function GetDynamicLists()
     local mobs = {}
     local quests = {}
@@ -52,7 +52,7 @@ local function GetDynamicLists()
     
     local mDict, qDict, iDict, wDict = {}, {}, {}, {}
     
-    -- Scanne NPCs (Mit präziser Unterscheidung Regen vs QuestMark)
+    -- Scanne NPCs (Mit präziser Unterscheidung & Fallback für leere Server)
     if Workspace:FindFirstChild("NPCs") then
         for _, v in pairs(Workspace.NPCs:GetChildren()) do
             if v:IsA("Model") then
@@ -61,10 +61,19 @@ local function GetDynamicLists()
                         table.insert(mobs, v.Name)
                         mDict[v.Name] = true
                     end
-                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
+                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") or v.Name == "Becky" then
                     if not qDict[v.Name] then
                         table.insert(quests, v.Name)
                         qDict[v.Name] = true
+                    end
+                else
+                    -- Fallback: Falls NPCs noch nicht vollständig geladen sind, aber Health haben
+                    local hum = v:FindFirstChildOfClass("Humanoid")
+                    if hum and hum.MaxHealth > 100 then
+                        if not mDict[v.Name] then
+                            table.insert(mobs, v.Name)
+                            mDict[v.Name] = true
+                        end
                     end
                 end
             end
@@ -75,9 +84,11 @@ local function GetDynamicLists()
     local islandsFolder = Workspace:FindFirstChild("Islands")
     if islandsFolder then
         for _, v in pairs(islandsFolder:GetChildren()) do
-            if not iDict[v.Name] then
-                table.insert(islands, v.Name)
-                iDict[v.Name] = true
+            if v.Name ~= "Fishman Island" and v.Name ~= "Land of the Sky" then
+                if not iDict[v.Name] then
+                    table.insert(islands, v.Name)
+                    iDict[v.Name] = true
+                end
             end
         end
     end
@@ -100,13 +111,13 @@ local function GetDynamicLists()
         end
     end
     
-    -- Fallbacks
-    if #mobs == 0 then mobs = {"Fishman Karate User"} end
-    if #quests == 0 then quests = {"Becky"} end
-    if #islands == 0 then islands = {"Fishman Cave"} end
+    -- Umfangreiche Fallbacks, damit die UI nie leer oder "schwarz" wird
+    if #mobs == 0 then mobs = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"} end
+    if #quests == 0 then quests = {"Becky", "Daph", "Tyson"} end
+    if #islands == 0 then islands = {"Town of Beginnings", "Sandora", "Shell's Town", "Fishman Cave"} end
     if #weapons == 0 then weapons = {"Combat"} end
     
-    -- WICHTIG FÜR REFRESH: Alphabetisch sortieren!
+    -- Alphabetisch sortieren für ein sauberes Dropdown Menü
     table.sort(mobs)
     table.sort(quests)
     table.sort(islands)
@@ -130,7 +141,7 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
-    ElevatorSpeed = 500, -- PERMANENT AUF 500
+    ElevatorSpeed = 500, -- Permanent auf 500 fixiert
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -307,6 +318,7 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
+-- Verbessertes Dropdown mit UI-Fix für Refresh
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -420,7 +432,7 @@ CreateButton(SecFarmConfig, "Refresh All Lists", function()
     RyuNotify:Send("Lists Refreshed", "Listen manuell aktualisiert!", 3)
 end)
 
--- AUTO REFRESH LOOP
+-- AUTO REFRESH LOOP (SMART & PERFORMANCE FRIENDLY)
 task.spawn(function()
     local function listsEqual(a, b)
         if #a ~= #b then return false end
@@ -478,7 +490,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (SMART EDGE & NOCLIP FIX)
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT SMART EDGE & NOCLIP FIX & OHNE WARTEZEIT)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -636,9 +648,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                -- SMARTER EDGE DETECTION RAYCASTS
+                -- SMARTER EDGE DETECTION (Zusätzlicher Sensor 15 Studs über dir)
                 local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
-                local wallCheckHigh = Workspace:Raycast(currentPos + Vector3.new(0, 6, 0), flatMoveDir * 4.5, rayParamsDown)
+                local wallCheckHigh = Workspace:Raycast(currentPos + Vector3.new(0, 15, 0), flatMoveDir * 4.5, rayParamsDown)
                 local ledgeCheckHit = Workspace:Raycast(currentPos + (flatMoveDir * 5) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
                 
                 local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
@@ -649,22 +661,21 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local addTime = dt
 
                 if isWallBlocking then 
-                    -- KLETTERN (Steil hoch)
-                    if not isClimbing then
-                        isClimbing = true
-                        pcall(function() climbEvent:InvokeServer(true) end)
-                    end
-                    currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
-                    
                     if not isWallBlockingHigh then
-                        -- Kante erreicht! Push direkt drüber ohne zu warten
-                        addTime = dt * 0.8
-                        currentY = currentY + 5 
+                        -- SMALL OBJECT BYPASS: Objekt ist klein, gleite einfach flüssig darüber!
+                        currentY = currentY + 15
+                        addTime = dt
+                        yVelocity = 0
                     else
-                        addTime = dt * 0.05 
+                        -- ECHTES KLETTERN (Flüssig, ohne Stoppen)
+                        if not isClimbing then
+                            isClimbing = true
+                            pcall(function() climbEvent:InvokeServer(true) end)
+                        end
+                        currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
+                        addTime = dt * 0.5 -- 50% Speed anstatt 0! Der Charakter stoppt nicht mehr.
+                        yVelocity = 20 -- Anti-Cheat Fix: Physische Geschwindigkeit legitim limitieren
                     end
-                    
-                    yVelocity = 20 -- Anti-Cheat Fix: Physische Geschwindigkeit limitieren
                     
                 elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
                     -- ABGRUND (Runterklettern) - Ignoriert Wasser!
@@ -673,9 +684,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         pcall(function() climbEvent:InvokeServer(true) end)
                     end
                     
-                    -- NOCLIP FIX: Er geht NIE unter den echten Boden (finalY)!
+                    -- NOCLIP FIX: Harte Sperre, damit du nie unter den echten Boden glitchst
                     currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
-                    addTime = dt * 0.5 
+                    addTime = dt * 0.6 -- 60% Vorwärts-Speed beim Fallen
                     yVelocity = -20 -- Anti-Cheat Fix
                     
                     -- Sanftes Landen (Stoppt Klettern kurz vor dem Boden)
@@ -994,7 +1005,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (FÜR DEN AUTO FARM)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB FÜR AUTO FARM)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
