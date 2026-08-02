@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PURE GROUND SPIDER TP - NO NOCLIP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (INSTANT WALL-TOP CLIMB SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -174,7 +174,6 @@ local RyuConfig = {
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
-    UseGeppo = false,
     
     AutoStrength = false, StrengthCap = 1500,
     AutoStamina = false,  StaminaCap = 1500,
@@ -512,11 +511,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
-CreateToggle(SecIslandTP, "Use Geppo (Sky Walk)", RyuConfig.UseGeppo, function(state)
-    RyuConfig.UseGeppo = state
-end)
-
---// PURE GROUND SPIDER TELEPORT SYSTEM
+--// INSTANT WALL-TOP CLIMB SPIDER TELEPORT (0 OVERLAP NOCLIP DETECT)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -587,12 +582,16 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
             end
 
+            local isLookingForRobo = false
             if closestRobo and closestRobo:FindFirstChild("HumanoidRootPart") then
                 targetPos = closestRobo.HumanoidRootPart.Position
+            else
+                targetPos = Vector3.new(rawPos.X, root.Position.Y, rawPos.Z)
+                isLookingForRobo = true
             end
             
             local hum = char:FindFirstChildOfClass("Humanoid")
-            local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
+            local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 5
             
             ToggleHover(true)
             root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
@@ -601,24 +600,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
-            local lastGeppo = 0
-            local function TriggerGeppoRemote()
-                if RyuConfig.UseGeppo and tick() - lastGeppo >= 0.25 then
-                    lastGeppo = tick()
-                    pcall(function()
-                        local args = {
-                            "Sky Walk2",
-                            {
-                                char = LocalPlayer.Character,
-                                cf = root.CFrame
-                            }
-                        }
-                        ReplicatedStorage:WaitForChild("Events"):WaitForChild("Skill"):InvokeServer(unpack(args))
-                    end)
-                end
-            end
-
-            local function GroundSpiderLerp(tPos, currentSpeed)
+            local function SpiderLerp(tPos, currentSpeed)
                 local startPos = root.Position
                 local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
                 local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
@@ -633,7 +615,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local elapsedTime = 0
                 local currentY = root.Position.Y
                 local lastFootstep = tick()
-
+                local nextRoboCheck = tick()
+                
                 char:SetAttribute("evading", true)
                 _G.soruDashing = true
 
@@ -668,7 +651,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
 
                 if hum then hum.PlatformStand = false end
-                if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
 
                 while elapsedTime < t do
                     local dt = RunService.Heartbeat:Wait()
@@ -689,6 +671,30 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end
                     
+                    if isLookingForRobo and tick() - nextRoboCheck > 1 then
+                        nextRoboCheck = tick()
+                        local npcsFolder = Workspace:FindFirstChild("NPCs")
+                        if npcsFolder then
+                            for _, v in pairs(npcsFolder:GetChildren()) do
+                                if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
+                                    local distToTarget = (v.HumanoidRootPart.Position - rawPos).Magnitude
+                                    if (v.HumanoidRootPart.Position - rawPos).Magnitude < 1500 and distToTarget <= 300 then
+                                        tPos = v.HumanoidRootPart.Position
+                                        isLookingForRobo = false
+                                        
+                                        startPos = root.Position
+                                        local newFlatStart = Vector3.new(startPos.X, 0, startPos.Z)
+                                        local newFlatTarget = Vector3.new(tPos.X, 0, tPos.Z)
+                                        totalDist = (newFlatStart - newFlatTarget).Magnitude
+                                        t = totalDist / currentSpeed
+                                        elapsedTime = 0
+                                        break
+                                    end
+                                end
+                            end
+                        end
+                    end
+                    
                     local currentPos = root.Position
                     local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
                     local flatTargetPos = Vector3.new(tPos.X, 0, tPos.Z)
@@ -703,37 +709,38 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local calcPos = Vector3.new(currentX, currentY, currentZ)
                     
-                    -- ERHÖHTER SCAN-ABSTAND (12 STUDS VORAUS), UM NOCLIP-OVERLAP ZU VERHINDERN
-                    local forwardHitCenter = Workspace:Raycast(calcPos, flatMoveDir * 12, rayParams)
-                    local forwardHitHead = Workspace:Raycast(calcPos + Vector3.new(0, 2.5, 0), flatMoveDir * 12, rayParams)
-                    local wallDetected = (forwardHitCenter and forwardHitCenter.Instance.Transparency < 1) or (forwardHitHead and forwardHitHead.Instance.Transparency < 1)
-
+                    -- SOFORT-ERKENNUNG: Sende Vorwärts-Raycasts, um Wände frühzeitig zu bemerken
+                    local wallCheck = Workspace:Raycast(calcPos, flatMoveDir * 8, rayParams) or Workspace:Raycast(calcPos + Vector3.new(0, 3, 0), flatMoveDir * 8, rayParams)
                     local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
-                    local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 12)
-                    local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
-                    
-                    local targetY = math.max(groundYCurrent, groundYAhead)
+                    local targetY = groundYCurrent
 
-                    -- STOPPT DIE VORWÄRTSBEWEGUNG VOLLSTÄNDIG, BIS BEREICHE ÜBER DER WAND ERREICHT WERDEN
-                    local advanceFactor = 1
-                    if wallDetected then
-                        local hitPart = forwardHitCenter or forwardHitHead
-                        local obstacleY = GetTrueTopY(hitPart.Position.X + (flatMoveDir.X * 0.5), hitPart.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
-                        targetY = math.max(targetY, obstacleY)
+                    local isClimbingWall = false
+                    if wallCheck and wallCheck.Instance and wallCheck.Instance.Transparency < 1 then
+                        isClimbingWall = true
+                        -- Berechne sofort den höchsten Punkt der Wand direkt vor dir
+                        local obstacleTopY = GetTrueTopY(wallCheck.Position.X + (flatMoveDir.X * 0.5), wallCheck.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
+                        targetY = math.max(targetY, obstacleTopY)
                         
-                        -- Vorwärtsbewegung stoppen, falls Höhe nicht ausreicht
-                        if currentY < targetY - 1.0 then
-                            advanceFactor = 0.0 
-                        end
+                        -- Nutze Kletter-Remote beim Aufstieg an der Wand
+                        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                    else
+                        local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 12)
+                        local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
+                        targetY = math.max(groundYCurrent, groundYAhead)
                     end
 
-                    -- SICHERE STEIGGESCHWINDIGKEIT (Max 22 Studs/Sekunde für Anti-Cheat Bypass)
-                    local maxVerticalSpeed = 22
+                    -- HYBRID Y-STEERING: Stoppe Vorwärts-Bewegung bei steilen Wänden bis Höhe erreicht ist
+                    local advanceSpeed = 1
+                    if isClimbingWall and currentY < targetY - 2 then
+                        advanceSpeed = 0.05 -- Hält den Charakter vor der Wand, damit er nicht hineinfliegt
+                    end
+
+                    -- Y-SPEED CEILING: Maximal 26 Studs/Sekunde für Bypassing der YAxis Fast Detection
+                    local maxVerticalSpeed = 26 
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
                         currentY = math.min(currentY + (maxVerticalSpeed * dt), targetY)
-                        TriggerGeppoRemote()
                     elseif yDiff < 0 then
                         currentY = math.max(currentY - (maxVerticalSpeed * dt), targetY)
                     end
@@ -741,15 +748,15 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if currentY < 4 then currentY = 4 end
                     currentY = math.max(currentY, 1)
                     
-                    elapsedTime = elapsedTime + (dt * advanceFactor)
+                    elapsedTime = elapsedTime + (dt * advanceSpeed)
                     
                     local finalPos = Vector3.new(currentX, currentY, currentZ)
                     local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                     
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                    if hum then hum:Move(flatMoveDir * advanceFactor, false) end
+                    if hum then hum:Move(flatMoveDir * advanceSpeed, false) end
                     
-                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed * advanceFactor, 0, flatMoveDir.Z * currentSpeed * advanceFactor)
+                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed * advanceSpeed, 0, flatMoveDir.Z * currentSpeed * advanceSpeed)
                     
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = finalPos end
@@ -770,8 +777,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 return true
             end
-
-            GroundSpiderLerp(targetPos, RyuConfig.IslandSpeed)
+            
+            SpiderLerp(targetPos, RyuConfig.IslandSpeed)
             if hum then hum.Jump = true end
             root.Velocity = Vector3.new(0, 0, 0)
         end)
