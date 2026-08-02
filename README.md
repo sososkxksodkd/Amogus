@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (NO DISTANCE LIMIT / NO ERRORS)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (HYBRID SCANNER + NO ERRORS)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -43,75 +43,88 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (SORTIERT & PERFEKTIONIERT FÜR AUTO-REFRESH)
+--// FESTE GPO DATEN (Fallback für StreamingEnabled)
+local StaticGPO = {
+    Mobs = {
+        "Bandit", "Bandit Boss", "Desert Bandit", "Lucid", "Corrupt Marine", 
+        "Shell's Bandit", "Axe Hand Logan", "Krieg Pirate", "Star Clown", 
+        "Monkey", "Gorilla King", "Saw Shark Pirate", "Saw Shark", "Fishman Karate User", 
+        "Ryu", "Neptune", "Sky Bandit", "Castle Guard", "Head Guardian", "Enel", 
+        "Gravito's Guard", "Gravito", "Marine Fort Gunner", "Flame Admiral Zeke"
+    },
+    Quests = {
+        "Daph", "Ronny", "Robert", "Kevin", "Gozen", "Waby", "Vi", "Becky", 
+        "Jenny", "Janny", "Vego", "Bibby", "Viva", "Miska", "Yourg", "Verga"
+    },
+    Islands = {
+        "Town of Beginnings", "Sandora", "Shell's Town", "Island Of Zou", "Baratie", 
+        "Orange Town", "Sphinx Island", "Arlong Park", "Kori Island", "Land of the Sky", 
+        "Gravito's Fort", "Fishman Island", "Fishman Cave", "Marine Base G-1", "Desert Kingdom"
+    }
+}
+
+--// HYBRIDER SCANNER (Feste Daten + Live Scan)
 local function GetDynamicLists()
-    local mobs = {}
-    local quests = {}
-    local islands = {}
-    local weapons = {}
-    
-    local mDict, qDict, iDict, wDict = {}, {}, {}, {}
-    
-    -- Scanne NPCs (Mit präziser Unterscheidung Regen vs QuestMark)
-    if Workspace:FindFirstChild("NPCs") then
-        for _, v in pairs(Workspace.NPCs:GetChildren()) do
-            if v:IsA("Model") then
-                if v:FindFirstChild("Regen") then
-                    if not mDict[v.Name] then
-                        table.insert(mobs, v.Name)
-                        mDict[v.Name] = true
-                    end
-                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
-                    if not qDict[v.Name] then
-                        table.insert(quests, v.Name)
-                        qDict[v.Name] = true
+    local mobsDict, questsDict, islandsDict, weaponsDict = {}, {}, {}, {}
+    local mobs, quests, islands, weapons = {}, {}, {}, {}
+
+    -- 1. Feste GPO-Daten als Basis laden
+    for _, v in ipairs(StaticGPO.Mobs) do mobsDict[v] = true end
+    for _, v in ipairs(StaticGPO.Quests) do questsDict[v] = true end
+    for _, v in ipairs(StaticGPO.Islands) do islandsDict[v] = true end
+
+    -- 2. LIVE SCANNER (Fügt Umgebungsobjekte hinzu, falls geladen)
+    local npcsFolder = Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Live")
+    if npcsFolder then
+        for _, v in pairs(npcsFolder:GetChildren()) do
+            if v:IsA("Model") and v ~= LocalPlayer.Character then
+                local hum = v:FindFirstChildOfClass("Humanoid")
+                if hum then
+                    local isQuest = v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") or (v:FindFirstChild("Head") and v.Head:FindFirstChild("Quest"))
+                    if isQuest then
+                        questsDict[v.Name] = true
+                    else
+                        mobsDict[v.Name] = true
                     end
                 end
             end
         end
     end
-    
-    -- Scanne Inseln direkt aus dem Islands Ordner
-    local islandsFolder = Workspace:FindFirstChild("Islands")
+
+    local islandsFolder = Workspace:FindFirstChild("Islands") or Workspace:FindFirstChild("Locations")
     if islandsFolder then
         for _, v in pairs(islandsFolder:GetChildren()) do
-            if not iDict[v.Name] then
-                table.insert(islands, v.Name)
-                iDict[v.Name] = true
+            islandsDict[v.Name] = true
+        end
+    end
+
+    -- 3. WAFFEN SCANNER (Backpack + Charakter)
+    local function scanTools(container)
+        if not container then return end
+        for _, item in pairs(container:GetChildren()) do
+            if item:IsA("Tool") then
+                weaponsDict[item.Name] = true
+            elseif item:IsA("Folder") then
+                scanTools(item)
             end
         end
     end
-    
-    -- Scanne Waffen im Unequiped Ordner (und Backpack)
-    local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
-    if unequiped then
-        for _, item in pairs(unequiped:GetChildren()) do
-            if item:IsA("Tool") and not wDict[item.Name] then
-                table.insert(weapons, item.Name)
-                wDict[item.Name] = true
-            end
-        end
-    end
-    
-    for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-        if item:IsA("Tool") and item.Name ~= "Unequiped" and not wDict[item.Name] then
-            table.insert(weapons, item.Name)
-            wDict[item.Name] = true
-        end
-    end
-    
-    -- Fallbacks
-    if #mobs == 0 then mobs = {"Fishman Karate User"} end
-    if #quests == 0 then quests = {"Becky"} end
-    if #islands == 0 then islands = {"Fishman Cave"} end
-    if #weapons == 0 then weapons = {"Combat"} end
-    
-    -- WICHTIG FÜR REFRESH: Alphabetisch sortieren!
+
+    scanTools(LocalPlayer:FindFirstChild("Backpack"))
+    scanTools(LocalPlayer.Character)
+    if #weaponsDict == 0 then weaponsDict["Combat"] = true end
+
+    -- 4. Wörterbücher in sortierte Tabellen umwandeln
+    for k in pairs(mobsDict) do table.insert(mobs, k) end
+    for k in pairs(questsDict) do table.insert(quests, k) end
+    for k in pairs(islandsDict) do table.insert(islands, k) end
+    for k in pairs(weaponsDict) do table.insert(weapons, k) end
+
     table.sort(mobs)
     table.sort(quests)
     table.sort(islands)
     table.sort(weapons)
-    
+
     return mobs, quests, islands, weapons
 end
 
