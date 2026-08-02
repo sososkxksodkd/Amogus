@@ -478,7 +478,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (SMART EDGE & NOCLIP FIX)
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT STRIKTEM WARTE-FIX BEIM KLETTERN)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -659,13 +659,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
                     
                     if not isWallBlockingHigh then
-                        -- Kante erreicht! Push direkt drüber ohne zu warten
-                        addTime = dt * 0.8
-                        currentY = currentY + 5 
+                        -- Kante fast erreicht: Ganz leichter Push, damit der Char nicht hängen bleibt
+                        addTime = dt * 0.2 
                     else
-                        -- FIX FÜR KURVEN & KREISE: Charakter geht weiter nach vorne,
-                        -- um sich an runden/schrägen Wänden perfekt hochzuziehen!
-                        addTime = dt * 0.45 
+                        -- WARTEN: Kein horizontaler Fortschritt beim Klettern! Er geht nur hoch!
+                        addTime = 0 
                     end
                     
                     yVelocity = 20 -- Anti-Cheat Fix: Physische Geschwindigkeit limitieren
@@ -679,7 +677,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     -- NOCLIP FIX: Er geht NIE unter den echten Boden (finalY)!
                     currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
-                    addTime = dt * 0.5 
+                    
+                    -- WARTEN: Runterklettern ohne Vorwärtsbewegung!
+                    addTime = 0 
                     yVelocity = -20 -- Anti-Cheat Fix
                     
                     -- Sanftes Landen (Stoppt Klettern kurz vor dem Boden)
@@ -695,7 +695,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         pcall(function() climbEvent:InvokeServer(false) end)
                     end
                     
-                    -- Schnelles Angleichen, kein Warten mehr
+                    -- Schnelles Angleichen
                     if finalY > currentY then
                         currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), finalY)
                     elseif finalY < currentY then
@@ -940,7 +940,7 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        if now - lastSwing >= 0.55 then
+        if now - lastSwing >= 0.5 then
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
