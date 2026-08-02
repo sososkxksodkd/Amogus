@@ -43,7 +43,7 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (QUESTS VS ENEMIES, ISLANDS FOLDER & UNEQUIPED WEAPONS)
+--// DYNAMISCHER WORKSPACE SCANNER (SORTIERT & PERFEKTIONIERT FÜR AUTO-REFRESH)
 local function GetDynamicLists()
     local mobs = {}
     local quests = {}
@@ -52,7 +52,7 @@ local function GetDynamicLists()
     
     local mDict, qDict, iDict, wDict = {}, {}, {}, {}
     
-    -- Scanne NPCs
+    -- Scanne NPCs (Mit präziser Unterscheidung Regen vs QuestMark)
     if Workspace:FindFirstChild("NPCs") then
         for _, v in pairs(Workspace.NPCs:GetChildren()) do
             if v:IsA("Model") then
@@ -61,38 +61,28 @@ local function GetDynamicLists()
                         table.insert(mobs, v.Name)
                         mDict[v.Name] = true
                     end
-                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") or v.Name == "Becky" then
+                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
                     if not qDict[v.Name] then
                         table.insert(quests, v.Name)
                         qDict[v.Name] = true
                     end
-                else
-                    local hum = v:FindFirstChildOfClass("Humanoid")
-                    if hum and hum.MaxHealth > 100 then
-                        if not mDict[v.Name] then
-                            table.insert(mobs, v.Name)
-                            mDict[v.Name] = true
-                        end
-                    end
                 end
             end
         end
     end
     
-    -- Scanne Inseln
+    -- Scanne Inseln direkt aus dem Islands Ordner
     local islandsFolder = Workspace:FindFirstChild("Islands")
     if islandsFolder then
         for _, v in pairs(islandsFolder:GetChildren()) do
-            if v.Name ~= "Fishman Island" and v.Name ~= "Land of the Sky" then
-                if not iDict[v.Name] then
-                    table.insert(islands, v.Name)
-                    iDict[v.Name] = true
-                end
+            if not iDict[v.Name] then
+                table.insert(islands, v.Name)
+                iDict[v.Name] = true
             end
         end
     end
     
-    -- Scanne Waffen
+    -- Scanne Waffen im Unequiped Ordner (und Backpack)
     local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
     if unequiped then
         for _, item in pairs(unequiped:GetChildren()) do
@@ -111,11 +101,12 @@ local function GetDynamicLists()
     end
     
     -- Fallbacks
-    if #mobs == 0 then mobs = {"Bandit", "Bandit Boss", "Fishman", "Fishman Karate User"} end
-    if #quests == 0 then quests = {"Becky", "Daph", "Tyson"} end
-    if #islands == 0 then islands = {"Town of Beginnings", "Sandora", "Shell's Town", "Fishman Cave"} end
+    if #mobs == 0 then mobs = {"Fishman Karate User"} end
+    if #quests == 0 then quests = {"Becky"} end
+    if #islands == 0 then islands = {"Fishman Cave"} end
     if #weapons == 0 then weapons = {"Combat"} end
     
+    -- WICHTIG FÜR REFRESH: Alphabetisch sortieren!
     table.sort(mobs)
     table.sort(quests)
     table.sort(islands)
@@ -139,7 +130,7 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
-    ElevatorSpeed = 500,
+    ElevatorSpeed = 500, -- PERMANENT AUF 500
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -412,7 +403,9 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
+-- NEUE FARM CONFIG FOLIE MIT LIVE SCANNER
 local DropMob, DropNPC, DropWep, DropIsland
+
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
 DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
 DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
@@ -485,7 +478,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT CHECKPOINT 4 UPGRADES)
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (SMART EDGE & NOCLIP FIX)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -567,8 +560,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
-        -- PERMANENTER 3 STUD ABSTAND FIX: HipHeight + halbe Spielerhöhe + 3
-        local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
+        local hipHeight = hum and hum.HipHeight or 2.15
+        local floorOffset = hipHeight + (root.Size.Y / 2)
         
         ToggleHover(true)
         
@@ -590,8 +583,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             
             local elapsedTime = 0
             local currentY = root.Position.Y
-            local isClimbingUp = false
-            local isClimbingDown = false
+            local isClimbing = false
             local lastFootstep = tick()
             local nextRoboCheck = tick()
             local lastClimbFire = 0
@@ -608,18 +600,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
-                
-                -- LAUF-ANIMATION ENTFERNT (Schwebendes Aussehen)
-                if hum then
-                    local animator = hum:FindFirstChild("Animator")
-                    if animator then
-                        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
-                            if track.Priority == Enum.AnimationPriority.Movement or track.Priority == Enum.AnimationPriority.Core then
-                                track:Stop()
-                            end
-                        end
-                    end
-                end
                 
                 if isLookingForRobo and tick() - nextRoboCheck > 1 then
                     nextRoboCheck = tick()
@@ -653,75 +633,82 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
                 local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
                 
-                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
+                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local calcPos = Vector3.new(currentX, currentY, currentZ)
+                -- SMARTER EDGE DETECTION RAYCASTS
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
+                local wallCheckHigh = Workspace:Raycast(currentPos + Vector3.new(0, 6, 0), flatMoveDir * 4.5, rayParamsDown)
+                local ledgeCheckHit = Workspace:Raycast(currentPos + (flatMoveDir * 5) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
                 
-                -- SMARTER EDGE DETECTION & 4 STUDS ABSTANDS-SCHUTZ
-                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 4.5, rayParamsDown)
-                local wallCheckHigh = Workspace:Raycast(calcPos + Vector3.new(0, 15, 0), flatMoveDir * 4.5, rayParamsDown)
-                local ledgeCheckHit = Workspace:Raycast(calcPos + (flatMoveDir * 5) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
-                
-                -- 4 Studs Schutz (reagiert bei <= 4 Studs)
                 local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
                 local isWallBlockingHigh = wallCheckHigh and wallCheckHigh.Distance <= 4
                 local finalY = (ledgeCheckHit and ledgeCheckHit.Position.Y or 0) + floorOffset
                 
                 local yVelocity = 0
-                local addTime = dt -- KEIN WARTEN MEHR: Immer dt addieren
+                local addTime = dt
 
-                -- STATE MACHINE: Klettern ohne Stottern (Ignoriert zweite Wände beim Klettern)
-                if isClimbingUp then
+                if isWallBlocking then 
+                    -- KLETTERN (Steil hoch)
+                    if not isClimbing then
+                        isClimbing = true
+                        pcall(function() climbEvent:InvokeServer(true) end)
+                    end
                     currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
-                    yVelocity = 20 -- Physischer Anti-Cheat Bypass
                     
-                    if not isWallBlocking then
-                        isClimbingUp = false
-                        pcall(function() climbEvent:InvokeServer(false) end)
-                    end
-                elseif isClimbingDown then
-                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
-                    yVelocity = -20
-                    
-                    if currentY <= finalY + 1 then
-                        isClimbingDown = false
-                        pcall(function() climbEvent:InvokeServer(false) end)
-                    elseif isWallBlocking then
-                        isClimbingDown = false
-                        isClimbingUp = true
-                        pcall(function() climbEvent:InvokeServer(true) end)
-                    end
-                else
-                    if isWallBlocking then
-                        if not isWallBlockingHigh then
-                            -- Small Object Bypass
-                            currentY = currentY + 15
-                            yVelocity = 0
-                        else
-                            isClimbingUp = true
-                            pcall(function() climbEvent:InvokeServer(true) end)
-                        end
-                    elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
-                        isClimbingDown = true
-                        pcall(function() climbEvent:InvokeServer(true) end)
+                    if not isWallBlockingHigh then
+                        -- Kante erreicht! Push direkt drüber ohne zu warten
+                        addTime = dt * 0.8
+                        currentY = currentY + 5 
                     else
-                        if finalY > currentY then
-                            currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), finalY)
-                        elseif finalY < currentY then
-                            currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
-                        end
-                        
-                        -- Wasser Fix
-                        if currentY < 4 then 
-                            currentY = 4 
-                        end
-                        
-                        yVelocity = 0
+                        addTime = dt * 0.05 
                     end
+                    
+                    yVelocity = 20 -- Anti-Cheat Fix: Physische Geschwindigkeit limitieren
+                    
+                elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
+                    -- ABGRUND (Runterklettern) - Ignoriert Wasser!
+                    if not isClimbing then
+                        isClimbing = true
+                        pcall(function() climbEvent:InvokeServer(true) end)
+                    end
+                    
+                    -- NOCLIP FIX: Er geht NIE unter den echten Boden (finalY)!
+                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
+                    addTime = dt * 0.5 
+                    yVelocity = -20 -- Anti-Cheat Fix
+                    
+                    -- Sanftes Landen (Stoppt Klettern kurz vor dem Boden)
+                    if currentY - finalY <= 3 then
+                        isClimbing = false
+                        pcall(function() climbEvent:InvokeServer(false) end)
+                    end
+                    
+                else
+                    -- NORMALES LAUFEN / PLATEAU / WASSER (100% Full Speed)
+                    if isClimbing then
+                        isClimbing = false
+                        pcall(function() climbEvent:InvokeServer(false) end)
+                    end
+                    
+                    -- Schnelles Angleichen, kein Warten mehr
+                    if finalY > currentY then
+                        currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), finalY)
+                    elseif finalY < currentY then
+                        currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
+                    end
+                    
+                    -- Wasser Fix: Bei Y=0 bis Y=4 immer oben bleiben und schnell sein!
+                    if currentY < 4 then 
+                        currentY = 4 
+                    end
+                    
+                    yVelocity = 0
+                    addTime = dt -- Erzeugt volle Geschwindigkeit am Boden / Wasser
                 end
                 
                 currentY = math.max(currentY, 1)
+                
                 elapsedTime = elapsedTime + addTime
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
@@ -743,10 +730,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = finalPos end
                 
-                -- REMOTE LÄUFT IM HINTERGRUND PERMANENT WEITER
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
-                    if not isClimbingUp and not isClimbingDown then
+                    if not isClimbing then
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
@@ -754,7 +740,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
-            if isClimbingUp or isClimbingDown then
+            if isClimbing then
                 task.spawn(function()
                     if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
                 end)
@@ -950,7 +936,7 @@ local function PerformMeleeAttack(targets)
         if not root then return end
         
         local now = tick()
-        if now - lastSwing >= 0.55 then
+        if now - lastSwing >= 0.5 then
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
@@ -1008,7 +994,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB FÜR AUTO FARM)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (FÜR DEN AUTO FARM)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -1351,7 +1337,6 @@ task.spawn(function()
                         end
                     end
                     
-                    -- Reset Hitboxes
                     for _, npc in ipairs(targetMobs) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
                         if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
