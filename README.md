@@ -124,7 +124,7 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
-    ElevatorSpeed = 65, 
+    ElevatorSpeed = 300, -- NEU: Aufzug Geschwindigkeit Standard 300
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -301,7 +301,6 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
--- Verbessertes Dropdown mit UI-Fix für Refresh
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -415,6 +414,39 @@ CreateButton(SecFarmConfig, "Refresh All Lists", function()
     RyuNotify:Send("Lists Refreshed", "NPCs, Quests, Waffen & Inseln aktualisiert!", 3)
 end)
 
+-- AUTO REFRESH LOOP FÜR DIE LISTEN (Alle 3 Sekunden)
+task.spawn(function()
+    local function listsEqual(a, b)
+        if #a ~= #b then return false end
+        for i = 1, #a do if a[i] ~= b[i] then return false end end
+        return true
+    end
+
+    local lastMobs, lastQuests, lastIslands, lastWeaps = InitMobs, InitQuests, InitIslands, InitWeapons
+
+    while true do
+        task.wait(3)
+        local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
+        
+        if not listsEqual(lastMobs, newMobs) then
+            lastMobs = newMobs
+            if DropMob then DropMob:Refresh(newMobs) end
+        end
+        if not listsEqual(lastQuests, newQuests) then
+            lastQuests = newQuests
+            if DropNPC then DropNPC:Refresh(newQuests) end
+        end
+        if not listsEqual(lastWeaps, newWeaps) then
+            lastWeaps = newWeaps
+            if DropWep then DropWep:Refresh(newWeaps) end
+        end
+        if not listsEqual(lastIslands, newIslands) then
+            lastIslands = newIslands
+            if DropIsland then DropIsland:Refresh(newIslands) end
+        end
+    end
+end)
+
 --// AUTO STATS UI
 local SecAutoStats = CreateSection(SubStats, "Auto Stats System")
 
@@ -441,6 +473,9 @@ local SecIslandTP = CreateSection(SubTransport, "Spider Teleportation")
 DropIsland = CreateDropdown(SecIslandTP, "Select Island", InitIslands, "TargetIsland")
 CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
+end)
+CreateSlider(SecIslandTP, "Elevator Speed", 100, 1000, RyuConfig.ElevatorSpeed, function(val)
+    RyuConfig.ElevatorSpeed = val
 end)
 
 --// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (WAND-HACK ENTFERNT!)
@@ -644,7 +679,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                     if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
                     
-                    local climbRate = currentSpeed * 0.8
+                    local climbRate = RyuConfig.ElevatorSpeed
                     currentY = math.min(currentY + (climbRate * dt), finalY)
                     yVelocity = climbRate
                     
@@ -663,7 +698,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                     
                     if finalY < currentY then
-                        local fallRate = 150
+                        local fallRate = RyuConfig.ElevatorSpeed
                         currentY = math.max(currentY - (fallRate * dt), finalY)
                         yVelocity = -fallRate
                     else
@@ -959,7 +994,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB FÜR AUTO FARM)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (NORMALES SCHAUEN)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -979,28 +1014,11 @@ local function SafeTween(targetCFrame, customSpeed)
     end
 
     local startTime = tick()
-    
-    local rayParams = RaycastParams.new()
-    rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), Workspace:FindFirstChild("Water")}
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm then break end
         
         local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
-        
-        -- Wand-Erkennung nur für den Auto Farm! (Ignoriert Wasser, zwingt dich drüber)
-        local moveDir = (targetPos - root.Position).Unit
-        if moveDir.Magnitude > 0 then
-            local wallHit = Workspace:Raycast(root.Position, moveDir * 6, rayParams)
-            if wallHit then
-                intermediatePos = root.Position + Vector3.new(0, 15, 0)
-                startTime = tick()
-                startPos = root.Position
-                timeToTake = (targetPos - startPos).Magnitude / speed
-            end
-        end
         
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = intermediatePos end
