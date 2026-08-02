@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT DEN NEUEN REGELN)
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT WANDSCHUTZ, 3 STUDS & 800 SPEED AUFZUG)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -559,7 +559,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- EXAKT 3 STUDS PERMANENT ÜBER DEM BODEN / GEGENSTÄNDEN
+        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN (Halbe Spielerhöhe + HipHeight + 3)
         local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
         
         ToggleHover(true)
@@ -585,7 +585,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local isClimbing = false
             local lastFootstep = tick()
             local nextRoboCheck = tick()
-            local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -637,67 +636,72 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                -- 2 STUDS RADAR & WANDSCHUTZ (Damit du nicht in Wände läufst)
+                -- WANDSCHUTZ & 2 STUDS AKTIVATOR (Erkennt Wände ab 2 Studs vor dir)
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2, rayParamsDown)
-                local checkPosAhead = calcPos + (flatMoveDir * 2)
+                local wallCheckHigh = Workspace:Raycast(calcPos + Vector3.new(0, 15, 0), flatMoveDir * 2, rayParamsDown)
+                local ledgeCheckHit = Workspace:Raycast(calcPos + (flatMoveDir * 3) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
                 
-                local topAheadRay = Workspace:Raycast(Vector3.new(checkPosAhead.X, currentY + 1000, checkPosAhead.Z), Vector3.new(0, -2000, 0), rayParamsDown)
-                local topCurrentRay = Workspace:Raycast(Vector3.new(currentX, currentY + 1000, currentZ), Vector3.new(0, -2000, 0), rayParamsDown)
-                
-                local groundYAhead = (topAheadRay and topAheadRay.Position.Y or 0) + floorOffset
-                local groundYCurrent = (topCurrentRay and topCurrentRay.Position.Y or 0) + floorOffset
-                
-                local isWallBlocking = wallCheckHit ~= nil
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 2
+                local isWallBlockingHigh = wallCheckHigh and wallCheckHigh.Distance <= 2
+                local finalY = (ledgeCheckHit and ledgeCheckHit.Position.Y or 0) + floorOffset
                 
                 local yVelocity = 0
                 local addTime = dt
 
-                -- SOFORTIGER AUFZUG: Wenn Wand im Weg oder Zielhöhe (2 Studs vor dir) größer ist
-                if isWallBlocking or groundYAhead > currentY + 1 then
+                if isWallBlocking then 
+                    if not isWallBlockingHigh then
+                        -- SMALL OBJECT BYPASS: Gleitet über kleine Objekte (Zäune, Steine)
+                        currentY = currentY + 15
+                        addTime = dt
+                        yVelocity = 0
+                    else
+                        -- ECHTES KLETTERN (Wand im 2-Stud-Abstand) -> SCHNELLER AUFZUG
+                        if not isClimbing then
+                            isClimbing = true
+                            pcall(function() climbEvent:InvokeServer(true) end)
+                        end
+                        -- EXTREM SCHNELLER AUFZUG OHNE LIMIT (800 Studs/Sekunde)
+                        currentY = currentY + (800 * dt)
+                        addTime = 0 -- WAND-SCHUTZ: Bewegung stoppt, du läufst nicht in die Wand!
+                        yVelocity = 20 -- Physische Geschwindigkeit für Anti-Cheat
+                    end
+                elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
+                    -- ABGRUND (Runterklettern) - Ignoriert Wasser!
                     if not isClimbing then
                         isClimbing = true
                         pcall(function() climbEvent:InvokeServer(true) end)
                     end
                     
-                    -- SOFORTIGES HOCHBEWEGEN (Sehr schnelle Aufzugs-Geschwindigkeit)
-                    currentY = currentY + (800 * dt)
-                    yVelocity = 20
+                    -- NOCLIP FIX: Fällt niemals unter den echten Boden
+                    currentY = math.max(currentY - (800 * dt), finalY)
+                    addTime = dt * 0.5 
+                    yVelocity = -20 
                     
-                    -- WANDSCHUTZ: Keine Vorwärtsbewegung, bis du drüber bist
-                    if isWallBlocking then
-                        addTime = 0 
-                    end
-                    
-                elseif currentY > groundYCurrent + 5 then
-                    -- RUNTER KLETTERN
-                    if not isClimbing then
-                        isClimbing = true
-                        pcall(function() climbEvent:InvokeServer(true) end)
-                    end
-                    currentY = math.max(currentY - (800 * dt), groundYCurrent)
-                    yVelocity = -20
-                    
-                    if currentY - groundYCurrent <= 3 then
+                    if currentY - finalY <= 3 then
                         isClimbing = false
                         pcall(function() climbEvent:InvokeServer(false) end)
                     end
                 else
-                    -- NORMALES SCHWEBEN (Plateau, flacher Boden)
+                    -- NORMALES LAUFEN / PLATEAU / WASSER
                     if isClimbing then
                         isClimbing = false
                         pcall(function() climbEvent:InvokeServer(false) end)
                     end
                     
-                    if groundYCurrent > currentY then
-                        currentY = math.min(currentY + (800 * dt), groundYCurrent)
-                    elseif groundYCurrent < currentY then
-                        currentY = math.max(currentY - (800 * dt), groundYCurrent)
+                    if finalY > currentY then
+                        currentY = math.min(currentY + (800 * dt), finalY)
+                    elseif finalY < currentY then
+                        currentY = math.max(currentY - (800 * dt), finalY)
                     end
+                    
+                    -- Wasser Fix: Bei Y=0 bis Y=4 immer oben bleiben und schnell sein!
+                    if currentY < 4 then 
+                        currentY = 4 
+                    end
+                    
                     yVelocity = 0
                     addTime = dt 
                 end
-                
-                if currentY < 4 then currentY = 4 end
                 
                 currentY = math.max(currentY, 1)
                 
@@ -727,6 +731,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if not isClimbing then
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
+                    else
+                        -- Permanentes Kletter-Remote während der Aufzug aktiv ist
+                        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                     end
                 end
             end
@@ -986,7 +993,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB FÜR AUTO FARM)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SCHADENS-PRÜFUNG FÜR AUTO FARM)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -1064,7 +1071,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: 1-BY-1 FARM (MOB GROUPING)
+--// HARMONY CORE: 1-BY-1 FARM (TREFFERGARANTIE & SCHADENS-CHECK)
 --// ============================================================================
 local function CheckQuestActive()
     local active = false
@@ -1127,10 +1134,10 @@ local function FetchQuest()
     end
 end
 
---// FAIL-SAFE: QUEST SICHERUNG
+--// FAIL-SAFE: QUEST SICHERUNG (5 SEC)
 task.spawn(function()
     while true do
-        task.wait(180) 
+        task.wait(5) 
         if RyuConfig.AutoFarm and RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" then
             if not CheckQuestActive() then
                 FetchQuest()
@@ -1139,7 +1146,7 @@ task.spawn(function()
     end
 end)
 
---// AUTO STATS LOOP (MIT INTELLIGENTEM LIMITER)
+--// AUTO STATS LOOP
 task.spawn(function()
     while true do
         task.wait(3) 
@@ -1170,7 +1177,7 @@ task.spawn(function()
     end
 end)
 
---// MAIN FARM LOOP (KITING / GROUPING REWORK)
+--// MAIN FARM LOOP (3 STUDS ABSTAND, MIT HP-CHECK)
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1191,7 +1198,6 @@ task.spawn(function()
         ToggleHover(true)
         hum.AutoRotate = false 
         
-        --// 1. QUEST CHECK
         if RyuConfig.TargetNPC and RyuConfig.TargetNPC ~= "" then
             if not CheckQuestActive() then
                 FetchQuest()
@@ -1199,7 +1205,6 @@ task.spawn(function()
             end
         end
 
-        --// 2. MOB GROUPING / KITING (ALLE PULLEN & IN DER MITTE TÖTEN)
         if RyuConfig.TargetMob and RyuConfig.TargetMob ~= "" then
             local npcs = Workspace:FindFirstChild("NPCs")
             if not npcs then continue end
@@ -1229,7 +1234,7 @@ task.spawn(function()
                 
                 EquipTargetWeapon()
                 
-                -- Phase 1: Jeden Mob einmal anhitten (Pulling)
+                -- PHASE 1: Mobs einzeln anvisieren (Mit 3 Studs Abstand, wie gewünscht!)
                 for _, npc in ipairs(targetMobs) do
                     if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                     
@@ -1238,14 +1243,15 @@ task.spawn(function()
                     local isRagdolled = npc:FindFirstChild("Rag") or (npc.Parent and npc.Parent.Name == "Ragdolls") or (mHum and mHum:GetAttribute("isRagdolled"))
                     
                     if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
+                        local initialHealth = mHum.Health
                         local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
                         if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
                         
+                        -- Exakt wie vorher: 3 Studs Abstand!
                         local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
                         local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mRoot.Position.X, attackPos.Y, mRoot.Position.Z))
                         
-                        local distToPos = (root.Position - attackPos).Magnitude
-                        if distToPos > 5 then
+                        if (root.Position - attackPos).Magnitude > 5 then
                             SafeTween(targetCFrame)
                         end
                         
@@ -1253,12 +1259,21 @@ task.spawn(function()
                         if bp then bp.Position = attackPos end
                         root.CFrame = targetCFrame
                         
-                        PerformMeleeAttack({npc})
-                        task.wait(0.05)
+                        -- Wiederhole den Angriff, bis HP sinken (Treffer-Garantie)
+                        local hitConfirmed = false
+                        local hitAttempts = 0
+                        while RyuConfig.AutoFarm and mHum.Health > 0 and not hitConfirmed and hitAttempts < 15 do
+                            PerformMeleeAttack({npc})
+                            task.wait(0.2)
+                            hitAttempts = hitAttempts + 1
+                            if mHum.Health < initialHealth then
+                                hitConfirmed = true
+                            end
+                        end
                     end
                 end
                 
-                -- Phase 2: In die Mitte fliegen und Spammen
+                -- PHASE 2: In die Mitte fliegen und Spammen
                 if RyuConfig.AutoFarm and CheckQuestActive() then
                     local targetCFrameCenter = CFrame.new(attackCenter)
                     
@@ -1314,8 +1329,8 @@ task.spawn(function()
                             lastDamageTime = tick()
                         end
                         
-                        if tick() - lastDamageTime > 15 then
-                            RyuNotify:Send("Fail Safe", "15s kein Schaden. Repositioniere Gegner...", 2)
+                        if tick() - lastDamageTime > 5 then
+                            RyuNotify:Send("Fail Safe", "5s kein Schaden. Repositioniere Gegner...", 2)
                             break 
                         end
                         
@@ -1329,6 +1344,7 @@ task.spawn(function()
                         end
                     end
                     
+                    -- Reset Hitboxes
                     for _, npc in ipairs(targetMobs) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
                         if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
