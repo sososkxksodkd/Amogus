@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP MIT 500 SPEED, 0 RANGE, FREIER KAMERA & Y-ANSTIEG SCHUTZ-PAUSE
+--// SPIDER TP MIT 4 STUDS HÖHE & TOUCH-KLETTER-TRIGGER (500 SPEED RAUF/RUNTER, 0 RANGE, KAMERA FREI)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,7 +560,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
+        -- Exakt 4 Studs über dem Boden/Objekt während des TPs
+        local floorOffset = 4
         
         ToggleHover(true)
         
@@ -621,10 +622,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
 
             if hum then hum.PlatformStand = false end
-
-            if climbEvent then
-                pcall(function() climbEvent:InvokeServer(true) end)
-            end
 
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
@@ -694,7 +691,15 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
-                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 1.5, rayParamsDown)
+                -- BERÜHRUNGS- / WAND-CHECK: Prüft ob dein Körper direkt vor einer Wand/einem Hindernis steht
+                local touchCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2, rayParamsDown)
+                local isTouchingWall = (touchCheckHit and touchCheckHit.Instance and touchCheckHit.Instance.Transparency < 1)
+                
+                -- Klettern Remote NUR DANN aktivieren, wenn du tatsächlich etwas berührst!
+                if climbEvent then
+                    pcall(function() climbEvent:InvokeServer(isTouchingWall) end)
+                end
+
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
@@ -718,12 +723,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     yVelocity = 0
                 end
                 
-                --// SCHUTZ-SYSTEM BEI STARKEM Y-ANSTIEG: WARTEN BIS KLETTERN FERTIG IST //--
-                -- Wenn der Höhenunterschied extrem groß ist, stoppt die Vorwärtsbewegung (addTime = 0), bis Y aufgeholt hat
-                if math.abs(currentY - targetY) > 8 then
-                    addTime = 0 
-                end
-                
                 if currentY < 4 then currentY = 4 end
                 
                 currentY = math.max(currentY, 1)
@@ -733,7 +732,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local targetLookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                -- SCHLAUES WAND-SCAN SYSTEM (Character scannt mit leichtem Pendeln, Kamera bleibt 100% frei)
                 local offsetAngle = math.sin(tick() * 20) * 0.35
                 local baseLookCFrame = CFrame.lookAt(finalPos, targetLookPos)
                 local scannedCFrame = baseLookCFrame * CFrame.Angles(0, offsetAngle, 0)
