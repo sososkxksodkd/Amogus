@@ -372,7 +372,7 @@ local function CreateButton(section, text, callback)
 end
 
 --// ============================================================================
---// ANTI-FLING PURE PHYSICS SYSTEM (BODYPOSITION + BODYGYRO)
+--// ANTI-FLING HOVER SYSTEM 
 --// ============================================================================
 local function ToggleHover(state)
     local char = LocalPlayer.Character
@@ -390,22 +390,9 @@ local function ToggleHover(state)
             bp.Parent = root
         end
         bp.Position = root.Position
-        
-        local bg = root:FindFirstChild("RyuGyro")
-        if not bg then
-            bg = Instance.new("BodyGyro")
-            bg.Name = "RyuGyro"
-            bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            bg.D = 100
-            bg.P = 10000
-            bg.Parent = root
-        end
-        bg.CFrame = root.CFrame
     else
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp:Destroy() end
-        local bg = root:FindFirstChild("RyuGyro")
-        if bg then bg:Destroy() end
     end
 end
 
@@ -471,7 +458,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ANTI-KICK PURE PHYSICS SPIDER TP MIT UNSICHTBARER PLATTFORM & AUTO-ABBRUCH
+--// ANTI-KICK SPIDER TP MIT EINGEFRORENER PHYSIK & SICHEREM Y-SPEED
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -559,6 +546,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         ToggleHover(true)
         
+        root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
+        
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
         local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
@@ -588,18 +577,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
             rayParamsDown.IgnoreWater = true
-            
-            --// ANTI-CHEAT PLATTFORM ERSCHAFFEN //--
-            local antiCheatFloor = Instance.new("Part")
-            antiCheatFloor.Name = "RyuHub_AC_Bypass"
-            antiCheatFloor.Size = Vector3.new(50, 2, 50)
-            antiCheatFloor.Anchored = true
-            antiCheatFloor.CanCollide = true
-            antiCheatFloor.Transparency = 1
-            antiCheatFloor.Parent = Workspace
 
             local function GetTrueTopY(x, z)
-                local currentFilter = {char, antiCheatFloor, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                 local rParams = RaycastParams.new()
                 rParams.FilterType = Enum.RaycastFilterType.Exclude
                 rParams.IgnoreWater = true
@@ -623,7 +603,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 return 0
             end
 
-            if hum then hum.PlatformStand = false end
+            --// BYPASS PHYSIK-SYSTEM START //--
+            if hum then hum.PlatformStand = true end
+            root.Anchored = true 
 
             if climbEvent then
                 pcall(function() climbEvent:InvokeServer(true) end)
@@ -721,9 +703,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local addTime = dt
 
-                -- WANDSCHUTZ
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
-                if wallCheckHit and wallCheckHit.Instance.Transparency < 1 and wallCheckHit.Instance ~= antiCheatFloor then
+                if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
                     if wallTopY > currentY then
                         addTime = 0 
@@ -731,8 +712,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
 
-                -- GESCHWINDIGKEIT WIEDER AUF 500 (Dank Anti-Cheat Bypass)
-                local safeVerticalSpeed = 500 
+                --// GPO ANTI-CHEAT LIMIT IST EXAKT 42! Wir nutzen die sicheren 40 Studs pro Sekunde. //--
+                local safeVerticalSpeed = 40 
 
                 if currentY < targetY - 0.5 then
                     currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
@@ -752,21 +733,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                -- Anti-Cheat Plattform exakt 8 Studs unter den Füßen platzieren (täuscht das Limit)
-                if antiCheatFloor then
-                    antiCheatFloor.CFrame = CFrame.new(currentX, currentY - 8, currentZ)
-                end
+                -- Keine Physik-Spikes mehr! CFrame wird sicher angewendet während RootPart Anchored ist.
+                root.CFrame = CFrame.lookAt(finalPos, lookPos)
+                root.Velocity = Vector3.new(0, 0, 0) 
                 
-                --// PURE PHYSICS MOVEMENT //--
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = finalPos end
-                
-                local bg = root:FindFirstChild("RyuGyro")
-                if bg then 
-                    if (lookPos - finalPos).Magnitude > 0.1 then
-                        bg.CFrame = CFrame.lookAt(finalPos, lookPos)
-                    end
-                end
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
@@ -775,11 +747,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
             end
             
-            -- Anti Cheat Plattform löschen wenn der Loop vorbei ist
-            if antiCheatFloor then
-                pcall(function() antiCheatFloor:Destroy() end)
-            end
+            --// BYPASS PHYSIK-SYSTEM ENDE //--
+            root.Anchored = false
+            if hum then hum.PlatformStand = false end
             
+            if hum then hum:Move(Vector3.new(0,0,0), false) end
             if climbEvent then
                 task.spawn(function()
                     pcall(function() climbEvent:InvokeServer(false) end)
@@ -788,6 +760,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
+            
+            root.Velocity = Vector3.new(0, 0, 0)
             
             return true
         end
