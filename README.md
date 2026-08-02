@@ -130,7 +130,6 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
-    ElevatorSpeed = 300, 
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -403,7 +402,6 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
     RyuConfig.KillHeight = val 
 end)
 
--- NEUE FARM CONFIG FOLIE MIT LIVE SCANNER
 local DropMob, DropNPC, DropWep, DropIsland
 
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
@@ -478,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP: 3 STUDS PERMANENT HOVER, 2 STUDS WAND-AKTIVATOR, KEIN WARTEN!
+--// PERFEKTIONIERTES SPIDER TP (0 WARTEN, SOFORT-FLÜSSIG-AUFZUG, WASSER BUG FIX)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -556,15 +554,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         if closestRobo and closestRobo:FindFirstChild("HumanoidRootPart") then
             targetPos = closestRobo.HumanoidRootPart.Position
         else
+            targetPos = Vector3.new(rawPos.X, root.Position.Y, rawPos.Z)
             isLookingForRobo = true
         end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN (Halbe Spielerhöhe + HipHeight + 3)
+        -- PERMANENT 3 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN
         local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 3
         
         ToggleHover(true)
+        
+        root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
         
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
@@ -584,7 +585,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             
             local elapsedTime = 0
             local currentY = root.Position.Y
-            local isClimbing = false
             local lastFootstep = tick()
             local nextRoboCheck = tick()
             
@@ -594,6 +594,32 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+            rayParamsDown.IgnoreWater = true -- FIX FÜR DEN WASSER BUG!
+
+            local function GetTrueTopY(x, z)
+                local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                local rParams = RaycastParams.new()
+                rParams.FilterType = Enum.RaycastFilterType.Exclude
+                rParams.IgnoreWater = true -- FIX FÜR DEN WASSER BUG!
+                
+                local origin = Vector3.new(x, 3000, z)
+                local dir = Vector3.new(0, -4000, 0)
+                
+                for i = 1, 10 do
+                    rParams.FilterDescendantsInstances = currentFilter
+                    local hit = Workspace:Raycast(origin, dir, rParams)
+                    if hit then
+                        if hit.Instance.Transparency < 1 then
+                            return hit.Position.Y
+                        else
+                            table.insert(currentFilter, hit.Instance)
+                        end
+                    else
+                        break
+                    end
+                end
+                return 0
+            end
 
             if hum then hum.PlatformStand = false end
 
@@ -605,6 +631,21 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
+                
+                for _, part in pairs(char:GetChildren()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
+                
+                if hum then
+                    local animator = hum:FindFirstChild("Animator")
+                    if animator then
+                        for _, track in pairs(animator:GetPlayingAnimationTracks()) do
+                            if track.Priority == Enum.AnimationPriority.Movement or track.Priority == Enum.AnimationPriority.Core then
+                                track:Stop()
+                            end
+                        end
+                    end
+                end
                 
                 if isLookingForRobo and tick() - nextRoboCheck > 1 then
                     nextRoboCheck = tick()
@@ -632,83 +673,55 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 local currentPos = root.Position
-                if (currentPos - tPos).Magnitude <= 5 then break end
+                local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
+                local flatTargetPos = Vector3.new(tPos.X, 0, tPos.Z)
+                if (flatCurrent - flatTargetPos).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
                 local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
                 
-                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
+                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                -- WANDSCHUTZ & 2 STUDS AKTIVATOR (Erkennt Wände exakt 2 Studs vor dir)
-                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2, rayParamsDown)
-                local wallCheckHigh = Workspace:Raycast(calcPos + Vector3.new(0, 15, 0), flatMoveDir * 2, rayParamsDown)
-                local ledgeCheckHit = Workspace:Raycast(calcPos + (flatMoveDir * 3) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
+                -- WANDSCHUTZ & 4 STUDS RADAR VORAUS
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
                 
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 2
-                local isWallBlockingHigh = wallCheckHigh and wallCheckHigh.Distance <= 2
-                local finalY = (ledgeCheckHit and ledgeCheckHit.Position.Y or 0) + floorOffset
+                local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
+                local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
+                
+                local targetY = math.max(groundYCurrent, groundYAhead)
                 
                 local yVelocity = 0
                 local addTime = dt
 
-                if isWallBlocking then 
-                    if not isWallBlockingHigh then
-                        -- SMALL OBJECT BYPASS: Gleitet über kleine Objekte (Zäune, Steine)
-                        currentY = currentY + 15
-                        addTime = dt
-                        yVelocity = 0
-                    else
-                        -- ECHTES KLETTERN (Wand im 2-Stud-Abstand) -> SCHNELLER AUFZUG
-                        if not isClimbing then
-                            isClimbing = true
-                            pcall(function() climbEvent:InvokeServer(true) end)
-                        end
-                        -- EXTREM SCHNELLER AUFZUG OHNE LIMIT (800 Studs/Sekunde)
-                        currentY = currentY + (800 * dt)
-                        addTime = dt -- KEIN WARTEN MEHR! Immer weiter laufen.
-                        yVelocity = 20 -- Physische Geschwindigkeit für Anti-Cheat
+                -- KOLLISIONSSCHUTZ: Prüft exakt 2.5 Studs vor dir, um Noclip in eine Wand zu verhindern
+                local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
+                if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
+                    -- Exakte Höhe der Wand ermitteln, gegen die wir laufen
+                    local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
+                    if wallTopY > currentY then
+                        addTime = 0 -- VORWÄRTSBEWEGUNG STOPPT! Wir gehen nicht in die Wand rein.
+                        targetY = math.max(targetY, wallTopY)
                     end
-                elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
-                    -- ABGRUND (Runterklettern) - Ignoriert Wasser!
-                    if not isClimbing then
-                        isClimbing = true
-                        pcall(function() climbEvent:InvokeServer(true) end)
-                    end
-                    
-                    -- NOCLIP FIX: Fällt niemals unter den echten Boden
-                    currentY = math.max(currentY - (800 * dt), finalY)
-                    addTime = dt -- KEIN WARTEN/VERLANGSAMEN MEHR!
-                    yVelocity = -20 
-                    
-                    if currentY - finalY <= 3 then
-                        isClimbing = false
-                        pcall(function() climbEvent:InvokeServer(false) end)
-                    end
-                else
-                    -- NORMALES LAUFEN / PLATEAU / WASSER
-                    if isClimbing then
-                        isClimbing = false
-                        pcall(function() climbEvent:InvokeServer(false) end)
-                    end
-                    
-                    if finalY > currentY then
-                        currentY = math.min(currentY + (800 * dt), finalY)
-                    elseif finalY < currentY then
-                        currentY = math.max(currentY - (800 * dt), finalY)
-                    end
-                    
-                    -- Wasser Fix: Bei Y=0 bis Y=4 immer oben bleiben und schnell sein!
-                    if currentY < 4 then 
-                        currentY = 4 
-                    end
-                    
-                    yVelocity = 0
-                    addTime = dt 
                 end
+
+                -- SOFORT ZUM HÖCHSTEN PUNKT FLÜSSIG (EXTREM SCHNELLER AUFZUG: 2500 Speed)
+                if currentY < targetY - 0.5 then
+                    currentY = math.min(currentY + (2500 * dt), targetY)
+                    yVelocity = 20
+                elseif currentY > targetY + 0.5 then
+                    currentY = math.max(currentY - (1500 * dt), targetY)
+                    if currentY < groundYCurrent then currentY = groundYCurrent end
+                    yVelocity = -20
+                else
+                    currentY = targetY
+                    yVelocity = 0
+                end
+                
+                if currentY < 4 then currentY = 4 end
                 
                 currentY = math.max(currentY, 1)
                 
@@ -717,18 +730,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                local moveDir = (lookPos - finalPos).Unit
-                if moveDir ~= moveDir then moveDir = root.CFrame.LookVector end
+                root.CFrame = CFrame.lookAt(finalPos, lookPos)
+                if hum then hum:Move(flatMoveDir, false) end
                 
-                if (lookPos - finalPos).Magnitude > 0.1 then 
-                    root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                else
-                    root.CFrame = CFrame.new(finalPos)
-                end
-                
-                if hum then hum:Move(moveDir, false) end
-                
-                root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+                root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
                 
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = finalPos end
@@ -1019,6 +1024,7 @@ local function SafeTween(targetCFrame, customSpeed)
     local rayParams = RaycastParams.new()
     rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), Workspace:FindFirstChild("Water")}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.IgnoreWater = true
 
     while tick() - startTime < timeToTake do
         if not RyuConfig.AutoFarm then break end
@@ -1179,7 +1185,7 @@ task.spawn(function()
     end
 end)
 
---// MAIN FARM LOOP (EXAKT IM NPC INNEN STEHEN & SCHADENS-PRÜFUNG)
+--// MAIN FARM LOOP (3 STUDS ABSTAND, MIT HP-CHECK)
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1236,7 +1242,7 @@ task.spawn(function()
                 
                 EquipTargetWeapon()
                 
-                -- PHASE 1: Mobs einzeln anvisieren und DIREKT IN IHNEN DRIN STEHEN!
+                -- PHASE 1: Mobs einzeln anvisieren (Mit 3 Studs Abstand)
                 for _, npc in ipairs(targetMobs) do
                     if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                     
@@ -1246,9 +1252,11 @@ task.spawn(function()
                     
                     if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
                         local initialHealth = mHum.Health
-                        -- Direkt auf der exakten Position des Mobs platzieren (Mitten in ihm drin!)
-                        local attackPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
-                        local targetCFrame = CFrame.new(attackPos)
+                        local curFlatDir = Vector3.new(root.Position.X - mRoot.Position.X, 0, root.Position.Z - mRoot.Position.Z)
+                        if curFlatDir.Magnitude < 0.1 then curFlatDir = Vector3.new(1, 0, 0) end
+                        
+                        local attackPos = mRoot.Position + (curFlatDir.Unit * 3) + Vector3.new(0, RyuConfig.KillHeight, 0)
+                        local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mRoot.Position.X, attackPos.Y, mRoot.Position.Z))
                         
                         if (root.Position - attackPos).Magnitude > 5 then
                             SafeTween(targetCFrame)
@@ -1258,7 +1266,7 @@ task.spawn(function()
                         if bp then bp.Position = attackPos end
                         root.CFrame = targetCFrame
                         
-                        -- Wiederhole den Angriff, bis HP sinken
+                        -- Wiederhole den Angriff, bis HP sinken (Treffer-Garantie)
                         local hitConfirmed = false
                         local hitAttempts = 0
                         while RyuConfig.AutoFarm and mHum.Health > 0 and not hitConfirmed and hitAttempts < 15 do
@@ -1272,7 +1280,7 @@ task.spawn(function()
                     end
                 end
                 
-                -- PHASE 2: In die exakte Mitte aller Mobs fliegen und angreifen
+                -- PHASE 2: In die Mitte fliegen und Spammen
                 if RyuConfig.AutoFarm and CheckQuestActive() then
                     local targetCFrameCenter = CFrame.new(attackCenter)
                     
@@ -1343,6 +1351,7 @@ task.spawn(function()
                         end
                     end
                     
+                    -- Reset Hitboxes
                     for _, npc in ipairs(targetMobs) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
                         if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
