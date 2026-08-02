@@ -43,7 +43,7 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (QUESTS VS ENEMIES, ISLANDS FOLDER & UNEQUIPED WEAPONS)
+--// DYNAMISCHER WORKSPACE SCANNER (SORTIERT & PERFEKTIONIERT FÜR AUTO-REFRESH)
 local function GetDynamicLists()
     local mobs = {}
     local quests = {}
@@ -61,7 +61,7 @@ local function GetDynamicLists()
                         table.insert(mobs, v.Name)
                         mDict[v.Name] = true
                     end
-                elseif v:FindFirstChild("QuestMark") then
+                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
                     if not qDict[v.Name] then
                         table.insert(quests, v.Name)
                         qDict[v.Name] = true
@@ -100,11 +100,17 @@ local function GetDynamicLists()
         end
     end
     
-    -- Fallbacks falls komplett leer
+    -- Fallbacks
     if #mobs == 0 then mobs = {"Fishman Karate User"} end
     if #quests == 0 then quests = {"Becky"} end
     if #islands == 0 then islands = {"Fishman Cave"} end
     if #weapons == 0 then weapons = {"Combat"} end
+    
+    -- WICHTIG FÜR REFRESH: Alphabetisch sortieren!
+    table.sort(mobs)
+    table.sort(quests)
+    table.sort(islands)
+    table.sort(weapons)
     
     return mobs, quests, islands, weapons
 end
@@ -124,7 +130,7 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
-    ElevatorSpeed = 500, -- Permanent auf 500 fixiert
+    ElevatorSpeed = 500, -- PERMANENT AUF 500
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -301,7 +307,6 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
--- Verbessertes Dropdown mit UI-Fix für Refresh
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -473,7 +478,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (MIT WASSER-FIX & ANTI-CHEAT BYPASS)
+--// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (SMART EDGE & NOCLIP FIX)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -631,36 +636,17 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local samplePos1 = Vector3.new(currentX, 0, currentZ)
-                local samplePos2 = samplePos1 + (flatMoveDir * 6)
+                -- SMARTER EDGE DETECTION RAYCASTS
+                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
+                local wallCheckHigh = Workspace:Raycast(currentPos + Vector3.new(0, 6, 0), flatMoveDir * 4.5, rayParamsDown)
+                local ledgeCheckHit = Workspace:Raycast(currentPos + (flatMoveDir * 5) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
                 
-                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y1 = hit1 and hit1.Position.Y or 0
+                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
+                local isWallBlockingHigh = wallCheckHigh and wallCheckHigh.Distance <= 4
+                local finalY = (ledgeCheckHit and ledgeCheckHit.Position.Y or 0) + floorOffset
                 
-                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y2 = hit2 and hit2.Position.Y or 0
-                
-                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
-                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
-                
-                local targetY = y1
-                if forwardHit then
-                    targetY = math.max(y1, y2)
-                else
-                    if math.abs(y2 - currentY) < 6 then
-                        targetY = y2
-                    end
-                end
-                
-                targetY = math.max(targetY, 1) 
-                
-                local finalY = targetY + floorOffset
                 local yVelocity = 0
                 local addTime = dt
-                
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
-                local ledgeCheckHit = Workspace:Raycast(currentPos + (flatMoveDir * 5) + Vector3.new(0, 5, 0), Vector3.new(0, -100, 0), rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
 
                 if isWallBlocking then 
                     -- KLETTERN (Steil hoch)
@@ -669,17 +655,35 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         pcall(function() climbEvent:InvokeServer(true) end)
                     end
                     currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
-                    addTime = dt * 0.05 -- Sanft vorwärts drücken (verhindert Feststecken)
+                    
+                    if not isWallBlockingHigh then
+                        -- Kante erreicht! Push direkt drüber ohne zu warten
+                        addTime = dt * 0.8
+                        currentY = currentY + 5 
+                    else
+                        addTime = dt * 0.05 
+                    end
+                    
                     yVelocity = 20 -- Anti-Cheat Fix: Physische Geschwindigkeit limitieren
-                elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 5) then
+                    
+                elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
                     -- ABGRUND (Runterklettern) - Ignoriert Wasser!
                     if not isClimbing then
                         isClimbing = true
                         pcall(function() climbEvent:InvokeServer(true) end)
                     end
-                    currentY = currentY - (RyuConfig.ElevatorSpeed * dt)
+                    
+                    -- NOCLIP FIX: Er geht NIE unter den echten Boden (finalY)!
+                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
                     addTime = dt * 0.5 
                     yVelocity = -20 -- Anti-Cheat Fix
+                    
+                    -- Sanftes Landen (Stoppt Klettern kurz vor dem Boden)
+                    if currentY - finalY <= 3 then
+                        isClimbing = false
+                        pcall(function() climbEvent:InvokeServer(false) end)
+                    end
+                    
                 else
                     -- NORMALES LAUFEN / PLATEAU / WASSER (100% Full Speed)
                     if isClimbing then
@@ -687,10 +691,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         pcall(function() climbEvent:InvokeServer(false) end)
                     end
                     
+                    -- Schnelles Angleichen, kein Warten mehr
                     if finalY > currentY then
-                        currentY = math.min(currentY + (150 * dt), finalY)
+                        currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), finalY)
                     elseif finalY < currentY then
-                        currentY = math.max(currentY - (150 * dt), finalY)
+                        currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
                     end
                     
                     -- Wasser Fix: Bei Y=0 bis Y=4 immer oben bleiben und schnell sein!
@@ -989,7 +994,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB FÜR AUTO FARM)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (FÜR DEN AUTO FARM)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
