@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (GROUND & GEPPO SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PURE GROUND SPIDER TP - NO NOCLIP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -174,7 +174,7 @@ local RyuConfig = {
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
-    UseGeppo = false, -- Option 2: Geppo / Sky Walk Remote Mode
+    UseGeppo = false,
     
     AutoStrength = false, StrengthCap = 1500,
     AutoStamina = false,  StaminaCap = 1500,
@@ -512,12 +512,11 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
--- GEPPO OPTION TOGGLE (OPTION 2)
 CreateToggle(SecIslandTP, "Use Geppo (Sky Walk)", RyuConfig.UseGeppo, function(state)
     RyuConfig.UseGeppo = state
 end)
 
---// SPIDER TELEPORT SYSTEM (GROUND MODE & OPTION 2 GEPPO REMOTE)
+--// PURE GROUND SPIDER TELEPORT SYSTEM
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -602,7 +601,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
-            -- HELPER: OPTION 2 GEPPO REMOTE CALLER
             local lastGeppo = 0
             local function TriggerGeppoRemote()
                 if RyuConfig.UseGeppo and tick() - lastGeppo >= 0.25 then
@@ -705,9 +703,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local calcPos = Vector3.new(currentX, currentY, currentZ)
                     
-                    -- MULTI-RAY NOCLIP PROTECTION
-                    local forwardHitCenter = Workspace:Raycast(calcPos, flatMoveDir * 8, rayParams)
-                    local forwardHitHead = Workspace:Raycast(calcPos + Vector3.new(0, 2.5, 0), flatMoveDir * 8, rayParams)
+                    -- ERHÖHTER SCAN-ABSTAND (12 STUDS VORAUS), UM NOCLIP-OVERLAP ZU VERHINDERN
+                    local forwardHitCenter = Workspace:Raycast(calcPos, flatMoveDir * 12, rayParams)
+                    local forwardHitHead = Workspace:Raycast(calcPos + Vector3.new(0, 2.5, 0), flatMoveDir * 12, rayParams)
                     local wallDetected = (forwardHitCenter and forwardHitCenter.Instance.Transparency < 1) or (forwardHitHead and forwardHitHead.Instance.Transparency < 1)
 
                     local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
@@ -716,25 +714,26 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local targetY = math.max(groundYCurrent, groundYAhead)
 
-                    -- STOPP VORWÄRTSBEWEGUNG BEI WAND, BIS HÖHE REICHT (KEIN REINDRÜCKEN IN WÄNDE)
+                    -- STOPPT DIE VORWÄRTSBEWEGUNG VOLLSTÄNDIG, BIS BEREICHE ÜBER DER WAND ERREICHT WERDEN
                     local advanceFactor = 1
                     if wallDetected then
                         local hitPart = forwardHitCenter or forwardHitHead
                         local obstacleY = GetTrueTopY(hitPart.Position.X + (flatMoveDir.X * 0.5), hitPart.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
                         targetY = math.max(targetY, obstacleY)
                         
-                        if currentY < targetY - 1.5 then
-                            advanceFactor = 0.05 
+                        -- Vorwärtsbewegung stoppen, falls Höhe nicht ausreicht
+                        if currentY < targetY - 1.0 then
+                            advanceFactor = 0.0 
                         end
                     end
 
-                    -- SAFE Y-SPEED LIMIT (Max 24 Studs/sek für 100% Bypass des YAxis Fast Detection)
-                    local maxVerticalSpeed = 24
+                    -- SICHERE STEIGGESCHWINDIGKEIT (Max 22 Studs/Sekunde für Anti-Cheat Bypass)
+                    local maxVerticalSpeed = 22
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
                         currentY = math.min(currentY + (maxVerticalSpeed * dt), targetY)
-                        TriggerGeppoRemote() -- OPTION 2 GEPPO REMOTE BEIM STEIGEN
+                        TriggerGeppoRemote()
                     elseif yDiff < 0 then
                         currentY = math.max(currentY - (maxVerticalSpeed * dt), targetY)
                     end
