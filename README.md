@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (INSTANT WALL-TOP CLIMB SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FAST & SMOOTH SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -511,7 +511,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// INSTANT WALL-TOP CLIMB SPIDER TELEPORT (0 OVERLAP NOCLIP DETECT)
+--// INSTANT WALL-TOP CLIMB SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -709,7 +709,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local calcPos = Vector3.new(currentX, currentY, currentZ)
                     
-                    -- SOFORT-ERKENNUNG: Sende Vorwärts-Raycasts, um Wände frühzeitig zu bemerken
+                    -- SOFORT-ERKENNUNG MIT REMOTE-CLIMB (FLÜSSIGE SCHNELL-KLETTER LOGIK)
                     local wallCheck = Workspace:Raycast(calcPos, flatMoveDir * 8, rayParams) or Workspace:Raycast(calcPos + Vector3.new(0, 3, 0), flatMoveDir * 8, rayParams)
                     local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                     local targetY = groundYCurrent
@@ -717,11 +717,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local isClimbingWall = false
                     if wallCheck and wallCheck.Instance and wallCheck.Instance.Transparency < 1 then
                         isClimbingWall = true
-                        -- Berechne sofort den höchsten Punkt der Wand direkt vor dir
                         local obstacleTopY = GetTrueTopY(wallCheck.Position.X + (flatMoveDir.X * 0.5), wallCheck.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
                         targetY = math.max(targetY, obstacleTopY)
                         
-                        -- Nutze Kletter-Remote beim Aufstieg an der Wand
+                        -- Triggere Remote-Climb Event für schnelles Hochklettern
                         if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                     else
                         local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 12)
@@ -729,14 +728,14 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
 
-                    -- HYBRID Y-STEERING: Stoppe Vorwärts-Bewegung bei steilen Wänden bis Höhe erreicht ist
+                    -- DYNAMISCHE DROSSELUNG: Flüssiges Weiterlaufen (0.55x) statt abruptem Stoppen (0.05x)
                     local advanceSpeed = 1
                     if isClimbingWall and currentY < targetY - 2 then
-                        advanceSpeed = 0.05 -- Hält den Charakter vor der Wand, damit er nicht hineinfliegt
+                        advanceSpeed = 0.55
                     end
 
-                    -- Y-SPEED CEILING: Maximal 26 Studs/Sekunde für Bypassing der YAxis Fast Detection
-                    local maxVerticalSpeed = 26 
+                    -- DYNAMISCH ANGEPASSTE STEIG-GESCHWINDIGKEIT (Erhöht bei erkanntem Klettern für schnellen Aufstieg)
+                    local maxVerticalSpeed = isClimbingWall and 38 or 26 
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
