@@ -130,7 +130,7 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
-    ElevatorSpeed = 200, -- GEÄNDERT AUF 200
+    ElevatorSpeed = 200, 
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -404,7 +404,6 @@ CreateSlider(SecFarmAdvanced, "Kill Height Offset", -20, 30, RyuConfig.KillHeigh
 end)
 
 local DropMob, DropNPC, DropWep, DropIsland
-
 local SecFarmConfig = CreateSection(SubConfig, "Farm Config")
 DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
 DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
@@ -476,8 +475,11 @@ DropIsland = CreateDropdown(SecIslandTP, "Select Island", InitIslands, "TargetIs
 CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
+CreateSlider(SecIslandTP, "Climb Speed", 60, 500, RyuConfig.ElevatorSpeed, function(val)
+    RyuConfig.ElevatorSpeed = val
+end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (SMART EDGE & NOCLIP FIX)
+--// SPIDER TP (PERMANENTES KLETTERN & KEIN SPAM)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -555,6 +557,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         if closestRobo and closestRobo:FindFirstChild("HumanoidRootPart") then
             targetPos = closestRobo.HumanoidRootPart.Position
         else
+            -- Y-Achse ignorieren bei rawPos
+            targetPos = Vector3.new(rawPos.X, root.Position.Y, rawPos.Z)
             isLookingForRobo = true
         end
         
@@ -563,6 +567,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         local floorOffset = hipHeight + (root.Size.Y / 2)
         
         ToggleHover(true)
+        
+        -- 1 Stud in die Luft beim Starten
+        root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
         
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
         local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
@@ -584,7 +591,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local currentY = root.Position.Y
             local lastFootstep = tick()
             local nextRoboCheck = tick()
-            local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
@@ -594,9 +600,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
 
             if hum then hum.PlatformStand = false end
-            
-            -- PERMANENT KLETTERN AKTIVIEREN
+
+            -- REMOTES PERMANENT AKTIVIEREN (Kein Spam im Loop)
             if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+            if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
 
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
@@ -628,7 +635,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
                 
                 local currentPos = root.Position
-                if (currentPos - tPos).Magnitude <= 5 then break end
+                local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
+                local flatTargetPos = Vector3.new(tPos.X, 0, tPos.Z)
+                if (flatCurrent - flatTargetPos).Magnitude <= 5 then break end
                 
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
@@ -652,37 +661,26 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
                 if isWallBlocking then 
                     if not isWallBlockingHigh then
-                        -- SMALL OBJECT BYPASS: Gleitet über kleine Objekte (Zäune, Steine)
                         currentY = currentY + 15
                         addTime = dt
                         yVelocity = 0
                     else
-                        -- ECHTES KLETTERN (Steil hoch)
                         currentY = currentY + (RyuConfig.ElevatorSpeed * dt)
-                        addTime = dt * 0.5 
-                        yVelocity = 20 -- Physische Geschwindigkeit für Anti-Cheat
+                        addTime = dt * 0.8
+                        yVelocity = 20 
                     end
                 elseif currentY > 5 and (not ledgeCheckHit or finalY < currentY - 6) then
-                    -- ABGRUND (Runterklettern) - Ignoriert Wasser!
-                    
-                    -- NOCLIP FIX: Fällt niemals unter den echten Boden
                     currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
                     addTime = dt * 0.5 
                     yVelocity = -20 
-                    
                 else
-                    -- NORMALES LAUFEN / PLATEAU / WASSER
-                    
                     if finalY > currentY then
                         currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), finalY)
                     elseif finalY < currentY then
                         currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), finalY)
                     end
                     
-                    -- Wasser Fix: Bei Y=0 bis Y=4 immer oben bleiben und schnell sein!
-                    if currentY < 4 then 
-                        currentY = 4 
-                    end
+                    if currentY < 4 then currentY = 4 end
                     
                     yVelocity = 0
                     addTime = dt 
@@ -713,19 +711,14 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
-                    if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                     if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-                    if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                 end
             end
             
             if hum then hum:Move(Vector3.new(0,0,0), false) end
             
-            if climbEvent then
-                task.spawn(function()
-                    pcall(function() climbEvent:InvokeServer(false) end)
-                end)
-            end
+            -- Klettern beenden
+            if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
             
             char:SetAttribute("evading", nil)
             _G.soruDashing = nil
@@ -1053,7 +1046,7 @@ RunService.Stepped:Connect(function()
 end)
 
 --// ============================================================================
---// HARMONY CORE: 1-BY-1 FARM (TREFFERGARANTIE & SCHADENS-CHECK)
+--// HARMONY CORE: 1-BY-1 FARM (TREFFERGARANTIE & ANTI-KNOCKBACK)
 --// ============================================================================
 local function CheckQuestActive()
     local active = false
@@ -1116,7 +1109,7 @@ local function FetchQuest()
     end
 end
 
---// FAIL-SAFE: QUEST SICHERUNG (5 SEC)
+--// FAIL-SAFE: QUEST SICHERUNG
 task.spawn(function()
     while true do
         task.wait(5) 
@@ -1159,7 +1152,7 @@ task.spawn(function()
     end
 end)
 
---// MAIN FARM LOOP (EXAKT IM NPC INNEN STEHEN & SCHADENS-PRÜFUNG)
+--// MAIN FARM LOOP
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1216,7 +1209,7 @@ task.spawn(function()
                 
                 EquipTargetWeapon()
                 
-                -- PHASE 1: Mobs einzeln anvisieren und DIREKT IN IHNEN DRIN STEHEN!
+                -- PHASE 1: Mobs einzeln anvisieren und Baiten
                 for _, npc in ipairs(targetMobs) do
                     if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                     
@@ -1226,7 +1219,6 @@ task.spawn(function()
                     
                     if mHum and mRoot and mHum.Health > 0 and not isRagdolled then
                         local initialHealth = mHum.Health
-                        -- Direkt auf der exakten Position des Mobs platzieren (Mitten in ihm drin!)
                         local attackPos = mRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 0)
                         local targetCFrame = CFrame.new(attackPos)
                         
@@ -1238,10 +1230,14 @@ task.spawn(function()
                         if bp then bp.Position = attackPos end
                         root.CFrame = targetCFrame
                         
-                        -- Wiederhole den Angriff, bis HP sinken
                         local hitConfirmed = false
                         local hitAttempts = 0
+                        
+                        -- Anti-Knockback beim Baiten!
+                        mRoot.Anchored = true
+                        
                         while RyuConfig.AutoFarm and mHum.Health > 0 and not hitConfirmed and hitAttempts < 15 do
+                            mRoot.Velocity = Vector3.new(0,0,0)
                             PerformMeleeAttack({npc})
                             task.wait(0.2)
                             hitAttempts = hitAttempts + 1
@@ -1249,6 +1245,8 @@ task.spawn(function()
                                 hitConfirmed = true
                             end
                         end
+                        
+                        mRoot.Anchored = false
                     end
                 end
                 
@@ -1287,6 +1285,7 @@ task.spawn(function()
                                 for _, part in pairs(npc:GetChildren()) do
                                     if part:IsA("BasePart") then
                                         part.CanCollide = false
+                                        part.Anchored = true -- ANTI KNOCKBACK
                                         part.Velocity = Vector3.new(0, 0, 0)
                                         part.RotVelocity = Vector3.new(0, 0, 0)
                                     end
@@ -1297,6 +1296,8 @@ task.spawn(function()
                                 else
                                     mRoot.Size = Vector3.new(20, 20, 20)
                                     mRoot.CanCollide = false
+                                    mRoot.Anchored = true -- EXTREM ANTI KNOCKBACK
+                                    mRoot.CFrame = targetCFrameCenter -- Friert Gegner in der Mitte ein
                                     mRoot.Velocity = Vector3.new(0, 0, 0)
                                     mRoot.RotVelocity = Vector3.new(0, 0, 0)
                                 end
@@ -1323,9 +1324,16 @@ task.spawn(function()
                         end
                     end
                     
+                    -- Reset Hitboxes und Anchors
                     for _, npc in ipairs(targetMobs) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
-                        if mRoot then mRoot.Size = Vector3.new(2, 2, 1) end
+                        if mRoot then 
+                            mRoot.Size = Vector3.new(2, 2, 1) 
+                            mRoot.Anchored = false
+                            for _, p in pairs(npc:GetChildren()) do
+                                if p:IsA("BasePart") then p.Anchored = false end
+                            end
+                        end
                     end
                 end
             end
