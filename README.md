@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP MIT 4 STUDS HÖHE & TOUCH-KLETTER-TRIGGER (500 SPEED RAUF/RUNTER, 0 RANGE, KAMERA FREI)
+--// SPIDER TP MIT 4 STUDS HÖHE & TOUCH-TRIGGER FÜR WÄNDE (500 SPEED RAUF/RUNTER, 0 RANGE, KAMERA FREI)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -560,7 +560,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         
         local hum = char:FindFirstChildOfClass("Humanoid")
         
-        -- Exakt 4 Studs über dem Boden/Objekt während des TPs
+        -- Exakt 4 Studs über dem Boden/Objekt schweben während des TPs
         local floorOffset = 4
         
         ToggleHover(true)
@@ -681,7 +681,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local calcPos = Vector3.new(currentX, currentY, currentZ)
                 
-                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0) -- Range 0
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 0) -- Kletter-Range auf 0
                 
                 local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                 local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
@@ -691,11 +691,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
-                -- BERÜHRUNGS- / WAND-CHECK: Prüft ob dein Körper direkt vor einer Wand/einem Hindernis steht
-                local touchCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2, rayParamsDown)
+                -- BERÜHRUNGS-PRÜFUNG: Klettern nur aktivieren, wenn etwas den Körper/Charakter berührt
+                local touchCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 1.5, rayParamsDown)
                 local isTouchingWall = (touchCheckHit and touchCheckHit.Instance and touchCheckHit.Instance.Transparency < 1)
                 
-                -- Klettern Remote NUR DANN aktivieren, wenn du tatsächlich etwas berührst!
                 if climbEvent then
                     pcall(function() climbEvent:InvokeServer(isTouchingWall) end)
                 end
@@ -723,6 +722,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     yVelocity = 0
                 end
                 
+                -- Schutz-System bei starkem Y-Anstieg: Warten, bis Klettern/Höhe angepasst ist
+                if math.abs(currentY - targetY) > 8 then
+                    addTime = 0 
+                end
+                
                 if currentY < 4 then currentY = 4 end
                 
                 currentY = math.max(currentY, 1)
@@ -732,6 +736,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local targetLookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
+                -- Schlaue Wand-Scan Rotation (Kamera bleibt absolut frei)
                 local offsetAngle = math.sin(tick() * 20) * 0.35
                 local baseLookCFrame = CFrame.lookAt(finalPos, targetLookPos)
                 local scannedCFrame = baseLookCFrame * CFrame.Angles(0, offsetAngle, 0)
