@@ -43,7 +43,7 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (SORTIERT & PERFEKTIONIERT FÜR AUTO-REFRESH)
+--// DYNAMISCHER WORKSPACE SCANNER (NUR IN DER NÄHE & CRASH-FREE)
 local function GetDynamicLists()
     local mobs = {}
     local quests = {}
@@ -52,53 +52,85 @@ local function GetDynamicLists()
     
     local mDict, qDict, iDict, wDict = {}, {}, {}, {}
     
-    -- Scanne NPCs (Mit präziser Unterscheidung Regen vs QuestMark)
-    if Workspace:FindFirstChild("NPCs") then
-        for _, v in pairs(Workspace.NPCs:GetChildren()) do
-            if v:IsA("Model") then
-                if v:FindFirstChild("Regen") then
-                    if not mDict[v.Name] then
-                        table.insert(mobs, v.Name)
-                        mDict[v.Name] = true
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local playerPos = root and root.Position
+    
+    -- Scanne NPCs (Nur in einem Radius von 2500 Studs - filtert andere Inseln aus!)
+    pcall(function()
+        if Workspace:FindFirstChild("NPCs") then
+            for _, v in pairs(Workspace.NPCs:GetChildren()) do
+                if v:IsA("Model") then
+                    local isNear = true
+                    if playerPos then
+                        local pivot = v:GetPivot()
+                        if (pivot.Position - playerPos).Magnitude > 2500 then
+                            isNear = false
+                        end
                     end
-                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
-                    if not qDict[v.Name] then
-                        table.insert(quests, v.Name)
-                        qDict[v.Name] = true
+                    
+                    if isNear then
+                        if v:FindFirstChild("Regen") then
+                            if not mDict[v.Name] then
+                                table.insert(mobs, v.Name)
+                                mDict[v.Name] = true
+                            end
+                        elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
+                            if not qDict[v.Name] then
+                                table.insert(quests, v.Name)
+                                qDict[v.Name] = true
+                            end
+                        end
                     end
                 end
             end
         end
-    end
+    end)
     
     -- Scanne Inseln direkt aus dem Islands Ordner
-    local islandsFolder = Workspace:FindFirstChild("Islands")
-    if islandsFolder then
-        for _, v in pairs(islandsFolder:GetChildren()) do
-            if not iDict[v.Name] then
-                table.insert(islands, v.Name)
-                iDict[v.Name] = true
+    pcall(function()
+        local islandsFolder = Workspace:FindFirstChild("Islands")
+        if islandsFolder then
+            for _, v in pairs(islandsFolder:GetChildren()) do
+                if not iDict[v.Name] then
+                    table.insert(islands, v.Name)
+                    iDict[v.Name] = true
+                end
             end
         end
-    end
+    end)
     
     -- Scanne Waffen im Unequiped Ordner (und Backpack)
-    local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
-    if unequiped then
-        for _, item in pairs(unequiped:GetChildren()) do
-            if item:IsA("Tool") and not wDict[item.Name] then
-                table.insert(weapons, item.Name)
-                wDict[item.Name] = true
+    pcall(function()
+        local backpack = LocalPlayer:FindFirstChild("Backpack")
+        if backpack then
+            local unequiped = backpack:FindFirstChild("Unequiped")
+            if unequiped then
+                for _, item in pairs(unequiped:GetChildren()) do
+                    if item:IsA("Tool") and not wDict[item.Name] then
+                        table.insert(weapons, item.Name)
+                        wDict[item.Name] = true
+                    end
+                end
+            end
+            
+            for _, item in pairs(backpack:GetChildren()) do
+                if item:IsA("Tool") and item.Name ~= "Unequiped" and not wDict[item.Name] then
+                    table.insert(weapons, item.Name)
+                    wDict[item.Name] = true
+                end
             end
         end
-    end
-    
-    for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
-        if item:IsA("Tool") and item.Name ~= "Unequiped" and not wDict[item.Name] then
-            table.insert(weapons, item.Name)
-            wDict[item.Name] = true
+        
+        if char then
+            for _, item in pairs(char:GetChildren()) do
+                if item:IsA("Tool") and not wDict[item.Name] then
+                    table.insert(weapons, item.Name)
+                    wDict[item.Name] = true
+                end
+            end
         end
-    end
+    end)
     
     -- Fallbacks
     if #mobs == 0 then mobs = {"Fishman Karate User"} end
@@ -306,110 +338,28 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
---// NEUES SYSTEM: SUCHLEISTEN-DROPDOWN (Array Search List)
+--// GEFIXTES DROPDOWN (Lädt immer 100% verlässlich ohne TextBox)
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
-    local frame = Instance.new("Frame", section)
-    frame.Size = UDim2.new(0.92, 0, 0, 180) -- Leicht vergrößert für die Suchleiste
-    frame.BackgroundTransparency = 1
+    local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
+    local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
+    local scroll = Instance.new("ScrollingFrame", frame); scroll.Size = UDim2.new(1, 0, 0, 130); scroll.Position = UDim2.new(0, 0, 0, 25); scroll.BackgroundColor3 = Theme.Background; scroll.ScrollBarThickness = 4; Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
+    local listLayout = Instance.new("UIListLayout", scroll); listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     
-    local header = Instance.new("TextLabel", frame)
-    header.Size = UDim2.new(1, 0, 0, 20)
-    header.BackgroundTransparency = 1
-    header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None")
-    header.TextColor3 = Theme.SubText
-    header.Font = Enum.Font.GothamMedium
-    header.TextSize = 12
-    header.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local searchBox = Instance.new("TextBox", frame)
-    searchBox.Size = UDim2.new(1, 0, 0, 26)
-    searchBox.Position = UDim2.new(0, 0, 0, 25)
-    searchBox.BackgroundColor3 = Theme.SectionBG
-    searchBox.TextColor3 = Theme.Text
-    searchBox.Font = Enum.Font.GothamMedium
-    searchBox.TextSize = 12
-    searchBox.PlaceholderText = "Suche..."
-    searchBox.PlaceholderColor3 = Theme.SubText
-    Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 4)
-    
-    local padding = Instance.new("UIPadding", searchBox)
-    padding.PaddingLeft = UDim.new(0, 8)
-    
-    local scroll = Instance.new("ScrollingFrame", frame)
-    scroll.Size = UDim2.new(1, 0, 0, 120)
-    scroll.Position = UDim2.new(0, 0, 0, 56)
-    scroll.BackgroundColor3 = Theme.Background
-    scroll.ScrollBarThickness = 4
-    Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
-    
-    local listLayout = Instance.new("UIListLayout", scroll)
-    listLayout.Padding = UDim.new(0, 4)
-    listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    
-    local currentItems = itemsList
-    
-    local function populate(listToRender)
+    local function populate(list)
         for _, child in pairs(scroll:GetChildren()) do
             if child:IsA("TextButton") then child:Destroy() end
         end
         local totalY = 0
-        for _, itemName in ipairs(listToRender) do
-            local btn = Instance.new("TextButton", scroll)
-            btn.Size = UDim2.new(0.94, 0, 0, 26)
-            btn.BackgroundColor3 = Theme.SectionBG
-            btn.Text = "  " .. tostring(itemName)
-            btn.TextColor3 = Theme.Text
-            btn.Font = Enum.Font.GothamBold
-            btn.TextSize = 12
-            btn.TextXAlignment = Enum.TextXAlignment.Left
-            Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-            
-            btn.Activated:Connect(function() 
-                RyuConfig[targetConfigKey] = itemName
-                header.Text = headerText .. ": " .. tostring(itemName) 
-                searchBox.Text = "" -- Leert die Suchleiste nach Auswahl
-            end)
-            
+        for _, itemName in ipairs(list) do
+            local btn = Instance.new("TextButton", scroll); btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. tostring(itemName); btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+            btn.Activated:Connect(function() RyuConfig[targetConfigKey] = itemName; header.Text = headerText .. ": " .. tostring(itemName) end)
             totalY = totalY + 30
         end
         scroll.CanvasSize = UDim2.new(0, 0, 0, totalY + 10)
     end
     
-    -- Filter Logik (Suchleiste)
-    searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-        local query = string.lower(searchBox.Text)
-        if query == "" then
-            populate(currentItems)
-        else
-            local filtered = {}
-            for _, v in ipairs(currentItems) do
-                if string.find(string.lower(tostring(v)), query) then
-                    table.insert(filtered, v)
-                end
-            end
-            populate(filtered)
-        end
-    end)
-    
-    populate(currentItems)
-    
-    return { 
-        Refresh = function(newList)
-            currentItems = newList
-            local query = string.lower(searchBox.Text)
-            if query == "" then
-                populate(currentItems)
-            else
-                local filtered = {}
-                for _, v in ipairs(currentItems) do
-                    if string.find(string.lower(tostring(v)), query) then
-                        table.insert(filtered, v)
-                    end
-                end
-                populate(filtered)
-            end
-        end 
-    }
+    populate(itemsList)
+    return { Refresh = populate }
 end
 
 local function CreateSlider(section, text, min, max, default, callback)
@@ -491,41 +441,46 @@ DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetN
 DropWep = CreateDropdown(SecFarmConfig, "Select Weapon", InitWeapons, "TargetWeapon")
 
 CreateButton(SecFarmConfig, "Refresh All Lists", function()
-    local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
-    if DropMob then DropMob:Refresh(newMobs) end
-    if DropNPC then DropNPC:Refresh(newQuests) end
-    if DropWep then DropWep:Refresh(newWeaps) end
-    if DropIsland then DropIsland:Refresh(newIslands) end
-    RyuNotify:Send("Lists Refreshed", "Listen manuell aktualisiert!", 3)
+    pcall(function()
+        local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
+        if DropMob then DropMob:Refresh(newMobs) end
+        if DropNPC then DropNPC:Refresh(newQuests) end
+        if DropWep then DropWep:Refresh(newWeaps) end
+        if DropIsland then DropIsland:Refresh(newIslands) end
+        RyuNotify:Send("Lists Refreshed", "Listen manuell aktualisiert!", 3)
+    end)
 end)
 
--- AUTO REFRESH LOOP
+-- AUTO REFRESH LOOP (Crash-Free)
 task.spawn(function()
     local function listsEqual(a, b)
+        if not a or not b then return false end
         if #a ~= #b then return false end
         for i = 1, #a do if a[i] ~= b[i] then return false end end
         return true
     end
     local lastMobs, lastQuests, lastIslands, lastWeaps = InitMobs, InitQuests, InitIslands, InitWeapons
     while true do
-        task.wait(3)
-        local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
-        if not listsEqual(lastMobs, newMobs) then
-            lastMobs = newMobs
-            if DropMob then DropMob:Refresh(newMobs) end
-        end
-        if not listsEqual(lastQuests, newQuests) then
-            lastQuests = newQuests
-            if DropNPC then DropNPC:Refresh(newQuests) end
-        end
-        if not listsEqual(lastWeaps, newWeaps) then
-            lastWeaps = newWeaps
-            if DropWep then DropWep:Refresh(newWeaps) end
-        end
-        if not listsEqual(lastIslands, newIslands) then
-            lastIslands = newIslands
-            if DropIsland then DropIsland:Refresh(newIslands) end
-        end
+        task.wait(4)
+        pcall(function()
+            local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
+            if not listsEqual(lastMobs, newMobs) then
+                lastMobs = newMobs
+                if DropMob then DropMob:Refresh(newMobs) end
+            end
+            if not listsEqual(lastQuests, newQuests) then
+                lastQuests = newQuests
+                if DropNPC then DropNPC:Refresh(newQuests) end
+            end
+            if not listsEqual(lastWeaps, newWeaps) then
+                lastWeaps = newWeaps
+                if DropWep then DropWep:Refresh(newWeaps) end
+            end
+            if not listsEqual(lastIslands, newIslands) then
+                lastIslands = newIslands
+                if DropIsland then DropIsland:Refresh(newIslands) end
+            end
+        end)
     end
 end)
 
