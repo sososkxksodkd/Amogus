@@ -43,7 +43,7 @@ task.spawn(function()
     end
 end)
 
---// DYNAMISCHER WORKSPACE SCANNER (QUESTS VS ENEMIES, ISLANDS FOLDER & UNEQUIPED WEAPONS)
+--// DYNAMISCHER WORKSPACE SCANNER (SORTIERT & PERFEKTIONIERT FÜR AUTO-REFRESH)
 local function GetDynamicLists()
     local mobs = {}
     local quests = {}
@@ -61,7 +61,7 @@ local function GetDynamicLists()
                         table.insert(mobs, v.Name)
                         mDict[v.Name] = true
                     end
-                elseif v:FindFirstChild("QuestMark") then
+                elseif v:FindFirstChild("QuestMark") or v:FindFirstChild("Quest") then
                     if not qDict[v.Name] then
                         table.insert(quests, v.Name)
                         qDict[v.Name] = true
@@ -100,11 +100,17 @@ local function GetDynamicLists()
         end
     end
     
-    -- Fallbacks falls komplett leer
+    -- Fallbacks
     if #mobs == 0 then mobs = {"Fishman Karate User"} end
     if #quests == 0 then quests = {"Becky"} end
     if #islands == 0 then islands = {"Fishman Cave"} end
     if #weapons == 0 then weapons = {"Combat"} end
+    
+    -- WICHTIG FÜR REFRESH: Alphabetisch sortieren!
+    table.sort(mobs)
+    table.sort(quests)
+    table.sort(islands)
+    table.sort(weapons)
     
     return mobs, quests, islands, weapons
 end
@@ -124,7 +130,7 @@ local RyuConfig = {
     TweenSpeed = 50, 
     KillHeight = 5, 
     FishmanSpeed = 65, 
-    ElevatorSpeed = 65, 
+    ElevatorSpeed = 300, 
     
     TargetIsland = InitIslands[1],
     IslandSpeed = 60, 
@@ -301,7 +307,6 @@ local function CreateToggle(section, text, defaultState, callback)
     tBtn.Activated:Connect(function() isOn = not isOn; tBtn.BackgroundColor3 = isOn and Theme.ToggleOn or Theme.ToggleOff; if callback then callback(isOn) end end)
 end
 
--- Verbessertes Dropdown mit UI-Fix für Refresh
 local function CreateDropdown(section, headerText, itemsList, targetConfigKey)
     local frame = Instance.new("Frame", section); frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
@@ -412,7 +417,37 @@ CreateButton(SecFarmConfig, "Refresh All Lists", function()
     if DropNPC then DropNPC:Refresh(newQuests) end
     if DropWep then DropWep:Refresh(newWeaps) end
     if DropIsland then DropIsland:Refresh(newIslands) end
-    RyuNotify:Send("Lists Refreshed", "NPCs, Quests, Waffen & Inseln aktualisiert!", 3)
+    RyuNotify:Send("Lists Refreshed", "Listen manuell aktualisiert!", 3)
+end)
+
+-- AUTO REFRESH LOOP
+task.spawn(function()
+    local function listsEqual(a, b)
+        if #a ~= #b then return false end
+        for i = 1, #a do if a[i] ~= b[i] then return false end end
+        return true
+    end
+    local lastMobs, lastQuests, lastIslands, lastWeaps = InitMobs, InitQuests, InitIslands, InitWeapons
+    while true do
+        task.wait(3)
+        local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
+        if not listsEqual(lastMobs, newMobs) then
+            lastMobs = newMobs
+            if DropMob then DropMob:Refresh(newMobs) end
+        end
+        if not listsEqual(lastQuests, newQuests) then
+            lastQuests = newQuests
+            if DropNPC then DropNPC:Refresh(newQuests) end
+        end
+        if not listsEqual(lastWeaps, newWeaps) then
+            lastWeaps = newWeaps
+            if DropWep then DropWep:Refresh(newWeaps) end
+        end
+        if not listsEqual(lastIslands, newIslands) then
+            lastIslands = newIslands
+            if DropIsland then DropIsland:Refresh(newIslands) end
+        end
+    end
 end)
 
 --// AUTO STATS UI
@@ -442,8 +477,11 @@ DropIsland = CreateDropdown(SecIslandTP, "Select Island", InitIslands, "TargetIs
 CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, function(val)
     RyuConfig.IslandSpeed = val
 end)
+CreateSlider(SecIslandTP, "Climb Speed", 60, 500, RyuConfig.ElevatorSpeed, function(val)
+    RyuConfig.ElevatorSpeed = val
+end)
 
---// DEIN 100% EXAKT UNBERÜHRTES ORIGINAL-TRANSPORT-SYSTEM (WAND-HACK ENTFERNT!)
+--// NEUES PERFEKTIONIERTES SPIDER TP (2 STUDS ABSTAND, 4 STUDS VORAUS-RADAR, KEIN WARTEN, 500 KLETTERN)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -525,8 +563,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
         end
         
         local hum = char:FindFirstChildOfClass("Humanoid")
-        local hipHeight = hum and hum.HipHeight or 2.15
-        local floorOffset = hipHeight + (root.Size.Y / 2)
+        
+        -- EXAKT 2 STUDS ABSTAND ÜBER ALLEN GEGENSTÄNDEN (Wie von dir gewünscht)
+        local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 2
         
         ToggleHover(true)
         
@@ -551,20 +590,46 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local isClimbing = false
             local lastFootstep = tick()
             local nextRoboCheck = tick()
-            local lastClimbFire = 0
             
             char:SetAttribute("evading", true)
             _G.soruDashing = true
 
-            local rayParamsDown = RaycastParams.new()
-            rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-            rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
+            -- Top-Down Radar Helfer: Ignoriert unsichtbare Wände/Skyboxen, findet echte Gebäude & Bäume
+            local function GetTrueTopY(x, z)
+                local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                local rParams = RaycastParams.new()
+                rParams.FilterType = Enum.RaycastFilterType.Exclude
+                rParams.IgnoreWater = true
+                
+                local origin = Vector3.new(x, 3000, z)
+                local dir = Vector3.new(0, -4000, 0)
+                
+                for i = 1, 10 do
+                    rParams.FilterDescendantsInstances = currentFilter
+                    local hit = Workspace:Raycast(origin, dir, rParams)
+                    if hit then
+                        if hit.Instance.Transparency < 1 then
+                            return hit.Position.Y
+                        else
+                            table.insert(currentFilter, hit.Instance)
+                        end
+                    else
+                        break
+                    end
+                end
+                return 0
+            end
 
             if hum then hum.PlatformStand = false end
 
             while elapsedTime < t do
                 local dt = RunService.Heartbeat:Wait()
                 dt = math.clamp(dt, 0.001, 0.05)
+                
+                -- Kollision temporär ausschalten für geschmeidiges Gleiten
+                for _, part in pairs(char:GetChildren()) do
+                    if part:IsA("BasePart") then part.CanCollide = false end
+                end
                 
                 if isLookingForRobo and tick() - nextRoboCheck > 1 then
                     nextRoboCheck = tick()
@@ -594,109 +659,72 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local currentPos = root.Position
                 if (currentPos - tPos).Magnitude <= 5 then break end
                 
+                -- KEIN WARTEN! Die Zeit läuft in jedem Frame kontinuierlich weiter
+                elapsedTime = elapsedTime + dt
+                
                 local alpha = math.clamp(elapsedTime / t, 0, 1)
                 local currentX = startPos.X + (tPos.X - startPos.X) * alpha
                 local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
                 
-                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentPos.X, 0, currentPos.Z))
+                local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
                 if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
                 
-                local samplePos1 = Vector3.new(currentX, 0, currentZ)
-                local samplePos2 = samplePos1 + (flatMoveDir * 6)
+                -- 4 STUDS VORAUS RADAR (Reagiert 4 Studs vor dir!)
+                local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 4)
                 
-                local hit1 = Workspace:Raycast(Vector3.new(samplePos1.X, currentY + 15, samplePos1.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y1 = hit1 and hit1.Position.Y or 0
+                local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
+                local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
                 
-                local hit2 = Workspace:Raycast(Vector3.new(samplePos2.X, 2500, samplePos2.Z), Vector3.new(0, -3000, 0), rayParamsDown)
-                local y2 = hit2 and hit2.Position.Y or 0
+                -- Höchster Punkt gewinnt -> zieht dich bei 4 Studs Abstand sofort hoch
+                local targetY = math.max(groundYCurrent, groundYAhead)
                 
-                local forwardRayStart = currentPos + Vector3.new(0, 1.5, 0)
-                local forwardHit = Workspace:Raycast(forwardRayStart, flatMoveDir * 6, rayParamsDown)
-                
-                local targetY = y1
-                if forwardHit then
-                    targetY = math.max(y1, y2)
-                else
-                    if math.abs(y2 - currentY) < 6 then
-                        targetY = y2
-                    end
-                end
-                
-                targetY = math.max(targetY, 1) 
-                
-                local finalY = targetY + floorOffset
                 local yVelocity = 0
-                local addTime = dt
+                local isClimbingAction = false
                 
-                local wallCheckHit = Workspace:Raycast(currentPos, flatMoveDir * 4.5, rayParamsDown)
-                local isWallBlocking = wallCheckHit and wallCheckHit.Distance <= 4
-
-                if finalY > currentY + 3 then 
-                    if not isClimbing then
-                        isClimbing = true
-                    end
+                -- ECHTES KLETTERN MIT BIS ZU 500 STUDS/SEC (Kein Teleport!)
+                if currentY < targetY - 1 then
+                    isClimbingAction = true
+                    currentY = math.min(currentY + (RyuConfig.ElevatorSpeed * dt), targetY)
+                    yVelocity = 20
+                elseif currentY > targetY + 1 then
+                    isClimbingAction = true
+                    currentY = math.max(currentY - (RyuConfig.ElevatorSpeed * dt), targetY)
                     
-                    if tick() - lastClimbFire > 0.3 then
-                        lastClimbFire = tick()
-                        task.spawn(function()
-                            if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-                        end)
+                    -- Noclip-Schutz: Niemals unter den Boden fallen
+                    if currentY < groundYCurrent then
+                        currentY = groundYCurrent
                     end
-                    if hum then hum:ChangeState(Enum.HumanoidStateType.Climbing) end
-                    
-                    local climbRate = currentSpeed * 0.8
-                    currentY = math.min(currentY + (climbRate * dt), finalY)
-                    yVelocity = climbRate
-                    
-                    if isWallBlocking then
-                        addTime = 0 
-                    elseif finalY - currentY > 5 then
-                        addTime = dt * 0.3
-                    end
+                    yVelocity = -20
                 else
-                    if isClimbing then
-                        isClimbing = false
-                        task.spawn(function()
-                            if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
-                        end)
-                        if hum then hum:ChangeState(Enum.HumanoidStateType.Running) end
-                    end
-                    
-                    if finalY < currentY then
-                        local fallRate = 150
-                        currentY = math.max(currentY - (fallRate * dt), finalY)
-                        yVelocity = -fallRate
-                    else
-                        currentY = finalY
-                    end
+                    currentY = targetY
+                    yVelocity = 0
                 end
                 
-                currentY = math.max(currentY, 1)
+                if currentY < 4 then currentY = 4 end -- Wasser Fix
                 
-                elapsedTime = elapsedTime + addTime
+                -- Kletter Remotes im Hintergrund aktivieren
+                if isClimbingAction and not isClimbing then
+                    isClimbing = true
+                    pcall(function() climbEvent:InvokeServer(true) end)
+                elseif not isClimbingAction and isClimbing then
+                    isClimbing = false
+                    pcall(function() climbEvent:InvokeServer(false) end)
+                end
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
                 local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                local moveDir = (lookPos - finalPos).Unit
-                if moveDir ~= moveDir then moveDir = root.CFrame.LookVector end
+                root.CFrame = CFrame.lookAt(finalPos, lookPos)
+                if hum then hum:Move(flatMoveDir, false) end
                 
-                if (lookPos - finalPos).Magnitude > 0.1 then 
-                    root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                else
-                    root.CFrame = CFrame.new(finalPos)
-                end
-                
-                if hum then hum:Move(moveDir, false) end
-                
-                root.Velocity = Vector3.new(moveDir.X * currentSpeed, yVelocity, moveDir.Z * currentSpeed)
+                root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
                 
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = finalPos end
                 
                 if tick() - lastFootstep > 0.3 then
                     lastFootstep = tick()
-                    if not isClimbing then
+                    if not isClimbingAction then
                         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
                         if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
                     end
@@ -855,7 +883,6 @@ local function EquipTargetWeapon()
     
     local targetWep = RyuConfig.TargetWeapon
     
-    -- Automatisches Ausrüsten per Remote, wenn die Waffe im "Unequiped" Ordner liegt
     pcall(function()
         local unequiped = LocalPlayer.Backpack:FindFirstChild("Unequiped")
         if unequiped and unequiped:FindFirstChild(targetWep) then
@@ -959,7 +986,7 @@ local function PerformMeleeAttack(targets)
 end
 
 --// ============================================================================
---// UNBANNABLE MICRO-STEP TWEEN ENGINE (MIT SMART WALL CLIMB FÜR AUTO FARM)
+--// UNBANNABLE MICRO-STEP TWEEN ENGINE (FÜR DEN AUTO FARM)
 --// ============================================================================
 local function SafeTween(targetCFrame, customSpeed)
     local char = LocalPlayer.Character
@@ -990,7 +1017,6 @@ local function SafeTween(targetCFrame, customSpeed)
         local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
         
-        -- Wand-Erkennung nur für den Auto Farm! (Ignoriert Wasser, zwingt dich drüber)
         local moveDir = (targetPos - root.Position).Unit
         if moveDir.Magnitude > 0 then
             local wallHit = Workspace:Raycast(root.Position, moveDir * 6, rayParams)
@@ -1104,7 +1130,7 @@ end
 --// FAIL-SAFE: QUEST SICHERUNG
 task.spawn(function()
     while true do
-        task.wait(180) 
+        task.wait(5) -- Geändert auf 5 Sekunden Fail-Safe wie von dir gewünscht!
         if RyuConfig.AutoFarm and RyuConfig.TargetNPC ~= "" and RyuConfig.TargetNPC ~= "None" then
             if not CheckQuestActive() then
                 FetchQuest()
@@ -1288,8 +1314,8 @@ task.spawn(function()
                             lastDamageTime = tick()
                         end
                         
-                        if tick() - lastDamageTime > 15 then
-                            RyuNotify:Send("Fail Safe", "15s kein Schaden. Repositioniere Gegner...", 2)
+                        if tick() - lastDamageTime > 5 then -- Fail-Safe für Mobs auf 5 Sekunden verkürzt!
+                            RyuNotify:Send("Fail Safe", "5s kein Schaden. Repositioniere Gegner...", 2)
                             break 
                         end
                         
