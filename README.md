@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP MIT AUTOMATISCHEM KAMERA-LOCK (SCHAUT PERMANENT ZUR WAND/ ZUM ZIEL)
+--// SPIDER TP MIT 360-GRAD CHARAKTER-ROTATION (KAMERA BLEIBT 100% FREI)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -694,7 +694,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
-                -- KOLLISIONSSCHUTZ: Prüft exakt 2.5 Studs vor dir, um Noclip in eine Wand zu verhindern
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
@@ -704,16 +703,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
 
-                -- KAMERA-LOCK ZUR WAND / ZUM ZIEL (Genau wie bei Top-Hubs, damit der Raycast perfekt greift!)
-                if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
-                    -- Schaut direkt zur Wand vor dir, wenn eine da ist
-                    camera.CFrame = CFrame.lookAt(camera.CFrame.Position, wallCheckHit.Position)
-                else
-                    -- Schaut in Bewegungsrichtung zum Ziel
-                    camera.CFrame = CFrame.lookAt(camera.CFrame.Position, Vector3.new(tPos.X, currentY, tPos.Z))
-                end
-
-                -- SICHERE Y-ACHSEN GESCHWINDIGKEIT
                 local safeVerticalSpeed = 150 
 
                 if currentY < targetY - 0.5 then
@@ -735,9 +724,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 elapsedTime = elapsedTime + addTime
                 
                 local finalPos = Vector3.new(currentX, currentY, currentZ)
-                local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                 
-                root.CFrame = CFrame.lookAt(finalPos, lookPos)
+                --// 360-GRAD ROTATION NUR FÜR DEN CHARAKTER (Kamera bleibt völlig unberührt!) //--
+                local spinAngle = tick() * 15 -- Dreht den Charakter blitzschnell im Kreis, damit er jede Wand berührt
+                local rotatedLookVec = Vector3.new(math.sin(spinAngle), 0, math.cos(spinAngle))
+                
+                root.CFrame = CFrame.lookAt(finalPos, finalPos + rotatedLookVec)
                 if hum then hum:Move(flatMoveDir, false) end
                 
                 root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, yVelocity, flatMoveDir.Z * currentSpeed)
