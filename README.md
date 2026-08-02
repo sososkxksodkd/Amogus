@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SINGLE + GROUP FARM MODE)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SAFE TP GROUP & SINGLE FARM)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -43,7 +43,7 @@ task.spawn(function()
     end
 end)
 
---// FESTE GPO DATEN (Getrennt nach Sea 1 und Sea 2)
+--// FESTE GPO DATEN
 local StaticGPO = {
     Sea1 = {
         Mobs = {
@@ -160,7 +160,7 @@ local InitMobs, InitQuests, InitIslands, InitWeapons = GetDynamicLists()
 --// RYU CONFIGURATION
 local RyuConfig = {
     AutoFarm = false,
-    FarmMode = "Single", -- "Single" oder "Group"
+    FarmMode = "Single", -- Options: "Single", "Group"
     AutoQuest = false,
     QuestInterval = 45, 
     
@@ -428,6 +428,8 @@ CreateToggle(SecAutoFarmMain, "Enable Auto Farm", RyuConfig.AutoFarm, function(s
     RyuConfig.AutoFarm = state 
     if not state then ToggleHover(false) end 
 end)
+
+-- UI OPTION FÜR MODUS (Single vs Group)
 CreateDropdown(SecAutoFarmMain, "Farm Mode", {"Single", "Group"}, "FarmMode")
 
 CreateToggle(SecAutoFarmMain, "Auto Quest Link", RyuConfig.AutoQuest, function(state) 
@@ -1262,102 +1264,70 @@ local function TrackAndFarmMob(targetMob)
 end
 
 --// ============================================================================
---// GROUP FARM LOGIC (Aggro Pull + Centroid Stacking)
+--// SAFE GROUP FARM LOGIC (Oberkopf-Mitte Stacking ohne TP-Check Risk)
 --// ============================================================================
 local function GroupFarmMobs(targetMobs)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root or #targetMobs == 0 then return end
 
-    local aggroedMobs = {}
+    -- Step 1: Berechne mathematische Mitte (Centroid) aller gescannten Gruppen-NPCs
+    local sumPos = Vector3.new(0, 0, 0)
+    local validMobs = {}
 
-    -- Schritt 1: Zu jedem NPC fliegen und 1 Schlag ausführen (Hit Check)
     for _, mob in ipairs(targetMobs) do
-        if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
-
         local mobHum = mob:FindFirstChildOfClass("Humanoid")
         local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-
         if mobHum and mobRoot and mobHum.Health > 0 then
-            local hpBefore = mobHum.Health
-            local attackPos = mobRoot.Position + Vector3.new(0, RyuConfig.KillHeight, 3)
-            local targetCFrame = CFrame.lookAt(attackPos, mobRoot.Position)
-
-            SafeTween(targetCFrame)
-            root.CFrame = targetCFrame
-
-            EquipTargetWeapon()
-
-            -- Hit-Prüfung: Warte kurz, bis der Mob HP verliert
-            local hitConfirmed = false
-            local attempts = 0
-            while RyuConfig.AutoFarm and attempts < 10 and not hitConfirmed do
-                PerformMeleeAttack({mob})
-                task.wait(0.15)
-                attempts = attempts + 1
-                if mobHum.Health < hpBefore then
-                    hitConfirmed = true
-                    table.insert(aggroedMobs, mob)
-                end
-            end
+            sumPos = sumPos + mobRoot.Position
+            table.insert(validMobs, mob)
         end
     end
 
-    -- Schritt 2: Mathematische Mitte (Centroid) aller gehitteten Mobs berechnen
-    if #aggroedMobs > 0 and RyuConfig.AutoFarm then
-        local sumPos = Vector3.new(0, 0, 0)
-        local validCount = 0
+    if #validMobs > 0 and RyuConfig.AutoFarm then
+        local centerPos = sumPos / #validMobs
+        local killCenter = centerPos + Vector3.new(0, RyuConfig.KillHeight, 0)
+        local centerCFrame = CFrame.new(killCenter)
 
-        for _, mob in ipairs(aggroedMobs) do
-            local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-            if mobRoot then
-                sumPos = sumPos + mobRoot.Position
-                validCount = validCount + 1
+        -- Fliege flüssig einmalig zur Oberkopf-Mitte der Gruppe (verhindert Anti-Cheat TP Check)
+        if (root.Position - killCenter).Magnitude > 5 then
+            SafeTween(centerCFrame)
+        end
+
+        root.CFrame = centerCFrame
+
+        -- Step 2 & 3: Hitboxen vergrößern & AOE Damage ausführen
+        local anyAlive = true
+        while RyuConfig.AutoFarm and anyAlive and CheckQuestActive() do
+            anyAlive = false
+
+            for _, mob in ipairs(validMobs) do
+                local mobHum = mob:FindFirstChildOfClass("Humanoid")
+                local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+
+                if mobHum and mobRoot and mobHum.Health > 0 then
+                    anyAlive = true
+                    mobRoot.Size = Vector3.new(20, 20, 20)
+                    mobRoot.CanCollide = false
+                end
+            end
+
+            if anyAlive then
+                local bp = root:FindFirstChild("RyuHover")
+                if bp then bp.Position = killCenter end
+                root.CFrame = centerCFrame
+
+                EquipTargetWeapon()
+                PerformMeleeAttack(validMobs)
+                task.wait(0.05)
             end
         end
 
-        if validCount > 0 then
-            local centerPos = sumPos / validCount
-            local killCenter = centerPos + Vector3.new(0, RyuConfig.KillHeight, 0)
-            local centerCFrame = CFrame.new(killCenter)
-
-            SafeTween(centerCFrame)
-            root.CFrame = centerCFrame
-
-            -- Schritt 3 & 4: Hitboxen vergrößern & Mobs im Flugzentrum spammen
-            local anyAlive = true
-            while RyuConfig.AutoFarm and anyAlive and CheckQuestActive() do
-                anyAlive = false
-
-                for _, mob in ipairs(aggroedMobs) do
-                    local mobHum = mob:FindFirstChildOfClass("Humanoid")
-                    local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-
-                    if mobHum and mobRoot and mobHum.Health > 0 then
-                        anyAlive = true
-                        -- Hitbox vergrößern für AOE Damage
-                        mobRoot.Size = Vector3.new(20, 20, 20)
-                        mobRoot.CanCollide = false
-                    end
-                end
-
-                if anyAlive then
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = killCenter end
-                    root.CFrame = centerCFrame
-
-                    EquipTargetWeapon()
-                    PerformMeleeAttack(aggroedMobs)
-                    task.wait(0.05)
-                end
-            end
-
-            -- Hitbox-Reset nach dem Kill
-            for _, mob in ipairs(aggroedMobs) do
-                local mobRoot = mob:FindFirstChild("HumanoidRootPart")
-                if mobRoot then
-                    mobRoot.Size = Vector3.new(2, 2, 1)
-                end
+        -- Step 4: Hitbox-Reset nach Abschluss
+        for _, mob in ipairs(validMobs) do
+            local mobRoot = mob:FindFirstChild("HumanoidRootPart")
+            if mobRoot then
+                mobRoot.Size = Vector3.new(2, 2, 1)
             end
         end
     end
@@ -1410,13 +1380,13 @@ task.spawn(function()
             
             if #targetMobs > 0 then
                 if RyuConfig.FarmMode == "Single" then
-                    -- MODUS 1: Single Target Farm
+                    -- MODUS 1: Solo/Single Live-Tracking Farm (1v1)
                     for _, mob in ipairs(targetMobs) do
                         if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                         TrackAndFarmMob(mob)
                     end
                 elseif RyuConfig.FarmMode == "Group" then
-                    -- MODUS 2: Group Killing Farm
+                    -- MODUS 2: Safe Group Stacking Farm
                     GroupFarmMobs(targetMobs)
                 end
             end
