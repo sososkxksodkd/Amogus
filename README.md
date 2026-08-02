@@ -476,7 +476,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// SPIDER TP MIT PERFEKTIONIERTEM SPIDER-UPGRADE (GLEICHER CODE WIE GEWÜNSCHT)
+--// SPIDER TP MIT AUTOMATISCHEM KAMERA-LOCK (SCHAUT PERMANENT ZUR WAND/ ZUM ZIEL)
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -694,6 +694,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local yVelocity = 0
                 local addTime = dt
 
+                -- KOLLISIONSSCHUTZ: Prüft exakt 2.5 Studs vor dir, um Noclip in eine Wand zu verhindern
                 local wallCheckHit = Workspace:Raycast(calcPos, flatMoveDir * 2.5, rayParamsDown)
                 if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
                     local wallTopY = GetTrueTopY(wallCheckHit.Position.X + (flatMoveDir.X * 0.1), wallCheckHit.Position.Z + (flatMoveDir.Z * 0.1)) + floorOffset
@@ -703,6 +704,16 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     end
                 end
 
+                -- KAMERA-LOCK ZUR WAND / ZUM ZIEL (Genau wie bei Top-Hubs, damit der Raycast perfekt greift!)
+                if wallCheckHit and wallCheckHit.Instance.Transparency < 1 then
+                    -- Schaut direkt zur Wand vor dir, wenn eine da ist
+                    camera.CFrame = CFrame.lookAt(camera.CFrame.Position, wallCheckHit.Position)
+                else
+                    -- Schaut in Bewegungsrichtung zum Ziel
+                    camera.CFrame = CFrame.lookAt(camera.CFrame.Position, Vector3.new(tPos.X, currentY, tPos.Z))
+                end
+
+                -- SICHERE Y-ACHSEN GESCHWINDIGKEIT
                 local safeVerticalSpeed = 150 
 
                 if currentY < targetY - 0.5 then
