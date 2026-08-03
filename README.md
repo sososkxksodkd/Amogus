@@ -1,5 +1,5 @@
 --// ==========================================
---// RYU HUB - GUI ONLY (NO LOGIC)
+--// RYU HUB - 100% VISUALS ONLY (NO LOGIC)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -11,12 +11,7 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
---// PLATZHALTER-FUNKTION
-local function Ryuhub()
-    -- Hier kommt später die Logik rein
-end
-
---// GUI CLEANUP
+--// GUI SECURITY & CLEANUP
 local guiParent = LocalPlayer:WaitForChild("PlayerGui")
 pcall(function() if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end end)
 for _, v in pairs(guiParent:GetChildren()) do if v.Name == "RyuHubPremium" then v:Destroy() end end
@@ -218,11 +213,10 @@ DiscordGradient.Color = ColorSequence.new{
 DiscordGradient.Offset = Vector2.new(-1, 0)
 
 task.spawn(function()
-    local tweenInfo = TweenInfo.new(2.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
-    TweenService:Create(DiscordGradient, tweenInfo, {Offset = Vector2.new(1, 0)}):Play()
+    TweenService:Create(DiscordGradient, TweenInfo.new(2.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Offset = Vector2.new(1, 0)}):Play()
 end)
 
---// ACCORDEON-SYSTEM & UI BUILDERS
+--// HIERARCHISCHES ACCORDEON-SYSTEM
 local Tabs = {}
 local sidebarOrderCounter = 0
 local itemOrderCounter = 0
@@ -239,7 +233,7 @@ local function UpdateSidebarCanvas()
 end
 
 local function CreateMainTab(name)
-    local tabObj = { Btn = nil, Arrow = nil, SubContainer = nil, SubLayout = nil, IsOpen = false, SubTabs = {} }
+    local tabObj = { Btn = nil, Arrow = nil, SubContainer = nil, SubLayout = nil, IsOpen = false, SubTabs = {}, Toggle = nil }
 
     sidebarOrderCounter = sidebarOrderCounter + 1
     local tabBtn = Instance.new("TextButton", Sidebar)
@@ -278,7 +272,7 @@ local function CreateMainTab(name)
     subLayout.SortOrder = Enum.SortOrder.LayoutOrder
     tabObj.SubLayout = subLayout
 
-    tabBtn.MouseButton1Click:Connect(function()
+    local function toggleTab()
         tabObj.IsOpen = not tabObj.IsOpen
         local targetSize = tabObj.IsOpen and UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) or UDim2.new(1, 0, 0, 0)
         TweenService:Create(subContainer, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
@@ -293,7 +287,10 @@ local function CreateMainTab(name)
         end
         task.delay(0.26, UpdateSidebarCanvas)
         UpdateSidebarCanvas()
-    end)
+    end
+
+    tabBtn.MouseButton1Click:Connect(toggleTab)
+    tabObj.Toggle = toggleTab
 
     subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         if tabObj.IsOpen then subContainer.Size = UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) end
@@ -305,7 +302,7 @@ local function CreateMainTab(name)
 end
 
 local function CreateSubTab(tabObj, subName)
-    local subObj = { Btn = nil, Page = nil, Indicator = nil }
+    local subObj = { Btn = nil, Page = nil, Indicator = nil, Open = nil }
 
     local subBtn = Instance.new("TextButton", tabObj.SubContainer)
     subBtn.LayoutOrder = #tabObj.SubTabs + 1
@@ -342,7 +339,7 @@ local function CreateSubTab(tabObj, subName)
         page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20)
     end)
 
-    subBtn.MouseButton1Click:Connect(function()
+    local function openSubTab()
         for _, t in pairs(Tabs) do
             for _, st in pairs(t.SubTabs) do
                 st.Page.Visible = false
@@ -353,7 +350,10 @@ local function CreateSubTab(tabObj, subName)
         page.Visible = true
         TweenService:Create(subBtn, TweenInfo.new(0.2), {TextColor3 = Theme.Text}):Play()
         TweenService:Create(indicator, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
-    end)
+    end
+
+    subBtn.MouseButton1Click:Connect(openSubTab)
+    subObj.Open = openSubTab
 
     table.insert(tabObj.SubTabs, subObj)
     return page
@@ -507,8 +507,12 @@ local function CreateTextBox(section, placeholder, callback)
 end
 
 --// =======================
---// UI POPULATION
+--// UI POPULATION (VISUALS ONLY)
 --// =======================
+
+local function Ryuhub()
+    -- Platzhalter für Logik
+end
 
 -- TAB 1: COMBAT
 local TabCombat = CreateMainTab("Combat")
@@ -580,6 +584,7 @@ local SubESP = CreateSubTab(TabCombat, "ESP")
 local SecESP = CreateSection(SubESP, "Visual Features")
 CreateToggle(SecESP, "Elite 2D-Box ESP", nil, false, Ryuhub)
 
+
 -- TAB 2: PLAYER
 local TabPlayer = CreateMainTab("Player")
 
@@ -627,6 +632,7 @@ CreateButton(SecUtility, "Save Current Position", Theme.ToggleOff, Ryuhub)
 CreateButton(SecUtility, "Teleport to Saved Position", Theme.Accent, Ryuhub).TextColor3 = Theme.Background
 CreateButton(SecUtility, "Instant Self-Kill", Theme.Warning, Ryuhub)
 
+
 -- TAB 3: FARM
 local TabFarm = CreateMainTab("Farm")
 
@@ -649,6 +655,7 @@ FollowScroll.Size = UDim2.new(1,0,1,0); FollowScroll.BackgroundTransparency = 1;
 local FollowScrollLayout = Instance.new("UIListLayout", FollowScroll)
 FollowScrollLayout.Padding = UDim.new(0, 4)
 
+
 -- TAB 4: SETTINGS
 local TabSettings = CreateMainTab("Settings")
 
@@ -660,10 +667,11 @@ CreateSlider(SecClient, "Field of View FOV", 70, 120, 70, Ryuhub)
 CreateButton(SecClient, "Save Settings", Theme.ToggleOff, Ryuhub)
 CreateButton(SecClient, "Reset Settings", Theme.Warning, Ryuhub)
 
--- INITIALISIERUNG
+
+-- INITIALISIERUNG (SAUBER OHNE .FIRE())
 task.spawn(function()
-    Tabs[1].Btn.MouseButton1Click:Fire()
-    Tabs[1].SubTabs[1].Btn.MouseButton1Click:Fire()
+    Tabs[1].Toggle()
+    Tabs[1].SubTabs[1].Open()
 end)
 
 -- MOBILE FLY DOCK
