@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FINAL PERFECTED SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FIXED & SAFE SPIDER TP EDITION)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -23,24 +23,25 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// CLIENT-SIDE ANTICHEAT DETECTOR BYPASS (ZENITH HOOK)
+--// SAFE ANTICHEAT HOOK (SICHER GEGEN NIL-CALL KICKS)
 pcall(function()
-    local rawNamecall = getrawmetatable(game).__namecall
-    setreadonly(getrawmetatable(game), false)
-    
-    getrawmetatable(game).__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
+    if getrawmetatable and setreadonly and newcclosure and getnamecallmethod then
+        local mt = getrawmetatable(game)
+        local rawNamecall = mt.__namecall
+        setreadonly(mt, false)
         
-        if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
-            local remoteName = tostring(self.Name):lower()
-            if remoteName:find("ban") or remoteName:find("kick") or remoteName:find("detection") or remoteName:find("check") or remoteName:find("strike") then
-                return nil
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
+                local remoteName = tostring(self.Name):lower()
+                if remoteName:find("ban") or remoteName:find("kick") or remoteName:find("detection") or remoteName:find("check") or remoteName:find("strike") then
+                    return nil
+                end
             end
-        end
-        return rawNamecall(self, ...)
-    end)
-    setreadonly(getrawmetatable(game), true)
+            return rawNamecall(self, ...)
+        end)
+        setreadonly(mt, true)
+    end
 end)
 
 --// ANTI-ANNOYING MESSAGE HIDER
@@ -225,7 +226,7 @@ function RyuNotify:Send(title, text, duration)
     local Stroke = Instance.new("UIStroke", NotifFrame); Stroke.Color = Color3.fromRGB(255, 255, 255); Stroke.Transparency = 1; Stroke.Thickness = 1.5
     local AccentLine = Instance.new("Frame", NotifFrame); AccentLine.Size = UDim2.new(0, 3, 0.8, 0); AccentLine.Position = UDim2.new(0, 4, 0.1, 0); AccentLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255); AccentLine.BackgroundTransparency = 1; Instance.new("UICorner", AccentLine).CornerRadius = UDim.new(1, 0)
     local TitleLabel = Instance.new("TextLabel", NotifFrame); TitleLabel.Size = UDim2.new(1, -20, 0, 20); TitleLabel.Position = UDim2.new(0, 15, 0, 8); TitleLabel.BackgroundTransparency = 1; TitleLabel.Text = title; TitleLabel.TextColor3 = Color3.fromRGB(250, 250, 250); TitleLabel.TextTransparency = 1; TitleLabel.Font = Enum.Font.GothamBold; TitleLabel.TextSize = 13; TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    local DescLabel = Instance.new("TextLabel", NotifFrame); DescLabel.Size = UDim2.new(1, -20, 0, 20); DescLabel.Position = UDim2.new(0, 15, 0, 28); DescLabel.BackgroundTransparency = 1; DescLabel.Text = text; DescLabel.TextColor3 = Color3.fromRGB(130, 130, 135); DescLabel.TextTransparency = 1; DescLabel.Font = Enum.Font.Gotham; DescLabel.TextSize = 11; DescLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local DescLabel = Instance.new("TextLabel", NotifFrame); DescLabel.Size = UDim2.new(1, -20, 0, 28); DescLabel.Position = UDim2.new(0, 15, 0, 28); DescLabel.BackgroundTransparency = 1; DescLabel.Text = text; DescLabel.TextColor3 = Color3.fromRGB(130, 130, 135); DescLabel.TextTransparency = 1; DescLabel.Font = Enum.Font.Gotham; DescLabel.TextSize = 11; DescLabel.TextXAlignment = Enum.TextXAlignment.Left
 
     TweenService:Create(NotifFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0.1}):Play()
     TweenService:Create(Stroke, TweenInfo.new(0.3), {Transparency = 0.5}):Play()
@@ -354,7 +355,7 @@ local function CreateSection(page, titleText)
     local section = Instance.new("Frame", page); section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
     local secLayout = Instance.new("UIListLayout", section); secLayout.Padding = UDim.new(0, 10); secLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; secLayout.SortOrder = Enum.SortOrder.LayoutOrder
     Instance.new("UIPadding", section).PaddingTop = UDim.new(0, 12); Instance.new("UIPadding", section).PaddingBottom = UDim.new(0, 12)
-    local title = Instance.new("TextLabel", section); title.LayoutOrder = -1; title.Size = UDim2.new(0.92, 0, 0, 24); title.BackgroundTransparency = 1; title.Text = titleText; title.TextColor3 = Theme.Text; title.Font = Enum.Font.GothamBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left
+    local title = Instance.new("TextLabel", section); title.LayoutOrder = -1; title.Size = UDim2.new(0.92, 0, 0, 24); title.BackgroundTransparency = 1; title.Text = titleText; title.TextColor3 = Theme.Text; title.Font = Enum.Font.GothamBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left;
     secLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() section.Size = UDim2.new(1, 0, 0, secLayout.AbsoluteContentSize.Y + 24) end)
     return section
 end
@@ -624,8 +625,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local isFlyingActive = true
             task.spawn(function()
                 while isFlyingActive and _G.RyuIsTweening do
-                    if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
-                    if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
+                    if sprintEvent and type(sprintEvent.FireServer) == "function" then 
+                        pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) 
+                    end
+                    if footstepEvent and type(footstepEvent.FireServer) == "function" then 
+                        pcall(function() footstepEvent:FireServer() end) 
+                    end
                     task.wait(0.15)
                 end
             end)
@@ -759,7 +764,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         
                         if not isClimbingState then
                             isClimbingState = true
-                            if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                            if climbEvent and type(climbEvent.InvokeServer) == "function" then 
+                                pcall(function() climbEvent:InvokeServer(true) end) 
+                            end
                         end
                     else
                         local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
@@ -783,8 +790,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     if isClimbingState and math.abs(currentY - targetY) <= 1.5 then
                         isClimbingState = false
-                        if footstepEvent then pcall(function() footstepEvent:FireServer("land") end) end
-                        if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+                        if footstepEvent and type(footstepEvent.FireServer) == "function" then 
+                            pcall(function() footstepEvent:FireServer("land") end) 
+                        end
+                        if climbEvent and type(climbEvent.InvokeServer) == "function" then 
+                            pcall(function() climbEvent:InvokeServer(false) end) 
+                        end
                     end
                     
                     if currentY < 4 then currentY = 4 end
@@ -806,8 +817,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 isFlyingActive = false
                 
-                if footstepEvent then pcall(function() footstepEvent:FireServer("land") end) end
-                if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+                if footstepEvent and type(footstepEvent.FireServer) == "function" then 
+                    pcall(function() footstepEvent:FireServer("land") end) 
+                end
+                if climbEvent and type(climbEvent.InvokeServer) == "function" then 
+                    pcall(function() climbEvent:InvokeServer(false) end) 
+                end
                 
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
                 
@@ -883,7 +898,9 @@ CreateButton(SecCaveTP, "TP", function()
                     if hum and root and portal and (root.Position - portal.Position).Magnitude < 50 then
                         hum:Move(Vector3.new(math.sin(tick() * 10), 0, math.cos(tick() * 10)))
                         local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
-                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
+                        if footstepEvent and type(footstepEvent.FireServer) == "function" then 
+                            pcall(function() footstepEvent:FireServer() end) 
+                        end
                     end
                     
                     local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -1034,7 +1051,9 @@ local function PerformMeleeAttack(targets)
                         2,
                         1.5
                     }
-                    ReplicatedStorage.Events.CombatRegister:InvokeServer(argsAnim)
+                    if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("CombatRegister") then
+                        pcall(function() ReplicatedStorage.Events.CombatRegister:InvokeServer(argsAnim) end)
+                    end
                 end
                 
                 if #hitParts > 0 then
@@ -1047,7 +1066,9 @@ local function PerformMeleeAttack(targets)
                         root.CFrame,
                         ["aircombo"] = "Ground"
                     }
-                    ReplicatedStorage.Events.CombatRegister:InvokeServer(argsDamage)
+                    if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("CombatRegister") then
+                        pcall(function() ReplicatedStorage.Events.CombatRegister:InvokeServer(argsDamage) end)
+                    end
                 end
                 
                 currentComboIndex = currentComboIndex + 1
@@ -1180,15 +1201,17 @@ local function FetchQuest()
             root.CFrame = targetCFrame
             
             pcall(function()
-                local QuestEvent = ReplicatedStorage.Events.Quest
-                QuestEvent:InvokeServer({"npcChat", true})
-                local questString = "Help " .. RyuConfig.TargetNPC
-                QuestEvent:InvokeServer({"takequest", questString})
-                QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
-                QuestEvent:InvokeServer({"takequest"})
-                QuestEvent:InvokeServer("takequest")
-                QuestEvent:InvokeServer({"acceptquest"})
-                QuestEvent:InvokeServer("acceptquest")
+                if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Quest") then
+                    local QuestEvent = ReplicatedStorage.Events.Quest
+                    QuestEvent:InvokeServer({"npcChat", true})
+                    local questString = "Help " .. RyuConfig.TargetNPC
+                    QuestEvent:InvokeServer({"takequest", questString})
+                    QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
+                    QuestEvent:InvokeServer({"takequest"})
+                    QuestEvent:InvokeServer("takequest")
+                    QuestEvent:InvokeServer({"acceptquest"})
+                    QuestEvent:InvokeServer("acceptquest")
+                end
             end)
             task.wait(0.5)
         end
@@ -1224,7 +1247,9 @@ task.spawn(function()
             if getStatVal(statName) < cap then
                 for i = 1, 5 do 
                     pcall(function()
-                        ReplicatedStorage:WaitForChild("Events"):WaitForChild("stats"):FireServer(statName, nil, 1)
+                        if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("stats") then
+                            ReplicatedStorage.Events.stats:FireServer(statName, nil, 1)
+                        end
                     end)
                 end
             end
@@ -1245,7 +1270,7 @@ local function TrackAndFarmMob(targetMob)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not root || not hum || not targetMob then return end
+    if not root or not hum or not targetMob then return end
 
     local mobRoot = targetMob:FindFirstChild("HumanoidRootPart")
     local mobHum = targetMob:FindFirstChildOfClass("Humanoid")
@@ -1293,7 +1318,7 @@ end
 local function GroupFarmMobs(targetMobs)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root || #targetMobs == 0 then return end
+    if not root or #targetMobs == 0 then return end
 
     local aggroedMobs = {}
 
@@ -1405,7 +1430,7 @@ task.spawn(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         
-        if not root || not hum || hum.Health <= 0 then continue end
+        if not root or not hum or hum.Health <= 0 then continue end
 
         ToggleHover(true)
         hum.AutoRotate = false 
