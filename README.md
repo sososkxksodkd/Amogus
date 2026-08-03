@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PERFECTED SPIDER TP & FIXED CONFIG)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMOOTH LOW-Y 2-STUD SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -109,7 +109,7 @@ local function GetCurrentSeaData()
     return StaticGPO.Sea1
 end
 
---// HYBRIDER SCANNER (OHNE CONTINUOUS AUTO-REFRESH)
+--// HYBRIDER SCANNER
 local function GetDynamicLists()
     local mobsDict, questsDict, islandsDict, weaponsDict = {}, {}, {}, {}
     local mobs, quests, islands, weapons = {}, {}, {}, {}
@@ -502,7 +502,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 4-STUD RANGE & OCEAN-SAFE SPIDER TELEPORT
+--// 2-STUD FLOOR OFFSET & MINIMAL LOW-Y SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -582,7 +582,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             local hum = char:FindFirstChildOfClass("Humanoid")
-            local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 4
+            -- Exakt 2 Studs Abstand zum Boden/Terrain
+            local floorOffset = 2
             
             ToggleHover(true)
             root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
@@ -644,11 +645,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 rayParams.IgnoreWater = true
 
-                -- ERMITTELT DEN SCHWEBENEN/ECHTEN BODEN ODER WASSERSTAND
-                local waterLevel = 20 -- Fester Wasserstandschutz fürs Meer
+                -- MINIMALES Y-NIVEAU ZIEL (1 ODER 0 WO IMMER MÖGLICH)
+                local baseMinY = 1
                 pcall(function()
                     if Workspace:FindFirstChild("Env") and Workspace.Env:FindFirstChild("WaterStuff") and Workspace.Env.WaterStuff:FindFirstChild("Water") then
-                        waterLevel = Workspace.Env.WaterStuff.Water.Position.Y + floorOffset + 2
+                        baseMinY = math.max(Workspace.Env.WaterStuff.Water.Position.Y + floorOffset, 1)
                     end
                 end)
 
@@ -669,7 +670,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                             if name:find("tree") or name:find("leaf") or name:find("grass") or name:find("stone") then
                                 table.insert(currentFilter, hit.Instance)
                             elseif hit.Instance.Transparency < 1 then
-                                return math.max(hit.Position.Y, waterLevel)
+                                return math.max(hit.Position.Y + floorOffset, baseMinY)
                             else
                                 table.insert(currentFilter, hit.Instance)
                             end
@@ -677,7 +678,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                             break
                         end
                     end
-                    return waterLevel
+                    return baseMinY
                 end
 
                 if hum then hum.PlatformStand = false end
@@ -744,16 +745,16 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- 4-STUD WAND-SCAN & ROOF SCHUTZ
+                    -- SCANNER FÜR DECKEN UND WÄNDE
                     local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams) 
                         or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 4, rayParams)
                     local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 6, 0), rayParams)
                     
-                    local groundYCurrent = math.max(GetTrueTopY(nextX, nextZ) + floorOffset, waterLevel)
+                    local groundYCurrent = GetTrueTopY(nextX, nextZ)
                     local targetY = groundYCurrent
 
                     if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
-                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
+                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5))
                         targetY = math.max(targetY, obstacleTopY)
                         
                         if not isClimbingState then
@@ -764,7 +765,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     else
                         local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
-                        local groundYAhead = math.max(GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset, waterLevel)
+                        local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z)
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
@@ -773,7 +774,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         advanceSpeed = 0
                     end
 
-                    local maxYStep = isClimbingState and (28 * dt * 25) or (16 * dt * 25)
+                    -- FLÜSSIGE GLÄTTUNG FÜR SPIDER LERP
+                    local maxYStep = isClimbingState and (28 * dt * 25) or (20 * dt * 25)
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
@@ -792,8 +794,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end
                     
-                    -- WASSERSTAND-SCHUTZ: Verhindert, dass der Y-Wert im Meer ins Wasser fällt
-                    currentY = math.max(currentY, waterLevel)
+                    -- SO TIEF WIE MÖGLICH BLEIBEN (NEMALS UNTER 1 / BASE MIN Y)
+                    currentY = math.max(currentY, baseMinY)
                     
                     elapsedTime = elapsedTime + (dt * advanceSpeed)
                     
