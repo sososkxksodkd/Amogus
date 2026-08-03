@@ -626,7 +626,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 _G.soruDashing = true
                 _G.canuse = true
 
-                -- RAYCAST FILTERING: 4-STUD FÄCHER (LINKS, MITTE, RECHTS) & BAUM-FILTER
+                -- RAYCAST FILTERING: 4-STUD FÄCHER & BAUM-FILTER
                 local rayParams = RaycastParams.new()
                 local ignoreList = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                 
@@ -743,18 +743,29 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- 4-STUD FÄCHER SCANNER (LINKS, MITTE, RECHTS) MIT FIXEM 4-STUD ABSTAND
+                    -- PERMANENTE 4-STUD ABSTANDS-PRÜFUNG & KOPF-KOLLISIONS-ERKENNUNG
                     local rightOffset = Vector3.new(flatMoveDir.Z, 0, -flatMoveDir.X) * 2.5
                     local wallCenter = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams)
                     local wallLeft = Workspace:Raycast(calcPos - rightOffset, flatMoveDir * 4, rayParams)
                     local wallRight = Workspace:Raycast(calcPos + rightOffset, flatMoveDir * 4, rayParams)
                     
+                    -- Extra Raycast für den Kopf-Bereich, um direkte Berührungen zu erkennen
+                    local headPart = char:FindFirstChild("Head")
+                    local headHit = false
+                    if headPart then
+                        local headRay = Workspace:Raycast(headPart.Position, flatMoveDir * 4, rayParams)
+                        if headRay and headRay.Instance and headRay.Instance.Transparency < 1 then
+                            headHit = true
+                        end
+                    end
+                    
                     local groundYCurrent = GetTrueTopY(nextX, nextZ)
                     local targetY = groundYCurrent
 
-                    local activeHit = wallCenter or wallLeft or wallRight
-                    if activeHit and activeHit.Instance and activeHit.Instance.Transparency < 1 then
-                        local obstacleTopY = GetTrueTopY(activeHit.Position.X + (flatMoveDir.X * 0.8), activeHit.Position.Z + (flatMoveDir.Z * 0.8))
+                    local activeHit = wallCenter or wallLeft or wallRight or headHit
+                    if activeHit then
+                        local hitObjPos = (typeof(activeHit) == "RaycastResult") and activeHit.Position or (calcPos + flatMoveDir * 4)
+                        local obstacleTopY = GetTrueTopY(hitObjPos.X + (flatMoveDir.X * 0.8), hitObjPos.Z + (flatMoveDir.Z * 0.8))
                         targetY = math.max(targetY, obstacleTopY)
                         
                         if not isClimbingState then
@@ -769,13 +780,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
-                    -- EXTREMER 4-STUD SICHERHEITSSTOPP: Stoppt die Vorwärtsbewegung sofort, bis die Kante erreicht ist
+                    -- KLETTER-MODUS: Wenn der Kopf berührt wird oder geklettert wird, horizontale Bewegung stoppen (advanceSpeed = 0)
                     local advanceSpeed = 1
-                    if isClimbingState and currentY < targetY - 0.5 then
+                    if (isClimbingState or headHit) and currentY < targetY - 0.5 then
                         advanceSpeed = 0
                     end
 
-                    local maxYStep = isClimbingState and (75 * dt * 25) or (35 * dt * 25)
+                    local maxYStep = (isClimbingState or headHit) and (75 * dt * 25) or (35 * dt * 25)
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
@@ -784,8 +795,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         currentY = math.max(currentY - maxYStep, targetY)
                     end
                     
-                    if isClimbingState and math.abs(currentY - targetY) <= 0.5 then
+                    if (isClimbingState or headHit) and math.abs(currentY - targetY) <= 0.5 then
                         isClimbingState = false
+                        headHit = false
                         if footstepEvent and type(footstepEvent.FireServer) == "function" then 
                             pcall(function() footstepEvent:FireServer("land") end) 
                         end
