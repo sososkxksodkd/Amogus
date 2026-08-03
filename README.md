@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & INSTANT FAST KEY)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH VERA LOCK & TP BYPASS)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -11,6 +11,7 @@ local Lighting = game:GetService("Lighting")
 local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -698,7 +699,8 @@ local function PerformMeleeAttack(targets)
     end)
 end
 
-local function SafeTween(targetCFrame, customSpeed)
+-- TWEEN FUNCTION WITH TP CHECK BYPASS
+local function SafeTween(targetCFrame, customSpeed, isKeyMove)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
@@ -727,8 +729,24 @@ local function SafeTween(targetCFrame, customSpeed)
         bp.Parent = root
     end
 
+    local lastRealPos = root.Position
+
     while tick() - startTime < timeToTake do
         if not RyuSavedConfig.AutoImpelDown then break end
+        
+        -- TP CHECK BYPASS: If distance jumped unexpectedly, we got rubberbanded
+        if isKeyMove and (root.Position - lastRealPos).Magnitude > 20 then
+            bp.Position = root.Position
+            task.wait(1) -- Stop movement for 1s to satisfy Anti-Cheat
+            
+            -- Recalculate tween from new pos
+            startPos = root.Position
+            dist = (targetPos - startPos).Magnitude
+            timeToTake = dist / speed
+            startTime = tick()
+        end
+        lastRealPos = root.Position
+
         local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
         
@@ -1092,7 +1110,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V1: SETUP, VERA & FAST KEYS)
+--// IMPEL DOWN AUTO FARM ENGINE (V1: SETUP, VERA LOCK & KEY BYPASS)
 --// ============================================================================
 
 task.spawn(function()
@@ -1115,21 +1133,23 @@ task.spawn(function()
             continue 
         end
 
-        -- SCHRITT 2: Finde und Töte Vera
+        -- SCHRITT 2: Finde und Töte Vera (90 Grad Fix)
         local vera = Workspace:FindFirstChild("NPCs") and Workspace.NPCs:FindFirstChild("Vera")
         if vera then
             local vHum = vera:FindFirstChildOfClass("Humanoid")
             local vRoot = vera:FindFirstChild("HumanoidRootPart")
             if vHum and vRoot and vHum.Health > 0 then
                 
-                -- Position directly above Vera and rotate exactly 90 degrees to face down
-                local attackPos = vRoot.Position + Vector3.new(0, 10, 0)
-                local targetCFrame = CFrame.new(attackPos) * CFrame.Angles(math.rad(-90), 0, 0)
+                -- Position exakt 7.5 Studs vertikal über Vera, schaut 90 Grad direkt nach unten
+                local attackPos = vRoot.Position + Vector3.new(0, 7.5, 0)
+                local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
                 
                 if (root.Position - attackPos).Magnitude > 15 then
-                    SafeTween(targetCFrame)
+                    SafeTween(targetCFrame, 50, false)
                 else
-                    root.CFrame = root.CFrame:Lerp(targetCFrame, 0.5)
+                    root.CFrame = targetCFrame
+                    root.Velocity = Vector3.new(0, 0, 0)
+                    root.RotVelocity = Vector3.new(0, 0, 0)
                     ToggleHover(true)
                 end
 
@@ -1140,7 +1160,7 @@ task.spawn(function()
             end
         end
 
-        -- SCHRITT 3: Finde und sammle den Schlüssel (Kontrolliertes Laufen + Sprint Remote)
+        -- SCHRITT 3: Finde und sammle den Schlüssel
         local keyPart = nil
         pcall(function()
             local effects = Workspace:FindFirstChild("Effects")
@@ -1173,7 +1193,12 @@ task.spawn(function()
         end)
 
         if keyPart then
-            -- Permanently fire sprint remote when moving to key
+            if not _G.KeyWaitTriggered then
+                _G.KeyWaitTriggered = true
+                task.wait(4) -- Warte 4 Sekunden für Cutscene/Spawn-Sicherheit
+            end
+
+            -- Permanent Sprint spamming
             pcall(function()
                 if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint") then
                     ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457")
@@ -1183,16 +1208,38 @@ task.spawn(function()
             local dist = (root.Position - keyPart.Position).Magnitude
             if dist > 4 then
                 ToggleHover(false)
-                -- Kontrolliert hinlaufen mit Animation und maximal 45 Speed Tween
                 hum.WalkSpeed = 45
                 hum:MoveTo(keyPart.Position)
-                SafeTween(keyPart.CFrame, 45) 
+                
+                -- TP Bypass Tweening (max 45 speed)
+                SafeTween(keyPart.CFrame, 45, true) 
             else
                 root.CFrame = keyPart.CFrame
+                root.Velocity = Vector3.new(0,0,0)
+                
+                -- Auto Pick Up Logic
+                local prompt = keyPart:FindFirstChildOfClass("ProximityPrompt")
+                if prompt then
+                    if fireproximityprompt then
+                        fireproximityprompt(prompt, 1)
+                    else
+                        prompt:InputHoldBegin()
+                        task.wait(prompt.HoldDuration + 0.1)
+                        prompt:InputHoldEnd()
+                    end
+                else
+                    pcall(function()
+                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                        task.wait(0.1)
+                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                    end)
+                end
                 task.wait(0.5)
             end
             task.wait(0.1)
             continue
+        else
+            _G.KeyWaitTriggered = false
         end
     end
 end)
