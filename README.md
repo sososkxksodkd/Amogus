@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (4-STUD HOVER & SMART CLIMB SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PERMANENT CLIMB REMOTE SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -601,6 +601,17 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
+            -- PERMANENT-SCHLEIFE FÜR DAS KLETTER-EVENT IM HINTERGRUND
+            local climbLoopActive = true
+            task.spawn(function()
+                while climbLoopActive and _G.RyuIsTweening do
+                    if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                    if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
+                    if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
+                    task.wait(0.15)
+                end
+            end)
+            
             local function SpiderLerp(tPos, currentSpeed)
                 local startPos = root.Position
                 local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
@@ -609,14 +620,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 if totalDist < 5 then return true end 
                 
-                -- Standard-Geschwindigkeit am Boden ist 60 Studs/Sek
+                -- Normal-Geschwindigkeit am Boden ist 60 Studs/Sek
                 currentSpeed = (currentSpeed and currentSpeed > 0) and currentSpeed or 60
                 local t = totalDist / currentSpeed
                 if t < 0.1 then return true end
                 
                 local elapsedTime = 0
                 local currentY = root.Position.Y
-                local lastFootstep = tick()
                 local nextRoboCheck = tick()
                 
                 char:SetAttribute("evading", true)
@@ -653,9 +663,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
 
                 if hum then hum.PlatformStand = false end
-
-                -- Permanentes Klettern, Sprinten & Steps aktivieren
-                if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
 
                 while elapsedTime < t do
                     local dt = RunService.Heartbeat:Wait()
@@ -742,10 +749,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
-                        -- Schnelles Hochklettern
                         currentY = math.min(currentY + (maxVerticalSpeed * dt), targetY)
                     elseif yDiff < 0 then
-                        -- Schnelles Klettern/Absinken an der anderen Kante
                         currentY = math.max(currentY - (maxVerticalSpeed * dt), targetY)
                     end
                     
@@ -764,16 +769,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = finalPos end
-                    
-                    -- Permanentes Senden der Remotes
-                    if tick() - lastFootstep > 0.2 then
-                        lastFootstep = tick()
-                        if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
-                        if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-                        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-                    end
                 end
                 
+                climbLoopActive = false
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
                 if climbEvent then task.spawn(function() pcall(function() climbEvent:InvokeServer(false) end) end) end
                 
