@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (PREMIUM UI WITH SETTINGS)
+--// IMPEL DOWN SCRIPT (PREMIUM UI WITH 10+ SETTINGS)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -148,7 +148,7 @@ end)
 -- IMPEL DOWN SCRIPT UNTEN
 local SubTitle = Instance.new("TextLabel", Topbar)
 SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 36); SubTitle.BackgroundTransparency = 1
-SubTitle.Text = "Impel Down Script"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 12; SubTitle.TextXAlignment = Enum.TextXAlignment.Left; SubTitle.ZIndex = 2
+SubTitle.Text = "IMPEL DOWN SCRIPT"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 12; SubTitle.TextXAlignment = Enum.TextXAlignment.Left; SubTitle.ZIndex = 2
 
 local CloseBtn = Instance.new("TextButton", Topbar)
 CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG
@@ -559,19 +559,31 @@ CreateToggle(SecClient, "Anti-AFK Protection", "Prevents Roblox from kicking you
 end)
 
 local SubTheme = CreateSubTab(TabSettings, "Theme & UI")
-local SecTheme = CreateSection(SubTheme, "Customization")
 
-CreateToggle(SecTheme, "Glass Mode (Transparency)", "Makes the UI look like glass", false, function(state)
+--// THEME SETTINGS: WINDOW
+local SecWindow = CreateSection(SubTheme, "Window Personalization")
+
+CreateToggle(SecWindow, "Glass Mode", "Beautiful frosted glass transparency", false, function(state)
     if state then
-        TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0.35}):Play()
-        TweenService:Create(Sidebar, TweenInfo.new(0.3), {BackgroundTransparency = 0.35}):Play()
+        TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0.35, BackgroundColor3 = Color3.fromRGB(30, 30, 35)}):Play()
+        TweenService:Create(mainStroke, TweenInfo.new(0.3), {Transparency = 0.6}):Play()
     else
-        TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
-        TweenService:Create(Sidebar, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+        TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0, BackgroundColor3 = Theme.Background}):Play()
+        TweenService:Create(mainStroke, TweenInfo.new(0.3), {Transparency = 0.2}):Play()
     end
 end)
 
-CreateTextBox(SecTheme, "Custom Background URL (Asset ID)...", function(txt)
+CreateSlider(SecWindow, "Window Roundness", 0, 24, 12, function(val)
+    for _, corner in pairs(MainFrame:GetChildren()) do
+        if corner:IsA("UICorner") then corner.CornerRadius = UDim.new(0, val) end
+    end
+end)
+
+CreateToggle(SecWindow, "Minimalist Borders", "Hides the outer window stroke", false, function(state)
+    mainStroke.Enabled = not state
+end)
+
+CreateTextBox(SecWindow, "Background Image ID (e.g. 12345)", function(txt)
     if txt and txt ~= "" then
         local num = txt:match("%d+")
         if num then
@@ -583,8 +595,50 @@ CreateTextBox(SecTheme, "Custom Background URL (Asset ID)...", function(txt)
     end
 end)
 
-CreateSlider(SecTheme, "Background Brightness", 0, 100, 60, function(val)
-    MainBgImage.ImageTransparency = 1 - (val / 100)
+CreateSlider(SecWindow, "Background Visibility", 0, 100, 40, function(val)
+    if MainBgImage.Image ~= "" then
+        MainBgImage.ImageTransparency = 1 - (val / 100)
+    end
+end)
+
+--// THEME SETTINGS: TOGGLE BUTTON
+local SecToggleUI = CreateSection(SubTheme, "Toggle Button Personalization")
+
+CreateTextBox(SecToggleUI, "Custom Icon ID (e.g. 6050149849)", function(txt)
+    if txt and txt ~= "" then
+        local num = txt:match("%d+")
+        if num then ToggleBtn.Image = "rbxthumb://type=Asset&id="..num.."&w=150&h=150" end
+    end
+end)
+
+CreateSlider(SecToggleUI, "Toggle Button Size", 30, 80, 50, function(val)
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, val, 0, val)}):Play()
+end)
+
+CreateSlider(SecToggleUI, "Toggle Glow Intensity", 0, 100, 50, function(val)
+    btnStroke.Transparency = 1 - (val / 100)
+end)
+
+local rainbowToggle = false
+CreateToggle(SecToggleUI, "RGB Rainbow Ring", "Animates the toggle button border", false, function(state)
+    rainbowToggle = state
+    if not state then btnStroke.Color = Theme.Accent end
+end)
+task.spawn(function()
+    while true do
+        if rainbowToggle then
+            btnStroke.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+        end
+        task.wait(0.1)
+    end
+end)
+
+CreateToggle(SecToggleUI, "Floating Icon Mode", "Removes the toggle button background", false, function(state)
+    if state then
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+    else
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
+    end
 end)
 
 local SecSave = CreateSection(SubTheme, "Save Config")
