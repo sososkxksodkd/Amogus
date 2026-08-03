@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & IMPEL DOWN ENGINE V1)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -836,9 +836,7 @@ CreateToggle(SecWindow, "Glass Mode", "Transparent frosted glass UI", RyuSavedCo
     TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = mainTrans, BackgroundColor3 = state and Color3.fromRGB(5,5,5) or Theme.Background}):Play()
     
     for _, obj in pairs(MainFrame:GetDescendants()) do
-        if obj:IsA("Frame") and obj.Name == "SectionContainer" then
-            TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundTransparency = secTrans}):Play()
-        elseif obj:IsA("Frame") and obj.Name == "DropdownContainer" then
+        if obj:IsA("Frame") and (obj.Name == "SectionContainer" or obj.Name == "DropdownContainer") then
             TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundTransparency = secTrans}):Play()
         elseif obj:IsA("TextBox") and obj.Name == "CustomTextBox" then
             TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundTransparency = secTrans}):Play()
@@ -1095,7 +1093,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V1: SETUP, VERA & KEYS)
+--// IMPEL DOWN AUTO FARM ENGINE (V1: SETUP, VERA & KEYS WITH CUTSCENE CHECK)
 --// ============================================================================
 
 task.spawn(function()
@@ -1142,7 +1140,27 @@ task.spawn(function()
             end
         end
 
-        -- SCHRITT 3: Finde und sammle den Schlüssel
+        -- SCHRITT 3: Cutscene Check (Warten bis Cutscene endet)
+        local inCutscene = false
+        pcall(function()
+            if camera.CameraType == Enum.CameraType.Scriptable then
+                inCutscene = true
+            end
+            local pg = LocalPlayer:FindFirstChild("PlayerGui")
+            if pg and (pg:FindFirstChild("Cutscene") or pg:FindFirstChild("Cinematic") or pg:FindFirstChild("Dialogue")) then
+                inCutscene = true
+            end
+        end)
+        
+        if inCutscene then
+            ToggleHover(false)
+            if hum then hum:Move(Vector3.new(0,0,0), false) end
+            root.Velocity = Vector3.new(0, 0, 0)
+            task.wait(0.5)
+            continue
+        end
+
+        -- SCHRITT 4: Finde und sammle den Schlüssel (Kontrolliertes Laufen)
         local keyPart = nil
         pcall(function()
             local effects = Workspace:FindFirstChild("Effects")
@@ -1175,12 +1193,18 @@ task.spawn(function()
         end)
 
         if keyPart then
-            if (root.Position - keyPart.Position).Magnitude > 5 then
-                SafeTween(keyPart.CFrame)
+            local dist = (root.Position - keyPart.Position).Magnitude
+            if dist > 4 then
+                ToggleHover(false)
+                -- Kontrolliert hinlaufen mit Animation und maximal 45 Speed Tween
+                hum.WalkSpeed = 45
+                hum:MoveTo(keyPart.Position)
+                SafeTween(keyPart.CFrame, 45) 
             else
                 root.CFrame = keyPart.CFrame
+                task.wait(0.5)
             end
-            task.wait(0.2)
+            task.wait(0.1)
             continue
         end
     end
