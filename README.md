@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMOOTH LOW-Y 2-STUD SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (3-STUD INSTANT CLIMB & FOOT-FIX TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -502,7 +502,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 2-STUD FLOOR OFFSET & MINIMAL LOW-Y SPIDER TELEPORT
+--// 3-STUD INSTANT RESPONSE SPIDER TELEPORT WITH CORRECT FEET ALIGNMENT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -582,8 +582,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             local hum = char:FindFirstChildOfClass("Humanoid")
-            -- Exakt 2 Studs Abstand zum Boden/Terrain
-            local floorOffset = 2
+            -- Exakter Offset damit die Füße perfekt auf dem Boden stehen
+            local floorOffset = (hum and hum.HipHeight or 2) + (root.Size.Y / 2)
             
             ToggleHover(true)
             root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
@@ -645,7 +645,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 rayParams.IgnoreWater = true
 
-                -- MINIMALES Y-NIVEAU ZIEL (1 ODER 0 WO IMMER MÖGLICH)
                 local baseMinY = 1
                 pcall(function()
                     if Workspace:FindFirstChild("Env") and Workspace.Env:FindFirstChild("WaterStuff") and Workspace.Env.WaterStuff:FindFirstChild("Water") then
@@ -745,16 +744,16 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- SCANNER FÜR DECKEN UND WÄNDE
-                    local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams) 
-                        or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 4, rayParams)
-                    local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 6, 0), rayParams)
+                    -- 3-STUD WAND-SCAN & INSTANT RESPONSE (PRÄZISE SCHRITTE)
+                    local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 3, rayParams) 
+                        or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 3, rayParams)
+                    local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 5, 0), rayParams)
                     
                     local groundYCurrent = GetTrueTopY(nextX, nextZ)
                     local targetY = groundYCurrent
 
                     if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
-                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5))
+                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.4), wallAhead.Position.Z + (flatMoveDir.Z * 0.4))
                         targetY = math.max(targetY, obstacleTopY)
                         
                         if not isClimbingState then
@@ -764,18 +763,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                             end
                         end
                     else
-                        local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
+                        local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 3)
                         local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z)
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
                     local advanceSpeed = 1
-                    if (isClimbingState and currentY < targetY - 1.5) or (roofAbove and roofAbove.Instance.Transparency < 1) then
+                    if (isClimbingState and currentY < targetY - 1) or (roofAbove and roofAbove.Instance.Transparency < 1) then
                         advanceSpeed = 0
                     end
 
-                    -- FLÜSSIGE GLÄTTUNG FÜR SPIDER LERP
-                    local maxYStep = isClimbingState and (28 * dt * 25) or (20 * dt * 25)
+                    -- SCHNELLERE AKTIVIERUNG OHNE VERZÖGERUNGEN
+                    local maxYStep = isClimbingState and (45 * dt * 25) or (25 * dt * 25)
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
@@ -784,7 +783,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         currentY = math.max(currentY - maxYStep, targetY)
                     end
                     
-                    if isClimbingState and math.abs(currentY - targetY) <= 1.5 then
+                    if isClimbingState and math.abs(currentY - targetY) <= 1 then
                         isClimbingState = false
                         if footstepEvent and type(footstepEvent.FireServer) == "function" then 
                             pcall(function() footstepEvent:FireServer("land") end) 
@@ -794,7 +793,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end
                     
-                    -- SO TIEF WIE MÖGLICH BLEIBEN (NEMALS UNTER 1 / BASE MIN Y)
                     currentY = math.max(currentY, baseMinY)
                     
                     elapsedTime = elapsedTime + (dt * advanceSpeed)
