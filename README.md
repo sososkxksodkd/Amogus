@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (4-STUD WATER LEVEL FIXED SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FIXED MOUNTAIN-TO-WATER DESCENT TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -301,7 +301,7 @@ UserInputService.InputChanged:Connect(function(input) if rDragging and (input.Us
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if tDragStart then
-            if not isDraggingBtn then
+            if not isDraggingBtn me
                 if MainFrame.Visible then 
                     TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
                 else 
@@ -502,7 +502,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 4-STUD RANGE & RAMP/SLOPE SPIDER TELEPORT
+--// 4-STUD RANGE & RAMP/SLOPE SPIDER TELEPORT WITH DYNAMIC WATER DESCENT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -565,7 +565,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local isStartIslandRobo = (distToPlayer < 1000 and islandDistFromPlayer > 1500)
                     
                     if not isStartIslandRobo and distToTarget <= 300 then
-                        if distToTarget < closestDist then
+                        if distToTarget < closestDist me
                             closestDist = distToTarget
                             closestRobo = v
                         end
@@ -645,10 +645,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 rayParams.IgnoreWater = true
 
+                -- ERMITTELT DIE WASSERHÖHE PRÄZISE (GENAU 4 STUDS OFFSET)
                 local waterLevel = 20
                 pcall(function()
                     if Workspace:FindFirstChild("Env") and Workspace.Env:FindFirstChild("WaterStuff") and Workspace.Env.WaterStuff:FindFirstChild("Water") then
-                        waterLevel = Workspace.Env.WaterStuff.Water.Position.Y + floorOffset + 2
+                        waterLevel = Workspace.Env.WaterStuff.Water.Position.Y + floorOffset
                     end
                 end)
 
@@ -669,7 +670,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                             if name:find("tree") or name:find("leaf") or name:find("grass") or name:find("stone") then
                                 table.insert(currentFilter, hit.Instance)
                             elseif hit.Instance.Transparency < 1 then
-                                return math.max(hit.Position.Y, waterLevel)
+                                return math.max(hit.Position.Y + floorOffset, waterLevel)
                             else
                                 table.insert(currentFilter, hit.Instance)
                             end
@@ -749,20 +750,20 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 4, rayParams)
                     local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 6, 0), rayParams)
                     
-                    local groundYCurrent = math.max(GetTrueTopY(nextX, nextZ) + floorOffset, waterLevel)
+                    local groundYCurrent = GetTrueTopY(nextX, nextZ)
                     local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
-                    local groundYAhead = math.max(GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset, waterLevel)
+                    local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z)
                     
+                    -- DYNAMISCHES ZIEL: FOLGT DEM BODEN UND DER WASSEROBERFLÄCHE FLÜSSIG NACH UNTEN UND OBEN
                     local targetY = math.max(groundYCurrent, groundYAhead)
 
                     -- WAND UND RAMPEN ERKENNUNG
                     local isObstacleAhead = false
                     if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
-                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
+                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5))
                         targetY = math.max(targetY, obstacleTopY)
                         isObstacleAhead = true
                     elseif groundYAhead - currentY > 2 then
-                        -- ERKENNUNG VON RAMPEN UND SCHRÄGEN HÄNGEN
                         isObstacleAhead = true
                     end
 
@@ -784,7 +785,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end
 
-                    -- ANSTIEGS-DROSSELUNG AN RAMPEN/WÄNDEN ZUR SICHEN DURCHQUERUNG
                     local advanceSpeed = 1
                     if (isClimbingState and currentY < targetY + 0.5) or (roofAbove and roofAbove.Instance.Transparency < 1) then
                         nextX = currentPos.X - (flatMoveDir.X * 0.2)
@@ -792,7 +792,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         advanceSpeed = 0
                     end
 
-                    local maxYStep = isClimbingState and (28 * dt * 25) or (16 * dt * 25)
+                    local maxYStep = isClimbingState and (28 * dt * 25) or (20 * dt * 25)
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
