@@ -1,5 +1,5 @@
 --// ==========================================
---// RYU HUB - IMPEL DOWN SOLO SCRIPT (PREMIUM UI)
+--// IMPEL DOWN SCRIPT (PREMIUM UI WITH IMAGE TOGGLE)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -62,30 +62,16 @@ local function AddClickPop(element)
     end)
 end
 
---// TRADITIONAL KATANA TOGGLE
-local ToggleBtn = Instance.new("TextButton")
+--// IMAGE BUTTON TOGGLE
+local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 25, 0, 25)
 ToggleBtn.BackgroundColor3 = Theme.Sidebar
-ToggleBtn.Text = ""
+ToggleBtn.Image = "rbxassetid://6050149849"
 ToggleBtn.Parent = RyuHub
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
 local btnStroke = Instance.new("UIStroke", ToggleBtn)
 btnStroke.Color = Theme.Accent; btnStroke.Thickness = 2; btnStroke.Transparency = 0.5
-
-local Katana = Instance.new("Frame", ToggleBtn)
-Katana.Size = UDim2.new(1, 0, 1, 0); Katana.BackgroundTransparency = 1; Katana.Rotation = 45
-local Blade = Instance.new("Frame", Katana)
-Blade.Size = UDim2.new(0, 2, 0, 24); Blade.Position = UDim2.new(0.5, -1, 0.5, -18); Blade.BackgroundColor3 = Theme.CloudLight; Blade.BorderSizePixel = 0
-local BladeGlow = Instance.new("UIStroke", Blade)
-BladeGlow.Color = Theme.Accent; BladeGlow.Thickness = 1; BladeGlow.Transparency = 0.5
-local Guard = Instance.new("Frame", Katana)
-Guard.Size = UDim2.new(0, 12, 0, 2); Guard.Position = UDim2.new(0.5, -6, 0.5, 6); Guard.BackgroundColor3 = Theme.CloudDark; Guard.BorderSizePixel = 0
-local Handle = Instance.new("Frame", Katana)
-Handle.Size = UDim2.new(0, 4, 0, 10); Handle.Position = UDim2.new(0.5, -2, 0.5, 8); Handle.BackgroundColor3 = Color3.fromRGB(40, 45, 50); Handle.BorderSizePixel = 0
-Instance.new("UICorner", Blade).CornerRadius = UDim.new(1, 0)
-Instance.new("UICorner", Guard).CornerRadius = UDim.new(1, 0)
-Instance.new("UICorner", Handle).CornerRadius = UDim.new(0, 1)
 
 AddClickPop(ToggleBtn)
 local tDragStart, tStartPos, isDraggingBtn = nil, nil, false
@@ -136,7 +122,7 @@ Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
 
 local Title = Instance.new("TextLabel", Topbar)
 Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1
-Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Text = "IMPEL DOWN SCRIPT"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local TitleGradient = Instance.new("UIGradient", Title)
 TitleGradient.Color = ColorSequence.new{
@@ -153,7 +139,7 @@ end)
 
 local SubTitle = Instance.new("TextLabel", Topbar)
 SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1
-SubTitle.Text = "Impel Down Solo Script"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.Text = "by Ryu Hub"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 
 local CloseBtn = Instance.new("TextButton", Topbar)
 CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG
