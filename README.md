@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI - FIXED GLASS & SAVES)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -8,6 +8,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
+local HttpService = game:GetService("HttpService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -17,14 +18,47 @@ local guiParent = LocalPlayer:WaitForChild("PlayerGui")
 pcall(function() if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end end)
 for _, v in pairs(guiParent:GetChildren()) do if v.Name == "RyuHubPremium" then v:Destroy() end end
 
---// PREMIUM MONOCHROME THEME (DEFAULT)
+--// CONFIG SAVE SYSTEM
+local configFileName = "RyuHub_ImpelDown_Config.json"
+local RyuSavedConfig = {
+    GlassMode = false,
+    WorldBlur = false,
+    AccentColor = {255, 255, 255},
+    BgColor = {12, 12, 14},
+    Font = "Gotham",
+    HideBorders = false,
+    Roundness = 12,
+    BgImage = "",
+    BgOpacity = 0.6,
+    ToggleIcon = "rbxthumb://type=Asset&id=6050149849&w=150&h=150",
+    ToggleSize = 50,
+    ToggleGlow = 0.5,
+    RainbowMode = false,
+    FloatingIcon = false
+}
+
+-- Settings laden (falls vorhanden)
+if readfile and isfile and isfile(configFileName) then
+    pcall(function()
+        local data = HttpService:JSONDecode(readfile(configFileName))
+        for k, v in pairs(data) do RyuSavedConfig[k] = v end
+    end)
+end
+
+local function SaveConfig()
+    if writefile then
+        pcall(function() writefile(configFileName, HttpService:JSONEncode(RyuSavedConfig)) end)
+    end
+end
+
+--// PREMIUM MONOCHROME THEME (Angepasst an Save-Data)
 local Theme = {
-    Background = Color3.fromRGB(12, 12, 14),
+    Background = Color3.fromRGB(RyuSavedConfig.BgColor[1], RyuSavedConfig.BgColor[2], RyuSavedConfig.BgColor[3]),
     Sidebar = Color3.fromRGB(18, 18, 20),
     SectionBG = Color3.fromRGB(24, 24, 26),
     Text = Color3.fromRGB(250, 250, 250),
     SubText = Color3.fromRGB(130, 130, 135),
-    Accent = Color3.fromRGB(255, 255, 255),
+    Accent = Color3.fromRGB(RyuSavedConfig.AccentColor[1], RyuSavedConfig.AccentColor[2], RyuSavedConfig.AccentColor[3]),
     ToggleOff = Color3.fromRGB(35, 35, 38),
     ToggleOn = Color3.fromRGB(255, 255, 255),
     Stroke = Color3.fromRGB(45, 45, 50),
@@ -65,12 +99,12 @@ local function AddClickPop(element)
     end)
 end
 
---// IMAGE BUTTON TOGGLE 
+--// IMAGE BUTTON TOGGLE
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 25, 0, 25)
 ToggleBtn.BackgroundColor3 = Theme.Sidebar
-ToggleBtn.Image = "rbxthumb://type=Asset&id=6050149849&w=150&h=150" 
+ToggleBtn.Image = RyuSavedConfig.ToggleIcon 
 ToggleBtn.Parent = RyuHub
 ToggleBtn.ScaleType = Enum.ScaleType.Crop
 ToggleBtn.ClipsDescendants = true
@@ -616,16 +650,16 @@ end)
 
 local SubTheme = CreateSubTab(TabSettings, "Theme & UI")
 
---// THEME SETTINGS: 10 NEUE EINSTELLUNGEN
+--// THEME SETTINGS
 local SecWindow = CreateSection(SubTheme, "Window Personalization")
 
 -- 1. Glass Mode (Der Fix: Sidebar Hintergrund bleibt unsichtbar!)
-CreateToggle(SecWindow, "Glass Mode", "Transparent frosted glass UI", false, function(state)
+CreateToggle(SecWindow, "Glass Mode", "Transparent frosted glass UI", RyuSavedConfig.GlassMode, function(state)
+    RyuSavedConfig.GlassMode = state
     local mainTrans = state and 0.4 or 0
     local secTrans = state and 0.5 or 0
     
     TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = mainTrans, BackgroundColor3 = state and Color3.fromRGB(5,5,5) or Theme.Background}):Play()
-    -- WICHTIG: Die Sidebar BackgroundTransparency bleibt unangetastet (behebt den weißen Bug links!)
     
     for _, obj in pairs(MainFrame:GetDescendants()) do
         if obj:IsA("Frame") and obj.Name == "SectionContainer" then
@@ -639,8 +673,8 @@ CreateToggle(SecWindow, "Glass Mode", "Transparent frosted glass UI", false, fun
 end)
 
 -- 2. Game World Blur
-_G.BlurEnabled = false
-CreateToggle(SecWindow, "World UI Blur", "Blurs the game when UI is open", false, function(state)
+CreateToggle(SecWindow, "World UI Blur", "Blurs the game when UI is open", RyuSavedConfig.WorldBlur, function(state)
+    RyuSavedConfig.WorldBlur = state
     _G.BlurEnabled = state
     if isUIOpen and state then TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 15}):Play()
     elseif not state then TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 0}):Play() end
@@ -659,6 +693,7 @@ local PremiumColors = {
 CreateDropdown(SecWindow, "Accent Color", {"White", "Crimson Red", "Neon Blue", "Emerald Green", "Royal Purple", "Hot Pink", "Gold"}, function(colorName)
     local newColor = PremiumColors[colorName]
     if newColor then
+        RyuSavedConfig.AccentColor = {math.floor(newColor.R*255), math.floor(newColor.G*255), math.floor(newColor.B*255)}
         Theme.Accent = newColor
         for _, obj in pairs(RyuHub:GetDescendants()) do
             if obj:IsA("UIStroke") and obj.Color ~= Theme.Stroke and obj.Color ~= Theme.Warning then obj.Color = newColor end
@@ -680,13 +715,17 @@ local BgColors = {
 CreateDropdown(SecWindow, "Background Tint", {"Default Dark", "Pitch Black", "Midnight Blue", "Deep Blood"}, function(colorName)
     local newBg = BgColors[colorName]
     if newBg then
+        RyuSavedConfig.BgColor = {math.floor(newBg.R*255), math.floor(newBg.G*255), math.floor(newBg.B*255)}
         Theme.Background = newBg
-        TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundColor3 = newBg}):Play()
+        if not RyuSavedConfig.GlassMode then
+            TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundColor3 = newBg}):Play()
+        end
     end
 end)
 
 -- 5. Text Font Style
 CreateDropdown(SecWindow, "UI Font Style", {"Gotham", "Code", "Arcade", "SciFi"}, function(fontName)
+    RyuSavedConfig.Font = fontName
     local targetFont = Enum.Font.Gotham
     if fontName == "Code" then targetFont = Enum.Font.Code
     elseif fontName == "Arcade" then targetFont = Enum.Font.Arcade
@@ -702,12 +741,14 @@ CreateDropdown(SecWindow, "UI Font Style", {"Gotham", "Code", "Arcade", "SciFi"}
 end)
 
 -- 6. Outline Settings
-CreateToggle(SecWindow, "Hide Window Borders", "Removes the outer window line", false, function(state)
+CreateToggle(SecWindow, "Hide Window Borders", "Removes the outer window line", RyuSavedConfig.HideBorders, function(state)
+    RyuSavedConfig.HideBorders = state
     mainStroke.Enabled = not state
 end)
 
 -- 7. Corner Roundness
-CreateSlider(SecWindow, "Window Roundness", 0, 24, 12, function(val)
+CreateSlider(SecWindow, "Window Roundness", 0, 24, RyuSavedConfig.Roundness, function(val)
+    RyuSavedConfig.Roundness = val
     MainCorner.CornerRadius = UDim.new(0, val)
 end)
 
@@ -716,18 +757,24 @@ CreateTextBox(SecWindow, "Custom Background URL (Asset ID)...", function(txt)
     if txt and txt ~= "" then
         local num = txt:match("%d+")
         if num then
-            MainBgImage.Image = "rbxthumb://type=Asset&id="..num.."&w=768&h=432"
-            MainBgImage.ImageTransparency = 0.6
+            local url = "rbxthumb://type=Asset&id="..num.."&w=768&h=432"
+            MainBgImage.Image = url
+            RyuSavedConfig.BgImage = url
+            MainBgImage.ImageTransparency = RyuSavedConfig.BgOpacity
         end
     else
+        MainBgImage.Image = ""
+        RyuSavedConfig.BgImage = ""
         MainBgImage.ImageTransparency = 1
     end
 end)
 
 -- 9. Background Image Transparency
-CreateSlider(SecWindow, "Background Image Opacity", 0, 100, 40, function(val)
+CreateSlider(SecWindow, "Background Image Opacity", 0, 100, (1 - RyuSavedConfig.BgOpacity) * 100, function(val)
+    local op = 1 - (val / 100)
+    RyuSavedConfig.BgOpacity = op
     if MainBgImage.Image ~= "" then
-        MainBgImage.ImageTransparency = 1 - (val / 100)
+        MainBgImage.ImageTransparency = op
     end
 end)
 
@@ -736,22 +783,30 @@ local SecToggleUI = CreateSection(SubTheme, "Toggle Button Personalization")
 CreateTextBox(SecToggleUI, "Custom Icon ID (e.g. 6050149849)", function(txt)
     if txt and txt ~= "" then
         local num = txt:match("%d+")
-        if num then ToggleBtn.Image = "rbxthumb://type=Asset&id="..num.."&w=150&h=150" end
+        if num then 
+            local url = "rbxthumb://type=Asset&id="..num.."&w=150&h=150"
+            ToggleBtn.Image = url
+            RyuSavedConfig.ToggleIcon = url
+        end
     end
 end)
 
-CreateSlider(SecToggleUI, "Toggle Button Size", 30, 80, 50, function(val)
+CreateSlider(SecToggleUI, "Toggle Button Size", 30, 80, RyuSavedConfig.ToggleSize, function(val)
+    RyuSavedConfig.ToggleSize = val
     TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, val, 0, val)}):Play()
 end)
 
-CreateSlider(SecToggleUI, "Toggle Glow Intensity", 0, 100, 50, function(val)
-    btnStroke.Transparency = 1 - (val / 100)
+CreateSlider(SecToggleUI, "Toggle Glow Intensity", 0, 100, (1 - RyuSavedConfig.ToggleGlow) * 100, function(val)
+    local glow = 1 - (val / 100)
+    RyuSavedConfig.ToggleGlow = glow
+    btnStroke.Transparency = glow
 end)
 
 -- 10. RGB Rainbow Ring für Toggle Button
-local rainbowToggle = false
-CreateToggle(SecToggleUI, "RGB Rainbow Ring", "Animates the toggle button border", false, function(state)
+local rainbowToggle = RyuSavedConfig.RainbowMode
+CreateToggle(SecToggleUI, "RGB Rainbow Ring", "Animates the toggle button border", RyuSavedConfig.RainbowMode, function(state)
     rainbowToggle = state
+    RyuSavedConfig.RainbowMode = state
     if not state then btnStroke.Color = Theme.Accent end
 end)
 task.spawn(function()
@@ -763,7 +818,8 @@ task.spawn(function()
     end
 end)
 
-CreateToggle(SecToggleUI, "Floating Icon Mode", "Removes the toggle button background", false, function(state)
+CreateToggle(SecToggleUI, "Floating Icon Mode", "Removes the toggle button background", RyuSavedConfig.FloatingIcon, function(state)
+    RyuSavedConfig.FloatingIcon = state
     if state then
         TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
     else
@@ -773,14 +829,22 @@ end)
 
 local SecSave = CreateSection(SubTheme, "Config & System")
 
-CreateButton(SecSave, "Save Settings To Session", Color3.fromRGB(50, 150, 50), function()
-    -- Speichert sicher in der Spiel-Session ohne externe Dateien
-    _G.RyuSavedSettings = "Saved"
-    print("[RYU HUB] All UI & System Settings saved for current session.")
+CreateButton(SecSave, "Save Settings To File", Color3.fromRGB(50, 150, 50), function()
+    SaveConfig()
 end)
 
 CreateButton(SecSave, "Reset UI Settings", Theme.Warning, function()
-    -- Resettet das UI auf den Originalzustand
+    if delfile and isfile and isfile(configFileName) then
+        pcall(function() delfile(configFileName) end)
+    end
+    
+    RyuSavedConfig = {
+        GlassMode = false, WorldBlur = false, AccentColor = {255, 255, 255}, BgColor = {12, 12, 14},
+        Font = "Gotham", HideBorders = false, Roundness = 12, BgImage = "", BgOpacity = 0.6,
+        ToggleIcon = "rbxthumb://type=Asset&id=6050149849&w=150&h=150", ToggleSize = 50, ToggleGlow = 0.5,
+        RainbowMode = false, FloatingIcon = false
+    }
+    
     Theme.Background = Color3.fromRGB(12, 12, 14)
     Theme.Accent = Color3.fromRGB(255, 255, 255)
     TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundColor3 = Theme.Background, BackgroundTransparency = 0}):Play()
@@ -792,6 +856,10 @@ CreateButton(SecSave, "Reset UI Settings", Theme.Warning, function()
     btnStroke.Color = Theme.Accent
     rainbowToggle = false
     MainCorner.CornerRadius = UDim.new(0, 12)
+    ToggleBtn.Image = RyuSavedConfig.ToggleIcon
+    ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+    btnStroke.Transparency = 0.5
+    ToggleBtn.BackgroundTransparency = 0
     
     for _, obj in pairs(MainFrame:GetDescendants()) do
         if obj:IsA("UIStroke") and obj.Color ~= Theme.Stroke and obj.Color ~= Theme.Warning then obj.Color = Theme.Accent end
@@ -804,7 +872,6 @@ CreateButton(SecSave, "Reset UI Settings", Theme.Warning, function()
             end
         end
     end
-    print("[RYU HUB] Settings reset to default.")
 end)
 
 -- INITIALISIERUNG
@@ -812,6 +879,49 @@ task.spawn(function()
     Tabs[1].Toggle()
     Tabs[1].SubTabs[1].Open()
 end)
+
+-- SETTINGS LADEN BEIM START (APPLY LOADED DATA)
+local function ApplyLoadedSettings()
+    if RyuSavedConfig.GlassMode then
+        MainFrame.BackgroundTransparency = 0.4
+        MainFrame.BackgroundColor3 = Color3.fromRGB(5,5,5)
+        for _, obj in pairs(MainFrame:GetDescendants()) do
+            if obj:IsA("Frame") and (obj.Name == "SectionContainer" or obj.Name == "DropdownContainer") then
+                obj.BackgroundTransparency = 0.5
+            elseif obj:IsA("TextBox") and obj.Name == "CustomTextBox" then
+                obj.BackgroundTransparency = 0.5
+            end
+        end
+    end
+
+    _G.BlurEnabled = RyuSavedConfig.WorldBlur
+
+    local targetFont = Enum.Font.Gotham
+    if RyuSavedConfig.Font == "Code" then targetFont = Enum.Font.Code
+    elseif RyuSavedConfig.Font == "Arcade" then targetFont = Enum.Font.Arcade
+    elseif RyuSavedConfig.Font == "SciFi" then targetFont = Enum.Font.Michroma end
+    for _, obj in pairs(MainFrame:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.Font == Enum.Font.GothamBold then obj.Font = targetFont
+            elseif obj.Font == Enum.Font.GothamMedium then obj.Font = targetFont
+            else obj.Font = targetFont end
+        end
+    end
+
+    mainStroke.Enabled = not RyuSavedConfig.HideBorders
+    MainCorner.CornerRadius = UDim.new(0, RyuSavedConfig.Roundness)
+
+    if RyuSavedConfig.BgImage ~= "" then
+        MainBgImage.Image = RyuSavedConfig.BgImage
+        MainBgImage.ImageTransparency = RyuSavedConfig.BgOpacity
+    end
+
+    ToggleBtn.Image = RyuSavedConfig.ToggleIcon
+    ToggleBtn.Size = UDim2.new(0, RyuSavedConfig.ToggleSize, 0, RyuSavedConfig.ToggleSize)
+    btnStroke.Transparency = RyuSavedConfig.ToggleGlow
+    if RyuSavedConfig.FloatingIcon then ToggleBtn.BackgroundTransparency = 1 end
+end
+ApplyLoadedSettings()
 
 -- MOBILE FLY DOCK
 local FlyDock = Instance.new("Frame", RyuHub)
