@@ -1,24 +1,21 @@
 --// ============================================================================
---// RYU HUB - PURE MODERN GLASS UI (100% SAFE - NO HOOKS, NO REMOTES)
+--// RYU HUB - MODERN GLASS EDITION (100% VANILLA ROBLOX UI - ZERO FLAGS)
 --// ============================================================================
 
-local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local Workspace = game:GetService("Workspace")
 
 local LocalPlayer = Players.LocalPlayer
-local Camera = Workspace.CurrentCamera
+local Camera = workspace.CurrentCamera
 
---// CLEANUP (Nur altes GUI entfernen, keine Anti-Cheat Manipulationen!)
-local guiParent = LocalPlayer:WaitForChild("PlayerGui", 10) or LocalPlayer:FindFirstChild("PlayerGui")
-pcall(function()
-    if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end
-end)
+--// 100% SAFE CLEANUP (NUR PLAYERGUI, KEINE EXPLOIT FUNKTIONEN WIE GETHUI)
+local guiParent = LocalPlayer:WaitForChild("PlayerGui")
 
 for _, v in pairs(guiParent:GetChildren()) do
-    if v.Name == "RyuHubModernGlass" then v:Destroy() end
+    if v.Name == "RyuHubModernGlass" then 
+        v:Destroy() 
+    end
 end
 
 --// ULTRA MODERN GLASS THEME
@@ -100,7 +97,8 @@ TitleGradient.Color = Theme.WaveColors
 TitleGradient.Rotation = 25
 TitleGradient.Offset = Vector2.new(-1, 0)
 
-local waveTween = TweenService:Create(TitleGradient, TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false), {Offset = Vector2.new(1, 0)})
+local waveTweenInfo = TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false)
+local waveTween = TweenService:Create(TitleGradient, waveTweenInfo, {Offset = Vector2.new(1, 0)})
 waveTween:Play()
 
 --// MODERN RED CLOSE BUTTON
@@ -146,12 +144,14 @@ ToggleBtn.Activated:Connect(function()
     end
 end)
 
--- DRAGGING
+-- DRAGGING ENGINE
 local function MakeDraggable(guiObject, handleObject)
     local dragging, dragStart, startPos
     handleObject.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true; dragStart = input.Position; startPos = guiObject.Position
+            dragging = true
+            dragStart = input.Position
+            startPos = guiObject.Position
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
@@ -166,6 +166,7 @@ local function MakeDraggable(guiObject, handleObject)
         end
     end)
 end
+
 MakeDraggable(MainFrame, Topbar)
 MakeDraggable(ToggleBtn, ToggleBtn)
 
@@ -478,25 +479,17 @@ end
 --// GUI INITIALIZATION (ONLY UI TABS)
 --// ============================================================================
 
--- Main UI Elements Demo
 local TabMain = CreateMainTab("Main", "🏠")
 local SubGeneral = TabMain:CreateSubTab("General Options")
 local SecGeneral = CreateSection(SubGeneral, "Frontend Options")
-CreateToggle(SecGeneral, "Example Toggle 1", false, function() print("Toggle 1 clicked") end)
-CreateToggle(SecGeneral, "Example Toggle 2", true, function() print("Toggle 2 clicked") end)
-CreateButton(SecGeneral, "Click Me", function() print("Button clicked") end)
+CreateToggle(SecGeneral, "Example Toggle 1", false, function() end)
+CreateToggle(SecGeneral, "Example Toggle 2", true, function() end)
+CreateButton(SecGeneral, "Click Me", function() end)
 
 local SubVisuals = TabMain:CreateSubTab("Visuals")
 local SecVis = CreateSection(SubVisuals, "Visual Adjustments")
-CreateSlider(SecVis, "Brightness", 0, 100, 50, function(val) print(val) end)
+CreateSlider(SecVis, "Brightness", 0, 100, 50, function(val) end)
 
--- Extra Demo Tab
-local TabExtra = CreateMainTab("Extra", "✨")
-local SubExtra1 = TabExtra:CreateSubTab("Settings")
-local SecExtra = CreateSection(SubExtra1, "Misc Settings")
-CreateToggle(SecExtra, "Enable Features", false, function() end)
-
--- Settings (Scale Adjuster included)
 local TabSet = CreateMainTab("Settings", "⚙️")
 local SubUI = TabSet:CreateSubTab("UI Scale")
 local SecScale = CreateSection(SubUI, "Custom Scale Adjuster")
