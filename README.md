@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FOOTSTEP LAND REMOTE INTEGRATED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PERMANENT HELD REMOTES & 60 SPEED)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -531,7 +531,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// STRICT THRESHOLD BYPASS SPIDER TELEPORT WITH LAND REMOTE
+--// STRICT THRESHOLD BYPASS SPIDER TELEPORT WITH HELD REMOTES
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -620,6 +620,17 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
+            -- PERMANENTES GEHALTENES SPRINT / CLIMB STATE SIGNAL WÄHREND DER GESAMTEN REISE
+            local heldRemotesActive = true
+            task.spawn(function()
+                while heldRemotesActive and _G.RyuIsTweening do
+                    if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                    if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
+                    if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
+                    task.wait(0.1)
+                end
+            end)
+
             local function SpiderLerp(tPos, currentSpeed)
                 local startPos = root.Position
                 local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
@@ -627,6 +638,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 local totalDist = (flatStart - flatTarget).Magnitude
                 
                 if totalDist < 5 then return true end 
+                
+                -- Die Reisegeschwindigkeit ist fest auf 60 Studs eingestellt
+                currentSpeed = 60
+                local t = totalDist / currentSpeed
+                if t < 0.1 then return true end
                 
                 local elapsedTime = 0
                 local currentY = root.Position.Y
@@ -667,10 +683,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
 
                 if hum then hum.PlatformStand = false end
-
-                -- Trigger Remotes einmalig vor Beginn
-                if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-                if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
 
                 while elapsedTime < 100 do
                     local dt = RunService.Heartbeat:Wait()
@@ -721,8 +733,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     if remainingDist <= 5 then break end
                     
-                    -- BYPASS ANTICHEAT TP CHECK: Max 42 Studs Distanz pro Schritt
-                    local safeStepDist = math.min(42 * dt, remainingDist)
+                    -- BERECHNUNG MIT GEWÜNSCHTER 60 SPEED (Gekappt für Anticheat-Bypass)
+                    local stepDist = math.min(60 * dt, remainingDist)
                     
                     local flatMoveDir = (flatTargetPos - flatCurrent)
                     if flatMoveDir.Magnitude > 0.1 then 
@@ -731,8 +743,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         flatMoveDir = root.CFrame.LookVector 
                     end
                     
-                    local nextX = currentPos.X + (flatMoveDir.X * safeStepDist)
-                    local nextZ = currentPos.Z + (flatMoveDir.Z * safeStepDist)
+                    local nextX = currentPos.X + (flatMoveDir.X * stepDist)
+                    local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
@@ -751,8 +763,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
-                    -- BYPASS Y-AXIS TOO FAST
-                    local maxYStep = 15 * dt * 25
+                    -- SMOOTH Y-AXIS STEP
+                    local maxYStep = 18 * dt * 25
                     local yDiff = targetY - currentY
                     
                     local heightChanged = false
@@ -764,7 +776,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         heightChanged = true
                     end
                     
-                    -- TRIGGER LAND REMOTE: Teilt dem Server nach Höhenänderungen mit, dass wir auf dem Boden gelandet sind
+                    -- LAND REMOTE TRIGGER BEI ERREICHEN DER ZIELHÖHE
                     if heightChanged and math.abs(currentY - targetY) < 1 then
                         if footstepEvent then
                             pcall(function() footstepEvent:FireServer("land") end)
@@ -782,19 +794,19 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
                     if hum then hum:Move(flatMoveDir, false) end
                     
-                    root.Velocity = Vector3.new(flatMoveDir.X * 42, 0, flatMoveDir.Z * 42)
+                    root.Velocity = Vector3.new(flatMoveDir.X * 60, 0, flatMoveDir.Z * 60)
                     
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = finalPos end
                 end
                 
-                -- Abschluss-Landung triggern
-                if footstepEvent then
-                    pcall(function() footstepEvent:FireServer("land") end)
-                end
+                heldRemotesActive = false
+                
+                -- ABSCHLUSS-LANDUNG TRIGGERN & KLETTERN BEENDEN
+                if footstepEvent then pcall(function() footstepEvent:FireServer("land") end) end
+                if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
                 
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
-                if climbEvent then task.spawn(function() pcall(function() climbEvent:InvokeServer(false) end) end) end
                 
                 char:SetAttribute("evading", nil)
                 _G.soruDashing = nil
