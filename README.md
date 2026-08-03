@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (SMOOTH PARABOLIC SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (BYPASS THRESHOLD SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -511,7 +511,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// ZENITH-STYLE ELEVATOR SNAP SPIDER TELEPORT
+--// STRICT THRESHOLD BYPASS SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -608,16 +608,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 if totalDist < 5 then return true end 
                 
-                currentSpeed = (currentSpeed and currentSpeed > 0) and currentSpeed or 60
-                local t = totalDist / currentSpeed
-                if t < 0.1 then return true end
-                
                 local elapsedTime = 0
                 local currentY = root.Position.Y
                 local nextRoboCheck = tick()
                 
                 char:SetAttribute("evading", true)
                 _G.soruDashing = true
+                _G.canuse = true
 
                 local rayParams = RaycastParams.new()
                 rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
@@ -651,10 +648,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
                 if hum then hum.PlatformStand = false end
 
+                -- Trigger Remotes einmalig vor Beginn
                 if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                 if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
 
-                while elapsedTime < t do
+                while elapsedTime < 100 do
                     local dt = RunService.Heartbeat:Wait()
                     dt = math.clamp(dt, 0.001, 0.05)
                     
@@ -688,7 +686,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                                         local newFlatStart = Vector3.new(startPos.X, 0, startPos.Z)
                                         local newFlatTarget = Vector3.new(tPos.X, 0, tPos.Z)
                                         totalDist = (newFlatStart - newFlatTarget).Magnitude
-                                        t = totalDist / currentSpeed
                                         elapsedTime = 0
                                         break
                                     end
@@ -700,41 +697,49 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local currentPos = root.Position
                     local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
                     local flatTargetPos = Vector3.new(tPos.X, 0, tPos.Z)
-                    if (flatCurrent - flatTargetPos).Magnitude <= 5 then break end
+                    local remainingDist = (flatCurrent - flatTargetPos).Magnitude
                     
-                    local alpha = math.clamp(elapsedTime / t, 0, 1)
-                    local currentX = startPos.X + (tPos.X - startPos.X) * alpha
-                    local currentZ = startPos.Z + (tPos.Z - startPos.Z) * alpha
+                    if remainingDist <= 5 then break end
                     
-                    local flatMoveDir = (Vector3.new(tPos.X, 0, tPos.Z) - Vector3.new(currentX, 0, currentZ))
-                    if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
+                    -- BYPASS ANTICHEAT TP CHECK: Maximal 42 Studs pro Sekunde (Server Threshold ist 48)
+                    local safeStepDist = math.min(42 * dt, remainingDist)
                     
-                    local calcPos = Vector3.new(currentX, currentY, currentZ)
+                    local flatMoveDir = (flatTargetPos - flatCurrent)
+                    if flatMoveDir.Magnitude > 0.1 then 
+                        flatMoveDir = flatMoveDir.Unit 
+                    else 
+                        flatMoveDir = root.CFrame.LookVector 
+                    end
                     
-                    -- ZENITH-STYLE ELEVATOR SCANNER
+                    local nextX = currentPos.X + (flatMoveDir.X * safeStepDist)
+                    local nextZ = currentPos.Z + (flatMoveDir.Z * safeStepDist)
+                    
+                    local calcPos = Vector3.new(nextX, currentY, nextZ)
+                    
+                    -- RAYCAST PROTECTOR FOR NOCLIP AND WALLS
                     local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 6, rayParams) 
                         or Workspace:Raycast(calcPos + Vector3.new(0, 3, 0), flatMoveDir * 6, rayParams)
                     
-                    local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
+                    local groundYCurrent = GetTrueTopY(nextX, nextZ) + floorOffset
                     local targetY = groundYCurrent
 
                     if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
                         local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 1.5), wallAhead.Position.Z + (flatMoveDir.Z * 1.5)) + floorOffset
                         targetY = math.max(targetY, obstacleTopY)
-                        
-                        -- Instant Snap nach oben bei Wandkontakt
-                        currentY = targetY
                     else
-                        local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 6)
+                        local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 6)
                         local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
                         targetY = math.max(groundYCurrent, groundYAhead)
-                        
-                        -- Schnelles Absinken auf Bodenniveau
-                        if currentY > targetY then
-                            currentY = math.max(currentY - (120 * dt), targetY)
-                        else
-                            currentY = targetY
-                        end
+                    end
+                    
+                    -- BYPASS Y-AXIS TOO FAST: Max 15 Units Steigung pro Frame (Server Threshold ist 17-42)
+                    local maxYStep = 15 * dt * 25
+                    local yDiff = targetY - currentY
+                    
+                    if yDiff > 0 then
+                        currentY = math.min(currentY + maxYStep, targetY)
+                    elseif yDiff < 0 then
+                        currentY = math.max(currentY - maxYStep, targetY)
                     end
                     
                     if currentY < 4 then currentY = 4 end
@@ -742,13 +747,14 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     elapsedTime = elapsedTime + dt
                     
-                    local finalPos = Vector3.new(currentX, currentY, currentZ)
+                    local finalPos = Vector3.new(nextX, currentY, nextZ)
                     local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                     
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
                     if hum then hum:Move(flatMoveDir, false) end
                     
-                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, 0, flatMoveDir.Z * currentSpeed)
+                    -- Velocity auf 0 halten für 100% Anticheat Bypass
+                    root.Velocity = Vector3.new(flatMoveDir.X * 42, 0, flatMoveDir.Z * 42)
                     
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = finalPos end
