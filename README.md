@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (150 Y-SPEED & WALL-FACING SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (ZENITH-STYLE ELEVATOR SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -511,7 +511,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 4-STUD HOVER & 150 Y-SPEED WALL-FACING SPIDER TELEPORT
+--// ZENITH-STYLE ELEVATOR SNAP SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -591,7 +591,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             local hum = char:FindFirstChildOfClass("Humanoid")
-            -- Exakt 4 Studs Abstand zum Boden festlegen
             local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 4
             
             ToggleHover(true)
@@ -601,11 +600,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
-            -- EINMALIGES ANFÄNGLICHES AKTIVIEREN DER CLIMB / SPRINT / FOOTSTEP REMOTES
-            if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-            if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
-            if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-
             local function SpiderLerp(tPos, currentSpeed)
                 local startPos = root.Position
                 local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
@@ -614,7 +608,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 if totalDist < 5 then return true end 
                 
-                -- Normal-Geschwindigkeit am Boden ist 60 Studs/Sek
                 currentSpeed = (currentSpeed and currentSpeed > 0) and currentSpeed or 60
                 local t = totalDist / currentSpeed
                 if t < 0.1 then return true end
@@ -657,6 +650,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 end
 
                 if hum then hum.PlatformStand = false end
+
+                if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+                if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
 
                 while elapsedTime < t do
                     local dt = RunService.Heartbeat:Wait()
@@ -715,70 +711,50 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local calcPos = Vector3.new(currentX, currentY, currentZ)
                     
-                    -- Prüft exakt 4 Studs vor dir auf eine Wand
-                    local wallCheck = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams) or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 4, rayParams)
+                    -- ZENITH-STYLE ELEVATOR SCANNER
+                    local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 6, rayParams) 
+                        or Workspace:Raycast(calcPos + Vector3.new(0, 3, 0), flatMoveDir * 6, rayParams)
+                    
                     local groundYCurrent = GetTrueTopY(currentX, currentZ) + floorOffset
                     local targetY = groundYCurrent
 
-                    local isClimbingWall = false
-                    local wallNormal = nil
-
-                    if wallCheck and wallCheck.Instance and wallCheck.Instance.Transparency < 1 then
-                        isClimbingWall = true
-                        wallNormal = wallCheck.Normal
-                        -- Höchsten Punkt der Wand ermitteln (inklusive 2 Studs Kanten-Offset)
-                        local obstacleTopY = GetTrueTopY(wallCheck.Position.X + (flatMoveDir.X * 0.5), wallCheck.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset + 2
+                    if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
+                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 1.5), wallAhead.Position.Z + (flatMoveDir.Z * 1.5)) + floorOffset
                         targetY = math.max(targetY, obstacleTopY)
+                        
+                        -- Instant Snap nach oben bei Wandkontakt
+                        currentY = targetY
                     else
-                        local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 8)
+                        local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 6)
                         local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
                         targetY = math.max(groundYCurrent, groundYAhead)
-                    end
-
-                    -- Vorwärtsbewegung stoppen, wenn du die Wand berühren könntest
-                    local advanceSpeed = 1
-                    if isClimbingWall and currentY < targetY - 1.5 then
-                        advanceSpeed = 0 -- Kein Vorwärtsgehen in die Wand hinein!
-                    end
-
-                    -- KLETTER-GESCHWINDIGKEIT AUF EXAKT 150 STUDS/SEKUNDELIMITIERT
-                    local maxVerticalSpeed = isClimbingWall and 150 or 32 
-                    local yDiff = targetY - currentY
-                    
-                    if yDiff > 0 then
-                        -- Schnelles Hochklettern mit 150 Studs/s
-                        currentY = math.min(currentY + (maxVerticalSpeed * dt), targetY)
-                    elseif yDiff < 0 then
-                        -- Klettern/Absinken an der Kante
-                        currentY = math.max(currentY - (maxVerticalSpeed * dt), targetY)
+                        
+                        -- Schnelles Absinken auf Bodenniveau
+                        if currentY > targetY then
+                            currentY = math.max(currentY - (120 * dt), targetY)
+                        else
+                            currentY = targetY
+                        end
                     end
                     
                     if currentY < 4 then currentY = 4 end
                     currentY = math.max(currentY, 1)
                     
-                    elapsedTime = elapsedTime + (dt * advanceSpeed)
+                    elapsedTime = elapsedTime + dt
                     
                     local finalPos = Vector3.new(currentX, currentY, currentZ)
+                    local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                     
-                    -- CHARAKTER BLICKRICHTUNG: Schaut beim Wandklettern direkt zur Wandfläche
-                    if isClimbingWall and wallNormal then
-                        local wallFaceLookPos = finalPos - Vector3.new(wallNormal.X, 0, wallNormal.Z)
-                        root.CFrame = CFrame.lookAt(finalPos, wallFaceLookPos)
-                    else
-                        local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
-                        root.CFrame = CFrame.lookAt(finalPos, lookPos)
-                    end
-
-                    if hum then hum:Move(flatMoveDir * advanceSpeed, false) end
+                    root.CFrame = CFrame.lookAt(finalPos, lookPos)
+                    if hum then hum:Move(flatMoveDir, false) end
                     
-                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed * advanceSpeed, 0, flatMoveDir.Z * currentSpeed * advanceSpeed)
+                    root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed, 0, flatMoveDir.Z * currentSpeed)
                     
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = finalPos end
                 end
                 
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
-                -- BEENDEN DER CLIMB-REMOTE AM ENDE DER REISE
                 if climbEvent then task.spawn(function() pcall(function() climbEvent:InvokeServer(false) end) end) end
                 
                 char:SetAttribute("evading", nil)
