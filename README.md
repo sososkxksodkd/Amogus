@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (3-STUD INSTANT CLIMB & FOOT-FIX TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PREDICTIVE 2-STUD BUFFER SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -502,7 +502,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 3-STUD INSTANT RESPONSE SPIDER TELEPORT WITH CORRECT FEET ALIGNMENT
+--// 3-STUD PREDICTIVE BUFFER & PERFECT FEET ALIGNMENT SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -582,7 +582,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             local hum = char:FindFirstChildOfClass("Humanoid")
-            -- Exakter Offset damit die Füße perfekt auf dem Boden stehen
+            -- Perfekter Offset damit Füße exakt am Boden stehen
             local floorOffset = (hum and hum.HipHeight or 2) + (root.Size.Y / 2)
             
             ToggleHover(true)
@@ -744,7 +744,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- 3-STUD WAND-SCAN & INSTANT RESPONSE (PRÄZISE SCHRITTE)
+                    -- 3-STUD PREDICITVE WAND-SCAN & BUFFER SCHUTZ
                     local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 3, rayParams) 
                         or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 3, rayParams)
                     local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 5, 0), rayParams)
@@ -773,8 +773,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         advanceSpeed = 0
                     end
 
-                    -- SCHNELLERE AKTIVIERUNG OHNE VERZÖGERUNGEN
-                    local maxYStep = isClimbingState and (45 * dt * 25) or (25 * dt * 25)
+                    -- INSTANT RESPONSE OHNE VERZÖGERUNGEN
+                    local maxYStep = isClimbingState and (55 * dt * 25) or (30 * dt * 25)
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
