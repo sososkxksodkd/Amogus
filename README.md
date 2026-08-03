@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FIXED & SAFE SPIDER TP EDITION)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (TREE & PROP FILTER SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -226,7 +226,7 @@ function RyuNotify:Send(title, text, duration)
     local Stroke = Instance.new("UIStroke", NotifFrame); Stroke.Color = Color3.fromRGB(255, 255, 255); Stroke.Transparency = 1; Stroke.Thickness = 1.5
     local AccentLine = Instance.new("Frame", NotifFrame); AccentLine.Size = UDim2.new(0, 3, 0.8, 0); AccentLine.Position = UDim2.new(0, 4, 0.1, 0); AccentLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255); AccentLine.BackgroundTransparency = 1; Instance.new("UICorner", AccentLine).CornerRadius = UDim.new(1, 0)
     local TitleLabel = Instance.new("TextLabel", NotifFrame); TitleLabel.Size = UDim2.new(1, -20, 0, 20); TitleLabel.Position = UDim2.new(0, 15, 0, 8); TitleLabel.BackgroundTransparency = 1; TitleLabel.Text = title; TitleLabel.TextColor3 = Color3.fromRGB(250, 250, 250); TitleLabel.TextTransparency = 1; TitleLabel.Font = Enum.Font.GothamBold; TitleLabel.TextSize = 13; TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    local DescLabel = Instance.new("TextLabel", NotifFrame); DescLabel.Size = UDim2.new(1, -20, 0, 28); DescLabel.Position = UDim2.new(0, 15, 0, 28); DescLabel.BackgroundTransparency = 1; DescLabel.Text = text; DescLabel.TextColor3 = Color3.fromRGB(130, 130, 135); DescLabel.TextTransparency = 1; DescLabel.Font = Enum.Font.Gotham; DescLabel.TextSize = 11; DescLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local DescLabel = Instance.new("TextLabel", NotifFrame); DescLabel.Size = UDim2.new(1, -20, 0, 20); DescLabel.Position = UDim2.new(0, 15, 0, 28); DescLabel.BackgroundTransparency = 1; DescLabel.Text = text; DescLabel.TextColor3 = Color3.fromRGB(130, 130, 135); DescLabel.TextTransparency = 1; DescLabel.Font = Enum.Font.Gotham; DescLabel.TextSize = 11; DescLabel.TextXAlignment = Enum.TextXAlignment.Left
 
     TweenService:Create(NotifFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0.1}):Play()
     TweenService:Create(Stroke, TweenInfo.new(0.3), {Transparency = 0.5}):Play()
@@ -355,7 +355,7 @@ local function CreateSection(page, titleText)
     local section = Instance.new("Frame", page); section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
     local secLayout = Instance.new("UIListLayout", section); secLayout.Padding = UDim.new(0, 10); secLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; secLayout.SortOrder = Enum.SortOrder.LayoutOrder
     Instance.new("UIPadding", section).PaddingTop = UDim.new(0, 12); Instance.new("UIPadding", section).PaddingBottom = UDim.new(0, 12)
-    local title = Instance.new("TextLabel", section); title.LayoutOrder = -1; title.Size = UDim2.new(0.92, 0, 0, 24); title.BackgroundTransparency = 1; title.Text = titleText; title.TextColor3 = Theme.Text; title.Font = Enum.Font.GothamBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left;
+    local title = Instance.new("TextLabel", section); title.LayoutOrder = -1; title.Size = UDim2.new(0.92, 0, 0, 24); title.BackgroundTransparency = 1; title.Text = titleText; title.TextColor3 = Theme.Text; title.Font = Enum.Font.GothamBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left
     secLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() section.Size = UDim2.new(1, 0, 0, secLayout.AbsoluteContentSize.Y + 24) end)
     return section
 end
@@ -532,7 +532,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 4-STUD RANGE & ROOF PROTECTED SPIDER TELEPORT
+--// 4-STUD RANGE & PROP FILTER SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -656,13 +656,27 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 _G.soruDashing = true
                 _G.canuse = true
 
+                -- RAYCAST FILTERING: EXCLUDE TREES & PROPS (BÄUME UND DEKO IGNORIEREN)
                 local rayParams = RaycastParams.new()
-                rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                local ignoreList = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                
+                -- Bäume und Env-Props in Ignore-List aufnehmen
+                pcall(function()
+                    if Workspace:FindFirstChild("Env") then
+                        for _, v in pairs(Workspace.Env:GetDescendants()) do
+                            if v.Name:lower():find("tree") or v.Name:lower():find("leaf") or v.Name:lower():find("prop") or v.Name:lower():find("fence") then
+                                table.insert(ignoreList, v)
+                            end
+                        end
+                    end
+                end)
+                
+                rayParams.FilterDescendantsInstances = ignoreList
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 rayParams.IgnoreWater = true
 
                 local function GetTrueTopY(x, z)
-                    local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+                    local currentFilter = table.clone(ignoreList)
                     local rParams = RaycastParams.new()
                     rParams.FilterType = Enum.RaycastFilterType.Exclude
                     rParams.IgnoreWater = true
@@ -674,7 +688,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         rParams.FilterDescendantsInstances = currentFilter
                         local hit = Workspace:Raycast(origin, dir, rParams)
                         if hit then
-                            if hit.Instance.Transparency < 1 then
+                            -- Filter Bäume / Dekoration stumm aus
+                            local name = hit.Instance.Name:lower()
+                            if name:find("tree") or name:find("leaf") or name:find("grass") or name:find("stone") then
+                                table.insert(currentFilter, hit.Instance)
+                            elseif hit.Instance.Transparency < 1 then
                                 return hit.Position.Y
                             else
                                 table.insert(currentFilter, hit.Instance)
