@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PERMANENT CLIMB REMOTE SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (150 Y-SPEED & WALL-FACING SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -511,7 +511,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 4-STUD HOVER & SMART CLIMB SPIDER TELEPORT
+--// 4-STUD HOVER & 150 Y-SPEED WALL-FACING SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -601,17 +601,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
-            -- PERMANENT-SCHLEIFE FÜR DAS KLETTER-EVENT IM HINTERGRUND
-            local climbLoopActive = true
-            task.spawn(function()
-                while climbLoopActive and _G.RyuIsTweening do
-                    if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-                    if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
-                    if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
-                    task.wait(0.15)
-                end
-            end)
-            
+            -- EINMALIGES ANFÄNGLICHES AKTIVIEREN DER CLIMB / SPRINT / FOOTSTEP REMOTES
+            if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+            if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
+            if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
+
             local function SpiderLerp(tPos, currentSpeed)
                 local startPos = root.Position
                 local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
@@ -727,10 +721,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local targetY = groundYCurrent
 
                     local isClimbingWall = false
+                    local wallNormal = nil
+
                     if wallCheck and wallCheck.Instance and wallCheck.Instance.Transparency < 1 then
                         isClimbingWall = true
-                        -- Höchsten Punkt der Wand ermitteln
-                        local obstacleTopY = GetTrueTopY(wallCheck.Position.X + (flatMoveDir.X * 0.5), wallCheck.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
+                        wallNormal = wallCheck.Normal
+                        -- Höchsten Punkt der Wand ermitteln (inklusive 2 Studs Kanten-Offset)
+                        local obstacleTopY = GetTrueTopY(wallCheck.Position.X + (flatMoveDir.X * 0.5), wallCheck.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset + 2
                         targetY = math.max(targetY, obstacleTopY)
                     else
                         local checkPosAhead = Vector3.new(currentX, 0, currentZ) + (flatMoveDir * 8)
@@ -744,13 +741,15 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         advanceSpeed = 0 -- Kein Vorwärtsgehen in die Wand hinein!
                     end
 
-                    -- Schnelle Steig- und Senkgeschwindigkeit für Wände & Kanten
-                    local maxVerticalSpeed = isClimbingWall and 45 or 32 
+                    -- KLETTER-GESCHWINDIGKEIT AUF EXAKT 150 STUDS/SEKUNDELIMITIERT
+                    local maxVerticalSpeed = isClimbingWall and 150 or 32 
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
+                        -- Schnelles Hochklettern mit 150 Studs/s
                         currentY = math.min(currentY + (maxVerticalSpeed * dt), targetY)
                     elseif yDiff < 0 then
+                        -- Klettern/Absinken an der Kante
                         currentY = math.max(currentY - (maxVerticalSpeed * dt), targetY)
                     end
                     
@@ -760,9 +759,16 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     elapsedTime = elapsedTime + (dt * advanceSpeed)
                     
                     local finalPos = Vector3.new(currentX, currentY, currentZ)
-                    local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
                     
-                    root.CFrame = CFrame.lookAt(finalPos, lookPos)
+                    -- CHARAKTER BLICKRICHTUNG: Schaut beim Wandklettern direkt zur Wandfläche
+                    if isClimbingWall and wallNormal then
+                        local wallFaceLookPos = finalPos - Vector3.new(wallNormal.X, 0, wallNormal.Z)
+                        root.CFrame = CFrame.lookAt(finalPos, wallFaceLookPos)
+                    else
+                        local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
+                        root.CFrame = CFrame.lookAt(finalPos, lookPos)
+                    end
+
                     if hum then hum:Move(flatMoveDir * advanceSpeed, false) end
                     
                     root.Velocity = Vector3.new(flatMoveDir.X * currentSpeed * advanceSpeed, 0, flatMoveDir.Z * currentSpeed * advanceSpeed)
@@ -771,8 +777,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     if bp then bp.Position = finalPos end
                 end
                 
-                climbLoopActive = false
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
+                -- BEENDEN DER CLIMB-REMOTE AM ENDE DER REISE
                 if climbEvent then task.spawn(function() pcall(function() climbEvent:InvokeServer(false) end) end) end
                 
                 char:SetAttribute("evading", nil)
