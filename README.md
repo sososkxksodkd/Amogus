@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (STRICT WALL-STOP & TOP-REACH SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PERMANENT 4-STUD WALL BUFFER SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -502,7 +502,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// STRICT WALL-STOP & TOP-REACH SPIDER TELEPORT
+--// PERMANENT 4-STUD WALL DISTANCE & SAFE SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -626,7 +626,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 _G.soruDashing = true
                 _G.canuse = true
 
-                -- RAYCAST FILTERING: 3-RAY FÄCHER (LINKS, MITTE, RECHTS) & BAUM-FILTER
+                -- RAYCAST FILTERING: 4-STUD FÄCHER (LINKS, MITTE, RECHTS) & BAUM-FILTER
                 local rayParams = RaycastParams.new()
                 local ignoreList = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                 
@@ -743,18 +743,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- 3-STUD FÄCHER SCANNER (LINKS, MITTE, RECHTS) MIT PERMANENTEM 2-STUD ABSTAND
-                    local rightOffset = Vector3.new(flatMoveDir.Z, 0, -flatMoveDir.X) * 2
-                    local wallCenter = Workspace:Raycast(calcPos, flatMoveDir * 3, rayParams)
-                    local wallLeft = Workspace:Raycast(calcPos - rightOffset, flatMoveDir * 3, rayParams)
-                    local wallRight = Workspace:Raycast(calcPos + rightOffset, flatMoveDir * 3, rayParams)
+                    -- 4-STUD FÄCHER SCANNER (LINKS, MITTE, RECHTS) MIT FIXEM 4-STUD ABSTAND
+                    local rightOffset = Vector3.new(flatMoveDir.Z, 0, -flatMoveDir.X) * 2.5
+                    local wallCenter = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams)
+                    local wallLeft = Workspace:Raycast(calcPos - rightOffset, flatMoveDir * 4, rayParams)
+                    local wallRight = Workspace:Raycast(calcPos + rightOffset, flatMoveDir * 4, rayParams)
                     
                     local groundYCurrent = GetTrueTopY(nextX, nextZ)
                     local targetY = groundYCurrent
 
                     local activeHit = wallCenter or wallLeft or wallRight
                     if activeHit and activeHit.Instance and activeHit.Instance.Transparency < 1 then
-                        local obstacleTopY = GetTrueTopY(activeHit.Position.X + (flatMoveDir.X * 0.5), activeHit.Position.Z + (flatMoveDir.Z * 0.5))
+                        local obstacleTopY = GetTrueTopY(activeHit.Position.X + (flatMoveDir.X * 0.8), activeHit.Position.Z + (flatMoveDir.Z * 0.8))
                         targetY = math.max(targetY, obstacleTopY)
                         
                         if not isClimbingState then
@@ -764,18 +764,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                             end
                         end
                     else
-                        local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 3)
+                        local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
                         local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z)
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
-                    -- STRENGER WAND-STOP: Erst vorwärtsgehen, wenn der Charakter KOMPLETT oben auf der Kante angekommen ist!
+                    -- EXTREMER 4-STUD SICHERHEITSSTOPP: Stoppt die Vorwärtsbewegung sofort, bis die Kante erreicht ist
                     local advanceSpeed = 1
                     if isClimbingState and currentY < targetY - 0.5 then
-                        advanceSpeed = 0 -- Kompletter Stopp vorwärts, während er nach oben zieht!
+                        advanceSpeed = 0
                     end
 
-                    local maxYStep = isClimbingState and (70 * dt * 25) or (35 * dt * 25)
+                    local maxYStep = isClimbingState and (75 * dt * 25) or (35 * dt * 25)
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
