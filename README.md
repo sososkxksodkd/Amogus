@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PERMANENT HELD REMOTES & 60 SPEED)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (2-STUD CLIMB & HELD LAND REMOTE TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -620,13 +620,16 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
-            -- PERMANENTES GEHALTENES SPRINT / CLIMB STATE SIGNAL WÄHREND DER GESAMTEN REISE
+            -- PERMANENTES GEHALTENES SPRINT / CLIMB / FOOTSTEP / LAND STATE SIGNAL WÄHREND DER GESAMTEN REISE
             local heldRemotesActive = true
             task.spawn(function()
                 while heldRemotesActive and _G.RyuIsTweening do
                     if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                     if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
-                    if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
+                    if footstepEvent then 
+                        pcall(function() footstepEvent:FireServer() end)
+                        pcall(function() footstepEvent:FireServer("land") end)
+                    end
                     task.wait(0.1)
                 end
             end)
@@ -748,17 +751,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 6, rayParams) 
-                        or Workspace:Raycast(calcPos + Vector3.new(0, 3, 0), flatMoveDir * 6, rayParams)
+                    -- SCANNER MIT 2 STUDS KLETTER-RANGE PRÜFUNG
+                    local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 2, rayParams) 
+                        or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 2, rayParams)
                     
                     local groundYCurrent = GetTrueTopY(nextX, nextZ) + floorOffset
                     local targetY = groundYCurrent
 
                     if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
-                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 1.5), wallAhead.Position.Z + (flatMoveDir.Z * 1.5)) + floorOffset
+                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
                         targetY = math.max(targetY, obstacleTopY)
                     else
-                        local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 6)
+                        local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
                         local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
@@ -767,20 +771,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local maxYStep = 18 * dt * 25
                     local yDiff = targetY - currentY
                     
-                    local heightChanged = false
                     if yDiff > 0 then
                         currentY = math.min(currentY + maxYStep, targetY)
-                        heightChanged = true
                     elseif yDiff < 0 then
                         currentY = math.max(currentY - maxYStep, targetY)
-                        heightChanged = true
-                    end
-                    
-                    -- LAND REMOTE TRIGGER BEI ERREICHEN DER ZIELHÖHE
-                    if heightChanged and math.abs(currentY - targetY) < 1 then
-                        if footstepEvent then
-                            pcall(function() footstepEvent:FireServer("land") end)
-                        end
                     end
                     
                     if currentY < 4 then currentY = 4 end
