@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - PURE MODERN GLASS UI (FRONTEND ONLY - NO EXPLOIT LOGIC)
+--// RYU HUB - PURE MODERN GLASS UI (100% SAFE - NO HOOKS, NO REMOTES)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -11,7 +11,7 @@ local Workspace = game:GetService("Workspace")
 local LocalPlayer = Players.LocalPlayer
 local Camera = Workspace.CurrentCamera
 
---// CLEANUP
+--// CLEANUP (Nur altes GUI entfernen, keine Anti-Cheat Manipulationen!)
 local guiParent = LocalPlayer:WaitForChild("PlayerGui", 10) or LocalPlayer:FindFirstChild("PlayerGui")
 pcall(function()
     if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end
