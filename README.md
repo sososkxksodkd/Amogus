@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PERFECTED SPIDER TP & FIXED CONFIG)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PERFECT EDGE SNAP SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -109,7 +109,7 @@ local function GetCurrentSeaData()
     return StaticGPO.Sea1
 end
 
---// HYBRIDER SCANNER (OHNE CONTINUOUS AUTO-REFRESH)
+--// HYBRIDER SCANNER
 local function GetDynamicLists()
     local mobsDict, questsDict, islandsDict, weaponsDict = {}, {}, {}, {}
     local mobs, quests, islands, weapons = {}, {}, {}, {}
@@ -502,7 +502,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 4-STUD RANGE & OCEAN-SAFE SPIDER TELEPORT
+--// 4-STUD RANGE & OCEAN-SAFE SPIDER TELEPORT WITH PERFECT EDGE SNAP
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -645,7 +645,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 rayParams.IgnoreWater = true
 
                 -- ERMITTELT DEN SCHWEBENEN/ECHTEN BODEN ODER WASSERSTAND
-                local waterLevel = 20 -- Fester Wasserstandschutz fürs Meer
+                local waterLevel = 20
                 pcall(function()
                     if Workspace:FindFirstChild("Env") and Workspace.Env:FindFirstChild("WaterStuff") and Workspace.Env.WaterStuff:FindFirstChild("Water") then
                         waterLevel = Workspace.Env.WaterStuff.Water.Position.Y + floorOffset + 2
@@ -768,8 +768,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
+                    -- VORWÄRTSBEWEGUNG PAUSIEREN BIS DECKEN ODER WÄNDE DIE KANTE VOLLSTÄNDIG FREIGEBEN (EDGE SNAP FIX)
                     local advanceSpeed = 1
-                    if (isClimbingState and currentY < targetY - 1.5) or (roofAbove and roofAbove.Instance.Transparency < 1) then
+                    if (isClimbingState and currentY < targetY + 0.5) or (roofAbove and roofAbove.Instance.Transparency < 1) then
                         advanceSpeed = 0
                     end
 
@@ -782,7 +783,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         currentY = math.max(currentY - maxYStep, targetY)
                     end
                     
-                    if isClimbingState and math.abs(currentY - targetY) <= 1.5 then
+                    if isClimbingState and currentY >= targetY - 0.5 then
                         isClimbingState = false
                         if footstepEvent and type(footstepEvent.FireServer) == "function" then 
                             pcall(function() footstepEvent:FireServer("land") end) 
@@ -792,7 +793,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end
                     
-                    -- WASSERSTAND-SCHUTZ: Verhindert, dass der Y-Wert im Meer ins Wasser fällt
                     currentY = math.max(currentY, waterLevel)
                     
                     elapsedTime = elapsedTime + (dt * advanceSpeed)
