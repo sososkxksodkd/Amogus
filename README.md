@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FIXED SLOPED MOUNTAIN SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (RAMP & SLOPE OPTIMIZED SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -502,7 +502,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 4-STUD RANGE & OCEAN-SAFE SPIDER TELEPORT WITH PERFECT EDGE SNAP
+--// 4-STUD RANGE & RAMP/SLOPE SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -744,38 +744,39 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- 4-STUD WAND-SCAN & ROOF SCHUTZ
+                    -- 4-STUD SCANNER FÜR WÄNDE, RAMPEN UND DECKEN
                     local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams) 
                         or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 4, rayParams)
                     local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 6, 0), rayParams)
                     
                     local groundYCurrent = math.max(GetTrueTopY(nextX, nextZ) + floorOffset, waterLevel)
-                    local targetY = groundYCurrent
+                    local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
+                    local groundYAhead = math.max(GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset, waterLevel)
+                    
+                    local targetY = math.max(groundYCurrent, groundYAhead)
 
+                    -- WAND UND RAMPEN ERKENNUNG
+                    local isObstacleAhead = false
                     if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
-                        -- Prüft Oberflächenneigung (Steile Berge klettern, unebene Berge nicht verschmieren)
-                        local wallNormal = wallAhead.Normal
-                        local isSteep = math.abs(wallNormal.Y) < 0.8 -- Nur echte steile Wände/Klippen
-                        
-                        if isSteep then
-                            local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
-                            targetY = math.max(targetY, obstacleTopY)
-                            
-                            if not isClimbingState then
-                                isClimbingState = true
-                                climbStartTime = tick()
-                                if climbEvent and type(climbEvent.InvokeServer) == "function" then 
-                                    pcall(function() climbEvent:InvokeServer(true) end) 
-                                end
+                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
+                        targetY = math.max(targetY, obstacleTopY)
+                        isObstacleAhead = true
+                    elseif groundYAhead - currentY > 2 then
+                        -- ERKENNUNG VON RAMPEN UND SCHRÄGEN HÄNGEN
+                        isObstacleAhead = true
+                    end
+
+                    if isObstacleAhead then
+                        if not isClimbingState then
+                            isClimbingState = true
+                            climbStartTime = tick()
+                            if climbEvent and type(climbEvent.InvokeServer) == "function" then 
+                                pcall(function() climbEvent:InvokeServer(true) end) 
                             end
                         end
-                    else
-                        local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
-                        local groundYAhead = math.max(GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset, waterLevel)
-                        targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
-                    -- KLETTER-TIMEOUT: Verhindert Durchglitchen, falls das Klettern länger als 4 Sekunden dauert
+                    -- KLETTER-TIMEOUT SICHERUNG
                     if isClimbingState and (tick() - climbStartTime > 4) then
                         isClimbingState = false
                         if climbEvent and type(climbEvent.InvokeServer) == "function" then 
@@ -783,10 +784,9 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end
 
-                    -- ERST WIEDER NACH VORNE BEWEGEN, WENN DIE KANTE VOLLSTÄNDIG ÜBERSCHRITTEN WURDE
+                    -- ANSTIEGS-DROSSELUNG AN RAMPEN/WÄNDEN ZUR SICHEN DURCHQUERUNG
                     local advanceSpeed = 1
                     if (isClimbingState and currentY < targetY + 0.5) or (roofAbove and roofAbove.Instance.Transparency < 1) then
-                        -- Sicherer Wandabstand-Puffer (Verhindert Wand-Draufschmieren)
                         nextX = currentPos.X - (flatMoveDir.X * 0.2)
                         nextZ = currentPos.Z - (flatMoveDir.Z * 0.2)
                         advanceSpeed = 0
@@ -801,7 +801,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         currentY = math.max(currentY - maxYStep, targetY)
                     end
                     
-                    -- DEDIZIERTES BEENDEN NACH ÜBERSCHREITEN DER KANTE
                     if isClimbingState and currentY >= targetY - 0.5 then
                         isClimbingState = false
                         if footstepEvent and type(footstepEvent.FireServer) == "function" then 
