@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FIXED MOUNTAIN-TO-WATER DESCENT TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (NSE1 SAFE & WATER HEIGHT FIX SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -23,24 +23,26 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SAFE ANTICHEAT HOOK
+--// SAFE ANTICHEAT HOOK (NSE1 CRASH BYPASS)
 pcall(function()
-    if getrawmetatable and setreadonly and newcclosure and getnamecallmethod then
+    if type(getrawmetatable) == "function" and type(setreadonly) == "function" and type(newcclosure) == "function" and type(getnamecallmethod) == "function" then
         local mt = getrawmetatable(game)
-        local rawNamecall = mt.__namecall
-        setreadonly(mt, false)
-        
-        mt.__namecall = newcclosure(function(self, ...)
-            local method = getnamecallmethod()
-            if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
-                local remoteName = tostring(self.Name):lower()
-                if remoteName:find("ban") or remoteName:find("kick") or remoteName:find("detection") or remoteName:find("check") or remoteName:find("strike") then
-                    return nil
+        if mt and rawget(mt, "__namecall") then
+            local rawNamecall = mt.__namecall
+            setreadonly(mt, false)
+            
+            mt.__namecall = newcclosure(function(self, ...)
+                local method = getnamecallmethod()
+                if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
+                    local remoteName = tostring(self.Name):lower()
+                    if remoteName:find("ban") or remoteName:find("kick") or remoteName:find("detection") or remoteName:find("check") or remoteName:find("strike") then
+                        return nil
+                    end
                 end
-            end
-            return rawNamecall(self, ...)
-        end)
-        setreadonly(mt, true)
+                return rawNamecall(self, ...)
+            end)
+            setreadonly(mt, true)
+        end
     end
 end)
 
@@ -301,7 +303,7 @@ UserInputService.InputChanged:Connect(function(input) if rDragging and (input.Us
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if tDragStart then
-            if not isDraggingBtn me
+            if not isDraggingBtn then
                 if MainFrame.Visible then 
                     TweenService:Create(MainFrame, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play(); task.wait(0.25); MainFrame.Visible = false
                 else 
@@ -565,7 +567,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local isStartIslandRobo = (distToPlayer < 1000 and islandDistFromPlayer > 1500)
                     
                     if not isStartIslandRobo and distToTarget <= 300 then
-                        if distToTarget < closestDist me
+                        if distToTarget < closestDist then
                             closestDist = distToTarget
                             closestRobo = v
                         end
