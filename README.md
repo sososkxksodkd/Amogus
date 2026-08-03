@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (EXACT 4-STUD HEIGHT FIX SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FIXED EXACT 3-STUD HEIGHT SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -646,7 +646,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 rayParams.IgnoreWater = true
 
-                -- WASSERSTAND (EXAKTE OBERFLÄCHEN-HOEHE)
+                -- REINER WASSERSTAND (OHNE DOUBLE OFFSETS)
                 local rawWaterY = 16
                 pcall(function()
                     if Workspace:FindFirstChild("Env") and Workspace.Env:FindFirstChild("WaterStuff") and Workspace.Env.WaterStuff:FindFirstChild("Water") then
@@ -755,17 +755,17 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
                     local surfaceYAhead = GetTrueSurfaceY(checkPosAhead.X, checkPosAhead.Z)
                     
-                    -- ZIELHÖHE IST REINER SURFACE-Y PLUS EXAKT 4 STUDS OFFSET
+                    -- ZIELHÖHE IST REINER SURFACE-Y PLUS EXAKT 3 STUDS OFFSET
                     local highestSurface = math.max(surfaceYCurrent, surfaceYAhead)
-                    local targetY = highestSurface + 4
+                    local targetY = highestSurface + 3
 
                     -- WAND UND RAMPEN ERKENNUNG
                     local isObstacleAhead = false
                     if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
-                        local obstacleTopY = GetTrueSurfaceY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + 4
+                        local obstacleTopY = GetTrueSurfaceY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + 3
                         targetY = math.max(targetY, obstacleTopY)
                         isObstacleAhead = true
-                    elseif surfaceYAhead + 4 - currentY > 2 then
+                    elseif (surfaceYAhead + 3) - currentY > 2 then
                         isObstacleAhead = true
                     end
 
@@ -794,14 +794,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         advanceSpeed = 0
                     end
 
-                    -- ANSTIEGS- UND ABSINK-Geschwindigkeit (SCHNELLES DESCENT VOM BERG AUFS WASSER)
+                    -- ANSTIEGS- UND ABSINK-GESCHWINDIGKEIT (EXAKTER SINK-FLUG VOM BERG NACH UNTEN)
                     local yDiff = targetY - currentY
                     if yDiff > 0 then
                         local maxYStep = isClimbingState and (28 * dt * 25) or (20 * dt * 25)
                         currentY = math.min(currentY + maxYStep, targetY)
                     elseif yDiff < 0 then
-                        -- Schnellerer Abstieg beim Verlassen von Bergen direkt aufs Wasser (4 Studs Offset)
-                        local maxDownStep = 45 * dt * 25
+                        local maxDownStep = 40 * dt * 25
                         currentY = math.max(currentY - maxDownStep, targetY)
                     end
                     
@@ -815,7 +814,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end
                     
-                    currentY = math.max(currentY, rawWaterY + 4)
+                    currentY = math.max(currentY, rawWaterY + 3)
                     
                     elapsedTime = elapsedTime + (dt * advanceSpeed)
                     
