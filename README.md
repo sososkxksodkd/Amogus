@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (BYPASS THRESHOLD SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (ZENITH-SPEED BYPASS EDITION)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -23,6 +23,26 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
+--// CLIENT-SIDE ANTICHEAT DETECTOR BYPASS (ZENITH HOOK)
+pcall(function()
+    local rawNamecall = getrawmetatable(game).__namecall
+    setreadonly(getrawmetatable(game), false)
+    
+    getrawmetatable(game).__namecall = newcclosure(function(self, ...)
+        local method = getnamecallmethod()
+        local args = {...}
+        
+        if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
+            local remoteName = tostring(self.Name):lower()
+            if remoteName:find("ban") or remoteName:find("kick") or remoteName:find("detection") or remoteName:find("check") or remoteName:find("strike") then
+                return nil
+            end
+        end
+        return rawNamecall(self, ...)
+    end)
+    setreadonly(getrawmetatable(game), true)
+end)
+
 --// ANTI-ANNOYING MESSAGE HIDER
 task.spawn(function()
     local pg = LocalPlayer:WaitForChild("PlayerGui", 10)
@@ -32,7 +52,7 @@ task.spawn(function()
                 task.delay(0.01, function()
                     if descendant.Parent and descendant.Text then
                         local txt = descendant.Text:lower()
-                        if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") then
+                        if txt:match("cd") or txt:match("cooldown") or txt:match("climb") or txt:match("error") or txt:match("strike") or txt:match("threshold") then
                             descendant.Visible = false
                             descendant:Destroy()
                         end
@@ -648,7 +668,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
                 if hum then hum.PlatformStand = false end
 
-                -- Trigger Remotes einmalig vor Beginn
                 if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                 if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
 
@@ -701,7 +720,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     if remainingDist <= 5 then break end
                     
-                    -- BYPASS ANTICHEAT TP CHECK: Maximal 42 Studs pro Sekunde (Server Threshold ist 48)
+                    -- BYPASS ANTICHEAT TP CHECK: Max 42 Studs Distanz pro Schritt
                     local safeStepDist = math.min(42 * dt, remainingDist)
                     
                     local flatMoveDir = (flatTargetPos - flatCurrent)
@@ -716,7 +735,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- RAYCAST PROTECTOR FOR NOCLIP AND WALLS
                     local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 6, rayParams) 
                         or Workspace:Raycast(calcPos + Vector3.new(0, 3, 0), flatMoveDir * 6, rayParams)
                     
@@ -732,7 +750,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
-                    -- BYPASS Y-AXIS TOO FAST: Max 15 Units Steigung pro Frame (Server Threshold ist 17-42)
+                    -- BYPASS Y-AXIS TOO FAST: Max 15 Units Steigung pro Tick
                     local maxYStep = 15 * dt * 25
                     local yDiff = targetY - currentY
                     
@@ -753,7 +771,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     root.CFrame = CFrame.lookAt(finalPos, lookPos)
                     if hum then hum:Move(flatMoveDir, false) end
                     
-                    -- Velocity auf 0 halten für 100% Anticheat Bypass
                     root.Velocity = Vector3.new(flatMoveDir.X * 42, 0, flatMoveDir.Z * 42)
                     
                     local bp = root:FindFirstChild("RyuHover")
