@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (RAMP & SLOPE OPTIMIZED SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (4-STUD WATER LEVEL FIXED SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
