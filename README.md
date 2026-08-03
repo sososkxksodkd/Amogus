@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (4-STUD WALL SCAN & ROOF PROTECT TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FINAL PERFECTED SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -225,7 +225,7 @@ function RyuNotify:Send(title, text, duration)
     local Stroke = Instance.new("UIStroke", NotifFrame); Stroke.Color = Color3.fromRGB(255, 255, 255); Stroke.Transparency = 1; Stroke.Thickness = 1.5
     local AccentLine = Instance.new("Frame", NotifFrame); AccentLine.Size = UDim2.new(0, 3, 0.8, 0); AccentLine.Position = UDim2.new(0, 4, 0.1, 0); AccentLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255); AccentLine.BackgroundTransparency = 1; Instance.new("UICorner", AccentLine).CornerRadius = UDim.new(1, 0)
     local TitleLabel = Instance.new("TextLabel", NotifFrame); TitleLabel.Size = UDim2.new(1, -20, 0, 20); TitleLabel.Position = UDim2.new(0, 15, 0, 8); TitleLabel.BackgroundTransparency = 1; TitleLabel.Text = title; TitleLabel.TextColor3 = Color3.fromRGB(250, 250, 250); TitleLabel.TextTransparency = 1; TitleLabel.Font = Enum.Font.GothamBold; TitleLabel.TextSize = 13; TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    local DescLabel = Instance.new("TextLabel", NotifFrame); DescLabel.Size = UDim2.new(1, -20, 0, 28); DescLabel.Position = UDim2.new(0, 15, 0, 28); DescLabel.BackgroundTransparency = 1; DescLabel.Text = text; DescLabel.TextColor3 = Color3.fromRGB(130, 130, 135); DescLabel.TextTransparency = 1; DescLabel.Font = Enum.Font.Gotham; DescLabel.TextSize = 11; DescLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local DescLabel = Instance.new("TextLabel", NotifFrame); DescLabel.Size = UDim2.new(1, -20, 0, 20); DescLabel.Position = UDim2.new(0, 15, 0, 28); DescLabel.BackgroundTransparency = 1; DescLabel.Text = text; DescLabel.TextColor3 = Color3.fromRGB(130, 130, 135); DescLabel.TextTransparency = 1; DescLabel.Font = Enum.Font.Gotham; DescLabel.TextSize = 11; DescLabel.TextXAlignment = Enum.TextXAlignment.Left
 
     TweenService:Create(NotifFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0.1}):Play()
     TweenService:Create(Stroke, TweenInfo.new(0.3), {Transparency = 0.5}):Play()
@@ -531,7 +531,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// STATE-MACHINE CLIMB SPIDER TELEPORT WITH ROOF PROTECTION
+--// 4-STUD RANGE & ROOF PROTECTED SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -620,7 +620,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
-            -- PERMANENT SPRINT & FOOTSTEP LOOP WÄHREND DER REISE
+            -- PERMANENT SPRINT & FOOTSTEP LOOP
             local isFlyingActive = true
             task.spawn(function()
                 while isFlyingActive and _G.RyuIsTweening do
@@ -745,12 +745,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- SCANNER FÜR DECKEN UND WÄNDE (4 STUDS ACCURACY MIT ROOF PROTECTION)
+                    -- 4-STUD WAND-SCAN & ROOF SCHUTZ
                     local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams) 
                         or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 4, rayParams)
-                    
-                    -- Prüft, ob direkt über dem Kopf ein Objekt/Dach liegt (verhindert Reinfliegen von unten)
-                    local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 5, 0), rayParams)
+                    local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 6, 0), rayParams)
                     
                     local groundYCurrent = GetTrueTopY(nextX, nextZ) + floorOffset
                     local targetY = groundYCurrent
@@ -759,7 +757,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
                         targetY = math.max(targetY, obstacleTopY)
                         
-                        -- Betrete Kletter-Zustand
                         if not isClimbingState then
                             isClimbingState = true
                             if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
@@ -770,13 +767,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
-                    -- Falls ein Dach über dir ist, verlangsame Vorwärtsdrang bis der Weg frei ist
                     local advanceSpeed = 1
-                    if (isClimbingState and currentY < targetY - 1.5) or roofAbove then
+                    if (isClimbingState and currentY < targetY - 1.5) or (roofAbove and roofAbove.Instance.Transparency < 1) then
                         advanceSpeed = 0
                     end
 
-                    -- SANFTER DYNAMISCHER Y-SCHRITT (Max 22 Units/s für 0 Anticheat Strikes)
                     local maxYStep = isClimbingState and (28 * dt * 25) or (16 * dt * 25)
                     local yDiff = targetY - currentY
                     
@@ -786,7 +781,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         currentY = math.max(currentY - maxYStep, targetY)
                     end
                     
-                    -- OBEN ANGEKOMMEN: LAND REMOTE ABFEUERN & KLETTERN DEDIZIERT BEENDEN
                     if isClimbingState and math.abs(currentY - targetY) <= 1.5 then
                         isClimbingState = false
                         if footstepEvent then pcall(function() footstepEvent:FireServer("land") end) end
@@ -812,7 +806,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 isFlyingActive = false
                 
-                -- ENDE DER REISE: SAUBERER LAND STATE
                 if footstepEvent then pcall(function() footstepEvent:FireServer("land") end) end
                 if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
                 
@@ -913,7 +906,7 @@ CreateButton(SecCaveTP, "TP", function()
                     task.wait(0.1)
                 end
                 
-                if not tpSuccess me
+                if not tpSuccess then
                     if hum then hum:Move(Vector3.new(0,0,0)) end
                     task.wait(3)
                 end
@@ -1252,7 +1245,7 @@ local function TrackAndFarmMob(targetMob)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not root or not hum or not targetMob then return end
+    if not root || not hum || not targetMob then return end
 
     local mobRoot = targetMob:FindFirstChild("HumanoidRootPart")
     local mobHum = targetMob:FindFirstChildOfClass("Humanoid")
@@ -1300,7 +1293,7 @@ end
 local function GroupFarmMobs(targetMobs)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root or #targetMobs == 0 then return end
+    if not root || #targetMobs == 0 then return end
 
     local aggroedMobs = {}
 
@@ -1412,7 +1405,7 @@ task.spawn(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         
-        if not root or not hum or hum.Health <= 0 then continue end
+        if not root || not hum || hum.Health <= 0 then continue end
 
         ToggleHover(true)
         hum.AutoRotate = false 
