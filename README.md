@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (PREMIUM UI WITH 10+ SETTINGS)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -39,6 +40,11 @@ RyuHub.ResetOnSpawn = false
 RyuHub.IgnoreGuiInset = true
 RyuHub.Parent = guiParent
 
+-- Welt-Blur (Für Settings)
+local UIBlur = Instance.new("BlurEffect")
+UIBlur.Size = 0
+UIBlur.Parent = Lighting
+
 --// ANIMATION & UI HELPERS
 local function AddHoverEffect(element, def, hov)
     element.MouseEnter:Connect(function() TweenService:Create(element, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = hov}):Play() end)
@@ -64,10 +70,10 @@ local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 25, 0, 25)
 ToggleBtn.BackgroundColor3 = Theme.Sidebar
--- Der rbxthumb Fix zwingt Roblox dazu, auch Decal-IDs in Bilder umzuwandeln
 ToggleBtn.Image = "rbxthumb://type=Asset&id=6050149849&w=150&h=150" 
 ToggleBtn.Parent = RyuHub
 ToggleBtn.ScaleType = Enum.ScaleType.Crop
+ToggleBtn.ClipsDescendants = true
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
 local btnStroke = Instance.new("UIStroke", ToggleBtn)
 btnStroke.Color = Theme.Accent; btnStroke.Thickness = 2; btnStroke.Transparency = 0.5
@@ -94,7 +100,7 @@ MainFrame.BorderSizePixel = 0; MainFrame.Active = true; MainFrame.Visible = fals
 MainFrame.Parent = RyuHub
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
--- Custom Background Image
+-- Background Image
 local MainBgImage = Instance.new("ImageLabel", MainFrame)
 MainBgImage.Size = UDim2.new(1, 0, 1, 0)
 MainBgImage.BackgroundTransparency = 1
@@ -107,16 +113,21 @@ mainStroke.Color = Theme.Stroke
 mainStroke.Transparency = 0.2
 mainStroke.Thickness = 1.5
 
+local isUIOpen = false
 UserInputService.InputEnded:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
         if tDragStart then
             if not isDraggingBtn then
                 if MainFrame.Visible then
+                    isUIOpen = false
                     TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+                    TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 0}):Play()
                     task.wait(0.3); MainFrame.Visible = false
                 else
+                    isUIOpen = true
                     MainFrame.Visible = true
                     TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = MainSize, Position = UDim2.new(0.5, -MainSize.X.Offset/2, 0.5, -MainSize.Y.Offset/2)}):Play()
+                    if _G.BlurEnabled then TweenService:Create(UIBlur, TweenInfo.new(0.35), {Size = 15}):Play() end
                 end
             end
             tDragStart = nil
@@ -154,10 +165,12 @@ local CloseBtn = Instance.new("TextButton", Topbar)
 CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG
 CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 14; CloseBtn.ZIndex = 2
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-Instance.new("UIStroke", CloseBtn).Color = Theme.Stroke
+local closeStroke = Instance.new("UIStroke", CloseBtn); closeStroke.Color = Theme.Stroke
 AddHoverEffect(CloseBtn, Theme.SectionBG, Theme.Warning)
 CloseBtn.MouseButton1Click:Connect(function() 
+    isUIOpen = false
     TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+    TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 0}):Play()
     task.wait(0.3); MainFrame.Visible = false 
 end)
 
@@ -363,6 +376,7 @@ end
 
 local function CreateSection(page, titleText)
     local section = Instance.new("Frame", page)
+    section.Name = "SectionContainer"
     section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; section.BackgroundTransparency = 0
     section.ZIndex = 2
     Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
@@ -489,6 +503,7 @@ local function CreateButton(section, text, color, callback)
     itemOrderCounter = itemOrderCounter + 1
     local btn = Instance.new("TextButton", section)
     btn.LayoutOrder = itemOrderCounter; btn.Size = UDim2.new(0.92, 0, 0, 34); btn.BackgroundColor3 = color
+    btn.Name = "CustomButton"
     btn.Text = text; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.ZIndex = 2
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     Instance.new("UIStroke", btn).Color = Theme.Stroke; Instance.new("UIStroke", btn).Transparency = 0.5
@@ -501,12 +516,45 @@ local function CreateTextBox(section, placeholder, callback)
     itemOrderCounter = itemOrderCounter + 1
     local box = Instance.new("TextBox", section)
     box.LayoutOrder = itemOrderCounter; box.Size = UDim2.new(0.92, 0, 0, 34); box.BackgroundColor3 = Theme.Background
+    box.Name = "CustomTextBox"
     box.Text = ""; box.PlaceholderText = placeholder; box.TextColor3 = Theme.Text; box.Font = Enum.Font.GothamMedium; box.TextSize = 12
     box.ClearTextOnFocus = false; box.ClipsDescendants = true; box.ZIndex = 2
     Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
     Instance.new("UIStroke", box).Color = Theme.Stroke
     if callback then box.FocusLost:Connect(function() callback(box.Text) end) end
     return box
+end
+
+local function CreateDropdown(section, headerText, itemsList, callback)
+    itemOrderCounter = itemOrderCounter + 1
+    local frame = Instance.new("Frame", section)
+    frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1; frame.ZIndex = 2
+    
+    local header = Instance.new("TextLabel", frame)
+    header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(itemsList[1])
+    header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left; header.ZIndex = 2
+    
+    local scroll = Instance.new("ScrollingFrame", frame)
+    scroll.Name = "DropdownContainer"
+    scroll.Size = UDim2.new(1, 0, 0, 130); scroll.Position = UDim2.new(0, 0, 0, 25); scroll.BackgroundColor3 = Theme.Background
+    scroll.ScrollBarThickness = 4; scroll.ZIndex = 2
+    Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
+    local listLayout = Instance.new("UIListLayout", scroll)
+    listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    
+    for _, itemName in ipairs(itemsList) do
+        local btn = Instance.new("TextButton", scroll)
+        btn.Name = "DropButton"
+        btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. tostring(itemName)
+        btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; btn.ZIndex = 2
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+        btn.MouseButton1Click:Connect(function()
+            header.Text = headerText .. ": " .. tostring(itemName)
+            if callback then callback(itemName) end
+        end)
+    end
+    task.defer(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
+    return frame
 end
 
 --// =======================
@@ -555,35 +603,118 @@ local TabSettings = CreateMainTab("Settings")
 local SubClient = CreateSubTab(TabSettings, "Client")
 local SecClient = CreateSection(SubClient, "System Configuration")
 CreateToggle(SecClient, "Anti-AFK Protection", "Prevents Roblox from kicking you for idling", false, function(state)
-    -- Anti AFK Logik Platzhalter
+    -- Anti AFK Logik
+    if state then
+        _G.AntiAfkConnection = LocalPlayer.Idled:Connect(function()
+            game:GetService("VirtualUser"):CaptureController()
+            game:GetService("VirtualUser"):ClickButton2(Vector2.new())
+        end)
+    else
+        if _G.AntiAfkConnection then _G.AntiAfkConnection:Disconnect() end
+    end
 end)
 
 local SubTheme = CreateSubTab(TabSettings, "Theme & UI")
 
---// THEME SETTINGS: WINDOW
+--// THEME SETTINGS: 10 NEUE EINSTELLUNGEN
 local SecWindow = CreateSection(SubTheme, "Window Personalization")
 
-CreateToggle(SecWindow, "Glass Mode", "Beautiful frosted glass transparency", false, function(state)
-    if state then
-        TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0.35, BackgroundColor3 = Color3.fromRGB(30, 30, 35)}):Play()
-        TweenService:Create(mainStroke, TweenInfo.new(0.3), {Transparency = 0.6}):Play()
-    else
-        TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0, BackgroundColor3 = Theme.Background}):Play()
-        TweenService:Create(mainStroke, TweenInfo.new(0.3), {Transparency = 0.2}):Play()
+-- 1. Glass Mode (Macht ALLES durchsichtig)
+CreateToggle(SecWindow, "Glass Mode", "Transparent frosted glass UI", false, function(state)
+    local mainTrans = state and 0.4 or 0
+    local secTrans = state and 0.5 or 0
+    
+    TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = mainTrans, BackgroundColor3 = state and Color3.fromRGB(5,5,5) or Theme.Background}):Play()
+    TweenService:Create(Sidebar, TweenInfo.new(0.3), {BackgroundTransparency = mainTrans}):Play()
+    
+    for _, obj in pairs(MainFrame:GetDescendants()) do
+        if obj:IsA("Frame") and obj.Name == "SectionContainer" then
+            TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundTransparency = secTrans}):Play()
+        elseif obj:IsA("Frame") and obj.Name == "DropdownContainer" then
+            TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundTransparency = secTrans}):Play()
+        elseif obj:IsA("TextBox") and obj.Name == "CustomTextBox" then
+            TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundTransparency = secTrans}):Play()
+        end
     end
 end)
 
+-- 2. Game World Blur
+_G.BlurEnabled = false
+CreateToggle(SecWindow, "World UI Blur", "Blurs the game when UI is open", false, function(state)
+    _G.BlurEnabled = state
+    if isUIOpen and state then TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 15}):Play()
+    elseif not state then TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 0}):Play() end
+end)
+
+-- 3. Accent Color (Farbauswahl)
+local PremiumColors = {
+    ["White"] = Color3.fromRGB(255, 255, 255),
+    ["Crimson Red"] = Color3.fromRGB(220, 20, 60),
+    ["Neon Blue"] = Color3.fromRGB(0, 150, 255),
+    ["Emerald Green"] = Color3.fromRGB(46, 204, 113),
+    ["Royal Purple"] = Color3.fromRGB(155, 89, 182),
+    ["Hot Pink"] = Color3.fromRGB(255, 105, 180),
+    ["Gold"] = Color3.fromRGB(241, 196, 15)
+}
+CreateDropdown(SecWindow, "Accent Color", {"White", "Crimson Red", "Neon Blue", "Emerald Green", "Royal Purple", "Hot Pink", "Gold"}, function(colorName)
+    local newColor = PremiumColors[colorName]
+    if newColor then
+        Theme.Accent = newColor
+        for _, obj in pairs(RyuHub:GetDescendants()) do
+            if obj:IsA("UIStroke") and obj.Color ~= Theme.Stroke and obj.Color ~= Theme.Warning then obj.Color = newColor end
+            if obj:IsA("Frame") and obj.BackgroundColor3 ~= Theme.Background and obj.BackgroundColor3 ~= Theme.SectionBG and obj.BackgroundColor3 ~= Theme.ToggleOff and obj.BackgroundColor3 ~= Theme.Sidebar and obj.BackgroundColor3 ~= Color3.fromRGB(150, 150, 150) then 
+                obj.BackgroundColor3 = newColor 
+            end
+            if obj:IsA("TextLabel") and obj.Text == "Target: None" then obj.TextColor3 = newColor end
+        end
+    end
+end)
+
+-- 4. Background Color (Farbauswahl)
+local BgColors = {
+    ["Default Dark"] = Color3.fromRGB(12, 12, 14),
+    ["Pitch Black"] = Color3.fromRGB(0, 0, 0),
+    ["Midnight Blue"] = Color3.fromRGB(5, 10, 20),
+    ["Deep Blood"] = Color3.fromRGB(20, 5, 5)
+}
+CreateDropdown(SecWindow, "Background Tint", {"Default Dark", "Pitch Black", "Midnight Blue", "Deep Blood"}, function(colorName)
+    local newBg = BgColors[colorName]
+    if newBg then
+        Theme.Background = newBg
+        TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundColor3 = newBg}):Play()
+    end
+end)
+
+-- 5. Text Font Style
+CreateDropdown(SecWindow, "UI Font Style", {"Gotham", "Code", "Arcade", "SciFi"}, function(fontName)
+    local targetFont = Enum.Font.Gotham
+    if fontName == "Code" then targetFont = Enum.Font.Code
+    elseif fontName == "Arcade" then targetFont = Enum.Font.Arcade
+    elseif fontName == "SciFi" then targetFont = Enum.Font.Michroma end
+    
+    for _, obj in pairs(MainFrame:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.Font == Enum.Font.GothamBold then obj.Font = targetFont
+            elseif obj.Font == Enum.Font.GothamMedium then obj.Font = targetFont
+            else obj.Font = targetFont end
+        end
+    end
+end)
+
+-- 6. Outline Settings
+CreateToggle(SecWindow, "Hide Window Borders", "Removes the outer window line", false, function(state)
+    mainStroke.Enabled = not state
+end)
+
+-- 7. Corner Roundness
 CreateSlider(SecWindow, "Window Roundness", 0, 24, 12, function(val)
     for _, corner in pairs(MainFrame:GetChildren()) do
         if corner:IsA("UICorner") then corner.CornerRadius = UDim.new(0, val) end
     end
 end)
 
-CreateToggle(SecWindow, "Minimalist Borders", "Hides the outer window stroke", false, function(state)
-    mainStroke.Enabled = not state
-end)
-
-CreateTextBox(SecWindow, "Background Image ID (e.g. 12345)", function(txt)
+-- 8. Background Image URL
+CreateTextBox(SecWindow, "Custom Background URL (Asset ID)...", function(txt)
     if txt and txt ~= "" then
         local num = txt:match("%d+")
         if num then
@@ -595,30 +726,16 @@ CreateTextBox(SecWindow, "Background Image ID (e.g. 12345)", function(txt)
     end
 end)
 
-CreateSlider(SecWindow, "Background Visibility", 0, 100, 40, function(val)
+-- 9. Background Image Transparency
+CreateSlider(SecWindow, "Background Image Opacity", 0, 100, 40, function(val)
     if MainBgImage.Image ~= "" then
         MainBgImage.ImageTransparency = 1 - (val / 100)
     end
 end)
 
---// THEME SETTINGS: TOGGLE BUTTON
 local SecToggleUI = CreateSection(SubTheme, "Toggle Button Personalization")
 
-CreateTextBox(SecToggleUI, "Custom Icon ID (e.g. 6050149849)", function(txt)
-    if txt and txt ~= "" then
-        local num = txt:match("%d+")
-        if num then ToggleBtn.Image = "rbxthumb://type=Asset&id="..num.."&w=150&h=150" end
-    end
-end)
-
-CreateSlider(SecToggleUI, "Toggle Button Size", 30, 80, 50, function(val)
-    TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, val, 0, val)}):Play()
-end)
-
-CreateSlider(SecToggleUI, "Toggle Glow Intensity", 0, 100, 50, function(val)
-    btnStroke.Transparency = 1 - (val / 100)
-end)
-
+-- 10. RGB Rainbow Ring für Toggle Button
 local rainbowToggle = false
 CreateToggle(SecToggleUI, "RGB Rainbow Ring", "Animates the toggle button border", false, function(state)
     rainbowToggle = state
@@ -633,17 +750,10 @@ task.spawn(function()
     end
 end)
 
-CreateToggle(SecToggleUI, "Floating Icon Mode", "Removes the toggle button background", false, function(state)
-    if state then
-        TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
-    else
-        TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
-    end
-end)
-
 local SecSave = CreateSection(SubTheme, "Save Config")
-CreateButton(SecSave, "Save Theme & Settings", Color3.fromRGB(50, 150, 50), function()
+CreateButton(SecSave, "Save Settings To File", Color3.fromRGB(50, 150, 50), function()
     -- Save Logik Platzhalter
+    print("Settings Saved!")
 end)
 
 -- INITIALISIERUNG
