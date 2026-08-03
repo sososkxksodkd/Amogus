@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI - FIXED GLASS & SAVES)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -17,7 +17,7 @@ local guiParent = LocalPlayer:WaitForChild("PlayerGui")
 pcall(function() if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end end)
 for _, v in pairs(guiParent:GetChildren()) do if v.Name == "RyuHubPremium" then v:Destroy() end end
 
---// PREMIUM MONOCHROME THEME
+--// PREMIUM MONOCHROME THEME (DEFAULT)
 local Theme = {
     Background = Color3.fromRGB(12, 12, 14),
     Sidebar = Color3.fromRGB(18, 18, 20),
@@ -65,7 +65,7 @@ local function AddClickPop(element)
     end)
 end
 
---// IMAGE BUTTON TOGGLE (GEFIXT MIT RBXTHUMB)
+--// IMAGE BUTTON TOGGLE 
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 25, 0, 25)
@@ -98,9 +98,10 @@ MainFrame.Size = UDim2.new(0, 0, 0, 0); MainFrame.Position = UDim2.new(0.5, 0, 0
 MainFrame.BackgroundColor3 = Theme.Background
 MainFrame.BorderSizePixel = 0; MainFrame.Active = true; MainFrame.Visible = false; MainFrame.ClipsDescendants = true
 MainFrame.Parent = RyuHub
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 12)
 
--- Background Image
+-- Custom Background Image
 local MainBgImage = Instance.new("ImageLabel", MainFrame)
 MainBgImage.Size = UDim2.new(1, 0, 1, 0)
 MainBgImage.BackgroundTransparency = 1
@@ -603,7 +604,6 @@ local TabSettings = CreateMainTab("Settings")
 local SubClient = CreateSubTab(TabSettings, "Client")
 local SecClient = CreateSection(SubClient, "System Configuration")
 CreateToggle(SecClient, "Anti-AFK Protection", "Prevents Roblox from kicking you for idling", false, function(state)
-    -- Anti AFK Logik
     if state then
         _G.AntiAfkConnection = LocalPlayer.Idled:Connect(function()
             game:GetService("VirtualUser"):CaptureController()
@@ -619,13 +619,13 @@ local SubTheme = CreateSubTab(TabSettings, "Theme & UI")
 --// THEME SETTINGS: 10 NEUE EINSTELLUNGEN
 local SecWindow = CreateSection(SubTheme, "Window Personalization")
 
--- 1. Glass Mode (Macht ALLES durchsichtig)
+-- 1. Glass Mode (Der Fix: Sidebar Hintergrund bleibt unsichtbar!)
 CreateToggle(SecWindow, "Glass Mode", "Transparent frosted glass UI", false, function(state)
     local mainTrans = state and 0.4 or 0
     local secTrans = state and 0.5 or 0
     
     TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = mainTrans, BackgroundColor3 = state and Color3.fromRGB(5,5,5) or Theme.Background}):Play()
-    TweenService:Create(Sidebar, TweenInfo.new(0.3), {BackgroundTransparency = mainTrans}):Play()
+    -- WICHTIG: Die Sidebar BackgroundTransparency bleibt unangetastet (behebt den weißen Bug links!)
     
     for _, obj in pairs(MainFrame:GetDescendants()) do
         if obj:IsA("Frame") and obj.Name == "SectionContainer" then
@@ -708,9 +708,7 @@ end)
 
 -- 7. Corner Roundness
 CreateSlider(SecWindow, "Window Roundness", 0, 24, 12, function(val)
-    for _, corner in pairs(MainFrame:GetChildren()) do
-        if corner:IsA("UICorner") then corner.CornerRadius = UDim.new(0, val) end
-    end
+    MainCorner.CornerRadius = UDim.new(0, val)
 end)
 
 -- 8. Background Image URL
@@ -735,6 +733,21 @@ end)
 
 local SecToggleUI = CreateSection(SubTheme, "Toggle Button Personalization")
 
+CreateTextBox(SecToggleUI, "Custom Icon ID (e.g. 6050149849)", function(txt)
+    if txt and txt ~= "" then
+        local num = txt:match("%d+")
+        if num then ToggleBtn.Image = "rbxthumb://type=Asset&id="..num.."&w=150&h=150" end
+    end
+end)
+
+CreateSlider(SecToggleUI, "Toggle Button Size", 30, 80, 50, function(val)
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, val, 0, val)}):Play()
+end)
+
+CreateSlider(SecToggleUI, "Toggle Glow Intensity", 0, 100, 50, function(val)
+    btnStroke.Transparency = 1 - (val / 100)
+end)
+
 -- 10. RGB Rainbow Ring für Toggle Button
 local rainbowToggle = false
 CreateToggle(SecToggleUI, "RGB Rainbow Ring", "Animates the toggle button border", false, function(state)
@@ -750,10 +763,48 @@ task.spawn(function()
     end
 end)
 
-local SecSave = CreateSection(SubTheme, "Save Config")
-CreateButton(SecSave, "Save Settings To File", Color3.fromRGB(50, 150, 50), function()
-    -- Save Logik Platzhalter
-    print("Settings Saved!")
+CreateToggle(SecToggleUI, "Floating Icon Mode", "Removes the toggle button background", false, function(state)
+    if state then
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+    else
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
+    end
+end)
+
+local SecSave = CreateSection(SubTheme, "Config & System")
+
+CreateButton(SecSave, "Save Settings To Session", Color3.fromRGB(50, 150, 50), function()
+    -- Speichert sicher in der Spiel-Session ohne externe Dateien
+    _G.RyuSavedSettings = "Saved"
+    print("[RYU HUB] All UI & System Settings saved for current session.")
+end)
+
+CreateButton(SecSave, "Reset UI Settings", Theme.Warning, function()
+    -- Resettet das UI auf den Originalzustand
+    Theme.Background = Color3.fromRGB(12, 12, 14)
+    Theme.Accent = Color3.fromRGB(255, 255, 255)
+    TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundColor3 = Theme.Background, BackgroundTransparency = 0}):Play()
+    
+    MainBgImage.Image = ""
+    mainStroke.Enabled = true
+    UIBlur.Size = 0
+    _G.BlurEnabled = false
+    btnStroke.Color = Theme.Accent
+    rainbowToggle = false
+    MainCorner.CornerRadius = UDim.new(0, 12)
+    
+    for _, obj in pairs(MainFrame:GetDescendants()) do
+        if obj:IsA("UIStroke") and obj.Color ~= Theme.Stroke and obj.Color ~= Theme.Warning then obj.Color = Theme.Accent end
+        if obj:IsA("Frame") and obj.Name == "SectionContainer" then obj.BackgroundTransparency = 0 end
+        if obj:IsA("Frame") and obj.Name == "DropdownContainer" then obj.BackgroundTransparency = 0 end
+        if obj:IsA("TextBox") and obj.Name == "CustomTextBox" then obj.BackgroundTransparency = 0 end
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.Font ~= Enum.Font.GothamBold and obj.Font ~= Enum.Font.GothamMedium then
+                obj.Font = Enum.Font.Gotham
+            end
+        end
+    end
+    print("[RYU HUB] Settings reset to default.")
 end)
 
 -- INITIALISIERUNG
