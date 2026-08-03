@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (FIXED EXACT 3-STUD HEIGHT SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PERFECTED SPIDER TP & FIXED CONFIG)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -25,24 +25,22 @@ end
 
 --// SAFE ANTICHEAT HOOK
 pcall(function()
-    if type(getrawmetatable) == "function" and type(setreadonly) == "function" and type(newcclosure) == "function" and type(getnamecallmethod) == "function" then
+    if getrawmetatable and setreadonly and newcclosure and getnamecallmethod then
         local mt = getrawmetatable(game)
-        if mt and rawget(mt, "__namecall") then
-            local rawNamecall = mt.__namecall
-            setreadonly(mt, false)
-            
-            mt.__namecall = newcclosure(function(self, ...)
-                local method = getnamecallmethod()
-                if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
-                    local remoteName = tostring(self.Name):lower()
-                    if remoteName:find("ban") or remoteName:find("kick") or remoteName:find("detection") or remoteName:find("check") or remoteName:find("strike") then
-                        return nil
-                    end
+        local rawNamecall = mt.__namecall
+        setreadonly(mt, false)
+        
+        mt.__namecall = newcclosure(function(self, ...)
+            local method = getnamecallmethod()
+            if not checkcaller() and (method == "FireServer" or method == "InvokeServer") then
+                local remoteName = tostring(self.Name):lower()
+                if remoteName:find("ban") or remoteName:find("kick") or remoteName:find("detection") or remoteName:find("check") or remoteName:find("strike") then
+                    return nil
                 end
-                return rawNamecall(self, ...)
-            end)
-            setreadonly(mt, true)
-        end
+            end
+            return rawNamecall(self, ...)
+        end)
+        setreadonly(mt, true)
     end
 end)
 
@@ -111,7 +109,7 @@ local function GetCurrentSeaData()
     return StaticGPO.Sea1
 end
 
---// HYBRIDER SCANNER
+--// HYBRIDER SCANNER (OHNE CONTINUOUS AUTO-REFRESH)
 local function GetDynamicLists()
     local mobsDict, questsDict, islandsDict, weaponsDict = {}, {}, {}, {}
     local mobs, quests, islands, weapons = {}, {}, {}, {}
@@ -504,7 +502,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 4-STUD RANGE & DYNAMIC DESCENT SPIDER TELEPORT
+--// 4-STUD RANGE & OCEAN-SAFE SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -584,6 +582,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             local hum = char:FindFirstChildOfClass("Humanoid")
+            local floorOffset = (hum and hum.HipHeight or 2.15) + (root.Size.Y / 2) + 4
             
             ToggleHover(true)
             root.CFrame = root.CFrame + Vector3.new(0, 1, 0)
@@ -620,7 +619,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local elapsedTime = 0
                 local currentY = root.Position.Y
-                local climbStartTime = 0
                 local nextRoboCheck = tick()
                 local isClimbingState = false
                 
@@ -646,15 +644,15 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 rayParams.IgnoreWater = true
 
-                -- REINER WASSERSTAND (OHNE DOUBLE OFFSETS)
-                local rawWaterY = 16
+                -- ERMITTELT DEN SCHWEBENEN/ECHTEN BODEN ODER WASSERSTAND
+                local waterLevel = 20 -- Fester Wasserstandschutz fürs Meer
                 pcall(function()
                     if Workspace:FindFirstChild("Env") and Workspace.Env:FindFirstChild("WaterStuff") and Workspace.Env.WaterStuff:FindFirstChild("Water") then
-                        rawWaterY = Workspace.Env.WaterStuff.Water.Position.Y
+                        waterLevel = Workspace.Env.WaterStuff.Water.Position.Y + floorOffset + 2
                     end
                 end)
 
-                local function GetTrueSurfaceY(x, z)
+                local function GetTrueTopY(x, z)
                     local currentFilter = table.clone(ignoreList)
                     local rParams = RaycastParams.new()
                     rParams.FilterType = Enum.RaycastFilterType.Exclude
@@ -671,7 +669,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                             if name:find("tree") or name:find("leaf") or name:find("grass") or name:find("stone") then
                                 table.insert(currentFilter, hit.Instance)
                             elseif hit.Instance.Transparency < 1 then
-                                return math.max(hit.Position.Y, rawWaterY)
+                                return math.max(hit.Position.Y, waterLevel)
                             else
                                 table.insert(currentFilter, hit.Instance)
                             end
@@ -679,7 +677,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                             break
                         end
                     end
-                    return rawWaterY
+                    return waterLevel
                 end
 
                 if hum then hum.PlatformStand = false end
@@ -746,65 +744,45 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- 4-STUD SCANNER FÜR WÄNDE UND DECKEN
+                    -- 4-STUD WAND-SCAN & ROOF SCHUTZ
                     local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams) 
                         or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 4, rayParams)
                     local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 6, 0), rayParams)
                     
-                    local surfaceYCurrent = GetTrueSurfaceY(nextX, nextZ)
-                    local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
-                    local surfaceYAhead = GetTrueSurfaceY(checkPosAhead.X, checkPosAhead.Z)
-                    
-                    -- ZIELHÖHE IST REINER SURFACE-Y PLUS EXAKT 3 STUDS OFFSET
-                    local highestSurface = math.max(surfaceYCurrent, surfaceYAhead)
-                    local targetY = highestSurface + 3
+                    local groundYCurrent = math.max(GetTrueTopY(nextX, nextZ) + floorOffset, waterLevel)
+                    local targetY = groundYCurrent
 
-                    -- WAND UND RAMPEN ERKENNUNG
-                    local isObstacleAhead = false
                     if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
-                        local obstacleTopY = GetTrueSurfaceY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + 3
+                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
                         targetY = math.max(targetY, obstacleTopY)
-                        isObstacleAhead = true
-                    elseif (surfaceYAhead + 3) - currentY > 2 then
-                        isObstacleAhead = true
-                    end
-
-                    if isObstacleAhead then
+                        
                         if not isClimbingState then
                             isClimbingState = true
-                            climbStartTime = tick()
                             if climbEvent and type(climbEvent.InvokeServer) == "function" then 
                                 pcall(function() climbEvent:InvokeServer(true) end) 
                             end
                         end
+                    else
+                        local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
+                        local groundYAhead = math.max(GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset, waterLevel)
+                        targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
-                    -- KLETTER-TIMEOUT SICHERUNG
-                    if isClimbingState and (tick() - climbStartTime > 4) then
-                        isClimbingState = false
-                        if climbEvent and type(climbEvent.InvokeServer) == "function" then 
-                            pcall(function() climbEvent:InvokeServer(false) end) 
-                        end
-                    end
-
                     local advanceSpeed = 1
-                    if (isClimbingState and currentY < targetY + 0.5) or (roofAbove and roofAbove.Instance.Transparency < 1) then
-                        nextX = currentPos.X - (flatMoveDir.X * 0.2)
-                        nextZ = currentPos.Z - (flatMoveDir.Z * 0.2)
+                    if (isClimbingState and currentY < targetY - 1.5) or (roofAbove and roofAbove.Instance.Transparency < 1) then
                         advanceSpeed = 0
                     end
 
-                    -- ANSTIEGS- UND ABSINK-GESCHWINDIGKEIT (EXAKTER SINK-FLUG VOM BERG NACH UNTEN)
+                    local maxYStep = isClimbingState and (28 * dt * 25) or (16 * dt * 25)
                     local yDiff = targetY - currentY
+                    
                     if yDiff > 0 then
-                        local maxYStep = isClimbingState and (28 * dt * 25) or (20 * dt * 25)
                         currentY = math.min(currentY + maxYStep, targetY)
                     elseif yDiff < 0 then
-                        local maxDownStep = 40 * dt * 25
-                        currentY = math.max(currentY - maxDownStep, targetY)
+                        currentY = math.max(currentY - maxYStep, targetY)
                     end
                     
-                    if isClimbingState and currentY >= targetY - 0.5 then
+                    if isClimbingState and math.abs(currentY - targetY) <= 1.5 then
                         isClimbingState = false
                         if footstepEvent and type(footstepEvent.FireServer) == "function" then 
                             pcall(function() footstepEvent:FireServer("land") end) 
@@ -814,7 +792,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end
                     
-                    currentY = math.max(currentY, rawWaterY + 3)
+                    -- WASSERSTAND-SCHUTZ: Verhindert, dass der Y-Wert im Meer ins Wasser fällt
+                    currentY = math.max(currentY, waterLevel)
                     
                     elapsedTime = elapsedTime + (dt * advanceSpeed)
                     
