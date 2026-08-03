@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PERFECT EDGE SNAP SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FIXED SLOPED MOUNTAIN SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -619,6 +619,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 local elapsedTime = 0
                 local currentY = root.Position.Y
+                local climbStartTime = 0
                 local nextRoboCheck = tick()
                 local isClimbingState = false
                 
@@ -644,7 +645,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 rayParams.IgnoreWater = true
 
-                -- ERMITTELT DEN SCHWEBENEN/ECHTEN BODEN ODER WASSERSTAND
                 local waterLevel = 20
                 pcall(function()
                     if Workspace:FindFirstChild("Env") and Workspace.Env:FindFirstChild("WaterStuff") and Workspace.Env.WaterStuff:FindFirstChild("Water") then
@@ -753,13 +753,20 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local targetY = groundYCurrent
 
                     if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
-                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
-                        targetY = math.max(targetY, obstacleTopY)
+                        -- Prüft Oberflächenneigung (Steile Berge klettern, unebene Berge nicht verschmieren)
+                        local wallNormal = wallAhead.Normal
+                        local isSteep = math.abs(wallNormal.Y) < 0.8 -- Nur echte steile Wände/Klippen
                         
-                        if not isClimbingState then
-                            isClimbingState = true
-                            if climbEvent and type(climbEvent.InvokeServer) == "function" then 
-                                pcall(function() climbEvent:InvokeServer(true) end) 
+                        if isSteep then
+                            local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
+                            targetY = math.max(targetY, obstacleTopY)
+                            
+                            if not isClimbingState then
+                                isClimbingState = true
+                                climbStartTime = tick()
+                                if climbEvent and type(climbEvent.InvokeServer) == "function" then 
+                                    pcall(function() climbEvent:InvokeServer(true) end) 
+                                end
                             end
                         end
                     else
@@ -768,9 +775,20 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
-                    -- VORWÄRTSBEWEGUNG PAUSIEREN BIS DECKEN ODER WÄNDE DIE KANTE VOLLSTÄNDIG FREIGEBEN (EDGE SNAP FIX)
+                    -- KLETTER-TIMEOUT: Verhindert Durchglitchen, falls das Klettern länger als 4 Sekunden dauert
+                    if isClimbingState and (tick() - climbStartTime > 4) then
+                        isClimbingState = false
+                        if climbEvent and type(climbEvent.InvokeServer) == "function" then 
+                            pcall(function() climbEvent:InvokeServer(false) end) 
+                        end
+                    end
+
+                    -- ERST WIEDER NACH VORNE BEWEGEN, WENN DIE KANTE VOLLSTÄNDIG ÜBERSCHRITTEN WURDE
                     local advanceSpeed = 1
                     if (isClimbingState and currentY < targetY + 0.5) or (roofAbove and roofAbove.Instance.Transparency < 1) then
+                        -- Sicherer Wandabstand-Puffer (Verhindert Wand-Draufschmieren)
+                        nextX = currentPos.X - (flatMoveDir.X * 0.2)
+                        nextZ = currentPos.Z - (flatMoveDir.Z * 0.2)
                         advanceSpeed = 0
                     end
 
@@ -783,6 +801,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         currentY = math.max(currentY - maxYStep, targetY)
                     end
                     
+                    -- DEDIZIERTES BEENDEN NACH ÜBERSCHREITEN DER KANTE
                     if isClimbingState and currentY >= targetY - 0.5 then
                         isClimbingState = false
                         if footstepEvent and type(footstepEvent.FireServer) == "function" then 
