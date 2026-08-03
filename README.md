@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & INSTANT FAST KEY)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -608,7 +608,6 @@ local function EquipTargetWeapon()
     local hum = char and char:FindFirstChildOfClass("Humanoid")
     if not hum then return false end
     
-    -- Sucht allgemein nach Schwertern oder Combat-Styles im Inventar
     local targetWep = nil
     for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
         if item:IsA("Tool") and (item:GetAttribute("MeleeTool") or item.Name:lower():find("combat") or item.Name:lower():find("sword")) then
@@ -1093,7 +1092,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V1: SETUP, VERA & KEYS WITH CUTSCENE CHECK)
+--// IMPEL DOWN AUTO FARM ENGINE (V1: SETUP, VERA & FAST KEYS)
 --// ============================================================================
 
 task.spawn(function()
@@ -1123,8 +1122,9 @@ task.spawn(function()
             local vRoot = vera:FindFirstChild("HumanoidRootPart")
             if vHum and vRoot and vHum.Health > 0 then
                 
-                local attackPos = vRoot.Position + (vRoot.CFrame.LookVector * -3) + Vector3.new(0, 5, 0)
-                local targetCFrame = CFrame.lookAt(attackPos, vRoot.Position)
+                -- Position directly above Vera and rotate exactly 90 degrees to face down
+                local attackPos = vRoot.Position + Vector3.new(0, 10, 0)
+                local targetCFrame = CFrame.new(attackPos) * CFrame.Angles(math.rad(-90), 0, 0)
                 
                 if (root.Position - attackPos).Magnitude > 15 then
                     SafeTween(targetCFrame)
@@ -1140,27 +1140,7 @@ task.spawn(function()
             end
         end
 
-        -- SCHRITT 3: Cutscene Check (Warten bis Cutscene endet)
-        local inCutscene = false
-        pcall(function()
-            if camera.CameraType == Enum.CameraType.Scriptable then
-                inCutscene = true
-            end
-            local pg = LocalPlayer:FindFirstChild("PlayerGui")
-            if pg and (pg:FindFirstChild("Cutscene") or pg:FindFirstChild("Cinematic") or pg:FindFirstChild("Dialogue")) then
-                inCutscene = true
-            end
-        end)
-        
-        if inCutscene then
-            ToggleHover(false)
-            if hum then hum:Move(Vector3.new(0,0,0), false) end
-            root.Velocity = Vector3.new(0, 0, 0)
-            task.wait(0.5)
-            continue
-        end
-
-        -- SCHRITT 4: Finde und sammle den Schlüssel (Kontrolliertes Laufen)
+        -- SCHRITT 3: Finde und sammle den Schlüssel (Kontrolliertes Laufen + Sprint Remote)
         local keyPart = nil
         pcall(function()
             local effects = Workspace:FindFirstChild("Effects")
@@ -1193,6 +1173,13 @@ task.spawn(function()
         end)
 
         if keyPart then
+            -- Permanently fire sprint remote when moving to key
+            pcall(function()
+                if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint") then
+                    ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457")
+                end
+            end)
+
             local dist = (root.Position - keyPart.Position).Magnitude
             if dist > 4 then
                 ToggleHover(false)
