@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (ZENITH-SPEED BYPASS EDITION)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (FOOTSTEP LAND REMOTE INTEGRATED)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -531,7 +531,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// STRICT THRESHOLD BYPASS SPIDER TELEPORT
+--// STRICT THRESHOLD BYPASS SPIDER TELEPORT WITH LAND REMOTE
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -668,6 +668,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
 
                 if hum then hum.PlatformStand = false end
 
+                -- Trigger Remotes einmalig vor Beginn
                 if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
                 if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
 
@@ -750,14 +751,24 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
-                    -- BYPASS Y-AXIS TOO FAST: Max 15 Units Steigung pro Tick
+                    -- BYPASS Y-AXIS TOO FAST
                     local maxYStep = 15 * dt * 25
                     local yDiff = targetY - currentY
                     
+                    local heightChanged = false
                     if yDiff > 0 then
                         currentY = math.min(currentY + maxYStep, targetY)
+                        heightChanged = true
                     elseif yDiff < 0 then
                         currentY = math.max(currentY - maxYStep, targetY)
+                        heightChanged = true
+                    end
+                    
+                    -- TRIGGER LAND REMOTE: Teilt dem Server nach Höhenänderungen mit, dass wir auf dem Boden gelandet sind
+                    if heightChanged and math.abs(currentY - targetY) < 1 then
+                        if footstepEvent then
+                            pcall(function() footstepEvent:FireServer("land") end)
+                        end
                     end
                     
                     if currentY < 4 then currentY = 4 end
@@ -775,6 +786,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = finalPos end
+                end
+                
+                -- Abschluss-Landung triggern
+                if footstepEvent then
+                    pcall(function() footstepEvent:FireServer("land") end)
                 end
                 
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
