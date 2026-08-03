@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (PREDICTIVE 2-STUD BUFFER SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (STRICT WALL-STOP & TOP-REACH SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -502,7 +502,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 3-STUD PREDICTIVE BUFFER & PERFECT FEET ALIGNMENT SPIDER TELEPORT
+--// STRICT WALL-STOP & TOP-REACH SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -582,7 +582,6 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             end
             
             local hum = char:FindFirstChildOfClass("Humanoid")
-            -- Perfekter Offset damit Füße exakt am Boden stehen
             local floorOffset = (hum and hum.HipHeight or 2) + (root.Size.Y / 2)
             
             ToggleHover(true)
@@ -627,7 +626,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 _G.soruDashing = true
                 _G.canuse = true
 
-                -- RAYCAST FILTERING: EXCLUDE TREES & PROPS
+                -- RAYCAST FILTERING: 3-RAY FÄCHER (LINKS, MITTE, RECHTS) & BAUM-FILTER
                 local rayParams = RaycastParams.new()
                 local ignoreList = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                 
@@ -744,16 +743,18 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- 3-STUD PREDICITVE WAND-SCAN & BUFFER SCHUTZ
-                    local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 3, rayParams) 
-                        or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 3, rayParams)
-                    local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 5, 0), rayParams)
+                    -- 3-STUD FÄCHER SCANNER (LINKS, MITTE, RECHTS) MIT PERMANENTEM 2-STUD ABSTAND
+                    local rightOffset = Vector3.new(flatMoveDir.Z, 0, -flatMoveDir.X) * 2
+                    local wallCenter = Workspace:Raycast(calcPos, flatMoveDir * 3, rayParams)
+                    local wallLeft = Workspace:Raycast(calcPos - rightOffset, flatMoveDir * 3, rayParams)
+                    local wallRight = Workspace:Raycast(calcPos + rightOffset, flatMoveDir * 3, rayParams)
                     
                     local groundYCurrent = GetTrueTopY(nextX, nextZ)
                     local targetY = groundYCurrent
 
-                    if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
-                        local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.4), wallAhead.Position.Z + (flatMoveDir.Z * 0.4))
+                    local activeHit = wallCenter or wallLeft or wallRight
+                    if activeHit and activeHit.Instance and activeHit.Instance.Transparency < 1 then
+                        local obstacleTopY = GetTrueTopY(activeHit.Position.X + (flatMoveDir.X * 0.5), activeHit.Position.Z + (flatMoveDir.Z * 0.5))
                         targetY = math.max(targetY, obstacleTopY)
                         
                         if not isClimbingState then
@@ -768,13 +769,13 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
+                    -- STRENGER WAND-STOP: Erst vorwärtsgehen, wenn der Charakter KOMPLETT oben auf der Kante angekommen ist!
                     local advanceSpeed = 1
-                    if (isClimbingState and currentY < targetY - 1) or (roofAbove and roofAbove.Instance.Transparency < 1) then
-                        advanceSpeed = 0
+                    if isClimbingState and currentY < targetY - 0.5 then
+                        advanceSpeed = 0 -- Kompletter Stopp vorwärts, während er nach oben zieht!
                     end
 
-                    -- INSTANT RESPONSE OHNE VERZÖGERUNGEN
-                    local maxYStep = isClimbingState and (55 * dt * 25) or (30 * dt * 25)
+                    local maxYStep = isClimbingState and (70 * dt * 25) or (35 * dt * 25)
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
@@ -783,7 +784,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         currentY = math.max(currentY - maxYStep, targetY)
                     end
                     
-                    if isClimbingState and math.abs(currentY - targetY) <= 1 then
+                    if isClimbingState and math.abs(currentY - targetY) <= 0.5 then
                         isClimbingState = false
                         if footstepEvent and type(footstepEvent.FireServer) == "function" then 
                             pcall(function() footstepEvent:FireServer("land") end) 
