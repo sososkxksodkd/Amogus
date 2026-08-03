@@ -1,196 +1,184 @@
 --// ============================================================================
---// RYU HUB - DIAMOND EDITION (ULTRA PREMIUM & RESPONSIVE MOBILE/PC)
+--// RYU HUB - DIAMOND GLASS EDITION (ULTRA PREMIUM & SMART SCALING)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
-local GuiService = game:GetService("GuiService")
+local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 
---// CLEANUP
+--// SECURITY & CLEANUP
 local guiParent = LocalPlayer:WaitForChild("PlayerGui", 10) or LocalPlayer:FindFirstChild("PlayerGui")
 pcall(function()
     if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end
 end)
 
 for _, v in pairs(guiParent:GetChildren()) do
-    if v.Name == "RyuHubDiamondUltra" then v:Destroy() end
+    if v.Name == "RyuHubDiamondGlass" then v:Destroy() end
 end
 
---// CENTRAL CONFIGURATION & THEME
+--// DIAMOND GLASS THEME
 local Theme = {
-    Background    = Color3.fromRGB(11, 16, 25),        -- Deep Diamond Void
-    Sidebar       = Color3.fromRGB(16, 24, 38),        -- Dark Aquamarine
-    SubSidebar    = Color3.fromRGB(20, 31, 48),        -- Ice Panel
-    SectionBG     = Color3.fromRGB(26, 40, 60),        -- Card Color
-    CardBorder    = Color3.fromRGB(45, 90, 125),       -- Card Stroke
-    TextPrimary   = Color3.fromRGB(245, 252, 255),      -- Crystal White
-    TextSecondary = Color3.fromRGB(135, 190, 220),      -- Soft Ice Blue
-    DiamondBlue   = Color3.fromRGB(85, 235, 255),       -- Minecraft Diamond Cyan
-    DiamondGlow   = Color3.fromRGB(160, 245, 255),      -- Pure Diamond Light
-    ToggleOff     = Color3.fromRGB(35, 50, 70),
-    AccentGradients = {
+    -- Transparenz macht den Glass-Effekt aus
+    Background    = Color3.fromRGB(8, 12, 20),         
+    BgTransp      = 0.25,                              -- Glassmorphism Transparenz
+    Sidebar       = Color3.fromRGB(12, 18, 30),
+    SectionBG     = Color3.fromRGB(18, 28, 45),
+    SectionTransp = 0.3,
+    
+    CardBorder    = Color3.fromRGB(60, 140, 180),      -- Dunklerer Rahmen
+    TextPrimary   = Color3.fromRGB(250, 255, 255),     -- Kristallweiß
+    TextSecondary = Color3.fromRGB(140, 200, 235),     -- Eisblau
+    
+    DiamondBlue   = Color3.fromRGB(85, 235, 255),      -- Minecraft Diamond
+    DiamondGlow   = Color3.fromRGB(160, 250, 255),     -- Heller Glow
+    ToggleOff     = Color3.fromRGB(25, 40, 60),
+    
+    -- Gradient für die Welle
+    WaveColors = ColorSequence.new({
         ColorSequenceKeypoint.new(0, Color3.fromRGB(85, 235, 255)),
-        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(180, 250, 255)),
-        ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 180, 230))
-    }
+        ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)), -- Pure White Center
+        ColorSequenceKeypoint.new(1, Color3.fromRGB(85, 235, 255))
+    })
 }
 
---// MOBILE vs PC DETECTOR & AUTO-SCALE
+--// SMART MOBILE SCALING
 local isMobile = UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled
-local defaultScale = isMobile and 0.72 or 1.0 -- Kleiner für Handy, Normal für PC
+local screenY = Camera.ViewportSize.Y
+local baseScale = 1.0
+
+-- Wenn auf Handy, skaliere dynamisch auf Basis der Bildschirmhöhe
+if isMobile then
+    baseScale = math.clamp(screenY / 700, 0.45, 0.75) -- Perfekte Passform
+end
 
 --// MAIN SCREEN GUI
 local RyuHubGui = Instance.new("ScreenGui")
-RyuHubGui.Name = "RyuHubDiamondUltra"
+RyuHubGui.Name = "RyuHubDiamondGlass"
 RyuHubGui.ResetOnSpawn = false
 RyuHubGui.IgnoreGuiInset = true
 RyuHubGui.Parent = guiParent
 
--- UI SCALE CONTROLLER
-local GlobalScale = Instance.new("UIScale")
-GlobalScale.Scale = defaultScale
-GlobalScale.Parent = RyuHubGui
+local GlobalScale = Instance.new("UIScale", RyuHubGui)
+GlobalScale.Scale = baseScale
 
---// MAIN CONTAINER FRAME
+--// MAIN CONTAINER (GLASS)
 local MainFrame = Instance.new("Frame")
 MainFrame.Name = "MainFrame"
-MainFrame.Size = UDim2.new(0, 720, 0, 440)
-MainFrame.Position = UDim2.new(0.5, -360, 0.5, -220)
+MainFrame.Size = UDim2.new(0, 640, 0, 400) -- Kompaktere, edle Basis-Größe
+MainFrame.Position = UDim2.new(0.5, -320, 0.5, -200)
 MainFrame.BackgroundColor3 = Theme.Background
-MainFrame.ClipsDescendants = false
+MainFrame.BackgroundTransparency = Theme.BgTransp
 MainFrame.Active = true
 MainFrame.Parent = RyuHubGui
 
-Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 14)
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
--- GLOW STROKE EFFECT
+-- LEUCHTENDER DIAMANT RAHMEN
 local MainStroke = Instance.new("UIStroke", MainFrame)
-MainStroke.Thickness = 2
-MainStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
-
-local MainGradient = Instance.new("UIGradient", MainStroke)
-MainGradient.Color = ColorSequence.new(Theme.AccentGradients)
-MainGradient.Rotation = 45
-
--- ANIMATE STROKE GRADIENT
-task.spawn(function()
-    while MainGradient and MainGradient.Parent do
-        MainGradient.Rotation = (MainGradient.Rotation + 1) % 360
-        task.wait(0.03)
-    end
-end)
+MainStroke.Thickness = 1.5
+MainStroke.Color = Theme.DiamondBlue
+MainStroke.Transparency = 0.2
 
 --// TOPBAR
 local Topbar = Instance.new("Frame", MainFrame)
 Topbar.Name = "Topbar"
-Topbar.Size = UDim2.new(1, 0, 0, 52)
+Topbar.Size = UDim2.new(1, 0, 0, 50)
 Topbar.BackgroundTransparency = 1
 
--- ANIMATED WAVE TITLE ("RyuHub")
+--// PERFECT WAVE ANIMATION TITLE
 local TitleLabel = Instance.new("TextLabel", Topbar)
-TitleLabel.Size = UDim2.new(0, 160, 1, 0)
+TitleLabel.Size = UDim2.new(0, 150, 1, 0)
 TitleLabel.Position = UDim2.new(0, 20, 0, 0)
 TitleLabel.BackgroundTransparency = 1
-TitleLabel.Text = "RyuHub"
+TitleLabel.Text = "RYU HUB"
 TitleLabel.Font = Enum.Font.GothamBlack
-TitleLabel.TextSize = 22
-TitleLabel.TextColor3 = Theme.TextPrimary
+TitleLabel.TextSize = 24
+TitleLabel.TextColor3 = Color3.new(1,1,1)
 TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-task.spawn(function()
-    local textStr = "RyuHub"
-    local length = #textStr
-    local waveIndex = 1
-    
-    while TitleLabel and TitleLabel.Parent do
-        local formattedText = ""
-        for i = 1, length do
-            local char = textStr:sub(i, i)
-            if i == waveIndex then
-                formattedText = formattedText .. string.format('<font color="rgb(255, 255, 255)"><b>%s</b></font>', char)
-            elseif i == waveIndex - 1 or i == waveIndex + 1 then
-                formattedText = formattedText .. string.format('<font color="rgb(180, 245, 255)">%s</font>', char)
-            else
-                formattedText = formattedText .. string.format('<font color="rgb(85, 235, 255)">%s</font>', char)
-            end
-        end
-        TitleLabel.RichText = true
-        TitleLabel.Text = formattedText
-        
-        waveIndex = waveIndex + 1
-        if waveIndex > length + 2 then waveIndex = 1 end
-        task.wait(0.12)
-    end
-end)
+-- UIGradient für den weichen Shine-Effekt
+local TitleGradient = Instance.new("UIGradient", TitleLabel)
+TitleGradient.Color = Theme.WaveColors
+TitleGradient.Rotation = 25
+TitleGradient.Offset = Vector2.new(-1, 0)
 
--- DIAMOND EDITION BADGE
-local Badge = Instance.new("Frame", Topbar)
-Badge.Size = UDim2.new(0, 110, 0, 22)
-Badge.Position = UDim2.new(0, 125, 0.5, -11)
+-- Tween für die Welle
+local waveTweenInfo = TweenInfo.new(2.5, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, false)
+local waveTween = TweenService:Create(TitleGradient, waveTweenInfo, {Offset = Vector2.new(1, 0)})
+waveTween:Play()
+
+-- DIAMOND BADGE
+local Badge = Instance.new("TextLabel", Topbar)
+Badge.Size = UDim2.new(0, 80, 0, 18)
+Badge.Position = UDim2.new(0, 135, 0.5, -9)
 Badge.BackgroundColor3 = Theme.SectionBG
-Instance.new("UICorner", Badge).CornerRadius = UDim.new(0, 6)
-
+Badge.BackgroundTransparency = Theme.SectionTransp
+Badge.Text = "DIAMOND"
+Badge.Font = Enum.Font.GothamBold
+Badge.TextSize = 10
+Badge.TextColor3 = Theme.DiamondGlow
+Instance.new("UICorner", Badge).CornerRadius = UDim.new(0, 4)
 local BadgeStroke = Instance.new("UIStroke", Badge)
 BadgeStroke.Color = Theme.DiamondBlue
 BadgeStroke.Thickness = 1
 
-local BadgeText = Instance.new("TextLabel", Badge)
-BadgeText.Size = UDim2.new(1, 0, 1, 0)
-BadgeText.BackgroundTransparency = 1
-BadgeText.Text = "💎 DIAMOND"
-BadgeText.Font = Enum.Font.GothamBold
-BadgeText.TextSize = 10
-BadgeText.TextColor3 = Theme.DiamondBlue
-
--- CLOSE & MINIMIZE BUTTONS
+-- CLOSE BUTTON
 local CloseBtn = Instance.new("TextButton", Topbar)
-CloseBtn.Size = UDim2.new(0, 30, 0, 30)
-CloseBtn.Position = UDim2.new(1, -40, 0, 11)
+CloseBtn.Size = UDim2.new(0, 26, 0, 26)
+CloseBtn.Position = UDim2.new(1, -36, 0.5, -13)
 CloseBtn.BackgroundColor3 = Theme.SectionBG
+CloseBtn.BackgroundTransparency = Theme.SectionTransp
 CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = Theme.TextSecondary
 CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 14
-Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 8)
-
+CloseBtn.TextSize = 13
+Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 local CloseStroke = Instance.new("UIStroke", CloseBtn)
 CloseStroke.Color = Theme.CardBorder
-CloseStroke.Thickness = 1
 
 CloseBtn.Activated:Connect(function()
+    TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0,0,0,0), BackgroundTransparency = 1}):Play()
+    task.wait(0.3)
     MainFrame.Visible = false
 end)
 
--- TOGGLE FLOATING BUTTON (Für Mobile & PC)
+-- FLOATING TOGGLE BUTTON (💎)
 local ToggleBtn = Instance.new("TextButton", RyuHubGui)
 ToggleBtn.Name = "RyuToggleBtn"
-ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
-ToggleBtn.Position = UDim2.new(0, 25, 0.15, 0)
+ToggleBtn.Size = UDim2.new(0, 46, 0, 46)
+ToggleBtn.Position = UDim2.new(0, 20, 0.15, 0)
 ToggleBtn.BackgroundColor3 = Theme.Background
+ToggleBtn.BackgroundTransparency = 0.1
 ToggleBtn.Text = "💎"
-ToggleBtn.TextSize = 22
+ToggleBtn.TextSize = 20
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
-
 local ToggleStroke = Instance.new("UIStroke", ToggleBtn)
 ToggleStroke.Color = Theme.DiamondBlue
-ToggleStroke.Thickness = 2
+ToggleStroke.Thickness = 1.5
 
 ToggleBtn.Activated:Connect(function()
-    MainFrame.Visible = not MainFrame.Visible
+    if MainFrame.Visible then
+        TweenService:Create(MainFrame, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0,0,0,0), BackgroundTransparency = 1}):Play()
+        task.wait(0.3)
+        MainFrame.Visible = false
+    else
+        MainFrame.Visible = true
+        TweenService:Create(MainFrame, TweenInfo.new(0.35, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Size = UDim2.new(0, 640, 0, 400), BackgroundTransparency = Theme.BgTransp}):Play()
+    end
 end)
 
--- DRAGGING ENGINE FOR TOGGLE BUTTON & MAINFRAME
+-- DRAGGING
 local function MakeDraggable(guiObject, handleObject)
     local dragging, dragStart, startPos
     handleObject.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            dragStart = input.Position
-            startPos = guiObject.Position
+            dragging = true; dragStart = input.Position; startPos = guiObject.Position
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
@@ -205,112 +193,118 @@ local function MakeDraggable(guiObject, handleObject)
         end
     end)
 end
-
 MakeDraggable(MainFrame, Topbar)
 MakeDraggable(ToggleBtn, ToggleBtn)
 
---// 3-COLUMN LAYOUT SETUP
+--// 2-COLUMN ACCORDION LAYOUT
 local BodyContainer = Instance.new("Frame", MainFrame)
-BodyContainer.Size = UDim2.new(1, -24, 1, -66)
-BodyContainer.Position = UDim2.new(0, 12, 0, 56)
+BodyContainer.Size = UDim2.new(1, -20, 1, -60)
+BodyContainer.Position = UDim2.new(0, 10, 0, 50)
 BodyContainer.BackgroundTransparency = 1
 
--- SPALTE 1: SIDEBAR (MAIN CATEGORIES)
+-- SPALTE 1: ACCORDION SIDEBAR
 local Sidebar = Instance.new("ScrollingFrame", BodyContainer)
 Sidebar.Name = "Sidebar"
-Sidebar.Size = UDim2.new(0, 140, 1, 0)
+Sidebar.Size = UDim2.new(0, 150, 1, 0)
 Sidebar.BackgroundTransparency = 1
 Sidebar.ScrollBarThickness = 0
 local SideLayout = Instance.new("UIListLayout", Sidebar)
 SideLayout.Padding = UDim.new(0, 6)
 
--- SPALTE 2: SUB-TABS PANEL
-local SubTabSidebar = Instance.new("Frame", BodyContainer)
-SubTabSidebar.Name = "SubTabSidebar"
-SubTabSidebar.Size = UDim2.new(0, 140, 1, 0)
-SubTabSidebar.Position = UDim2.new(0, 148, 0, 0)
-SubTabSidebar.BackgroundColor3 = Theme.Sidebar
-Instance.new("UICorner", SubTabSidebar).CornerRadius = UDim.new(0, 10)
-local SubSideStroke = Instance.new("UIStroke", SubTabSidebar)
-SubSideStroke.Color = Theme.CardBorder
-SubSideStroke.Thickness = 1
-
--- SPALTE 3: CONTENT PANEL
+-- SPALTE 2: CONTENT AREA
 local ContentArea = Instance.new("Frame", BodyContainer)
 ContentArea.Name = "ContentArea"
-ContentArea.Size = UDim2.new(1, -298, 1, 0)
-ContentArea.Position = UDim2.new(0, 298, 0, 0)
+ContentArea.Size = UDim2.new(1, -165, 1, 0)
+ContentArea.Position = UDim2.new(0, 165, 0, 0)
 ContentArea.BackgroundTransparency = 1
 
---// DYNAMIC CATEGORY & SUB-TAB SYSTEM
+-- UI LIST LAYOUT UPDATER
+local function UpdateSidebarCanvas()
+    local totalH = 0
+    for _, child in pairs(Sidebar:GetChildren()) do
+        if child:IsA("GuiObject") and child.Visible then
+            totalH = totalH + child.AbsoluteSize.Y + 6
+        end
+    end
+    Sidebar.CanvasSize = UDim2.new(0, 0, 0, totalH + 10)
+end
+
+--// TAB SYSTEM (ACCORDION)
 local Categories = {}
 
 function CreateMainTab(tabName, icon)
     icon = icon or "🔹"
-    local tabObj = { Name = tabName, Button = nil, SubContainer = nil, SubTabs = {} }
+    local tabObj = { Name = tabName, Button = nil, SubContainer = nil, IsOpen = false, SubTabs = {} }
     
+    -- Main Button
     local tabBtn = Instance.new("TextButton", Sidebar)
-    tabBtn.Size = UDim2.new(1, 0, 0, 40)
+    tabBtn.Size = UDim2.new(1, 0, 0, 36)
     tabBtn.BackgroundColor3 = Theme.Sidebar
-    tabBtn.Text = "   " .. icon .. "  " .. tabName
+    tabBtn.BackgroundTransparency = Theme.SectionTransp
+    tabBtn.Text = "  " .. icon .. "  " .. tabName
     tabBtn.TextColor3 = Theme.TextSecondary
     tabBtn.Font = Enum.Font.GothamBold
     tabBtn.TextSize = 12
     tabBtn.TextXAlignment = Enum.TextXAlignment.Left
     Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8)
-    
     local btnStroke = Instance.new("UIStroke", tabBtn)
     btnStroke.Color = Theme.CardBorder
-    btnStroke.Thickness = 1
     tabObj.Button = tabBtn
     
-    local subContainer = Instance.new("ScrollingFrame", SubTabSidebar)
-    subContainer.Name = tabName .. "_Subs"
-    subContainer.Size = UDim2.new(1, -12, 1, -12)
-    subContainer.Position = UDim2.new(0, 6, 0, 6)
+    -- Sub Container (Fährt nach unten aus)
+    local subContainer = Instance.new("Frame", Sidebar)
+    subContainer.Size = UDim2.new(1, 0, 0, 0)
     subContainer.BackgroundTransparency = 1
-    subContainer.ScrollBarThickness = 0
-    subContainer.Visible = false
+    subContainer.ClipsDescendants = true
     
     local subLayout = Instance.new("UIListLayout", subContainer)
-    subLayout.Padding = UDim.new(0, 5)
+    subLayout.Padding = UDim.new(0, 4)
     tabObj.SubContainer = subContainer
     
+    -- Accordion Logic
     tabBtn.Activated:Connect(function()
-        for _, cat in pairs(Categories) do
-            cat.Button.BackgroundColor3 = Theme.Sidebar
-            cat.Button.TextColor3 = Theme.TextSecondary
-            cat.Button:FindFirstChildOfClass("UIStroke").Color = Theme.CardBorder
-            cat.SubContainer.Visible = false
-        end
-        tabBtn.BackgroundColor3 = Theme.SectionBG
-        tabBtn.TextColor3 = Theme.DiamondBlue
-        btnStroke.Color = Theme.DiamondBlue
-        subContainer.Visible = true
+        tabObj.IsOpen = not tabObj.IsOpen
         
-        if #tabObj.SubTabs > 0 then
-            tabObj.SubTabs[1].Activate()
+        -- Style Update
+        tabBtn.TextColor3 = tabObj.IsOpen and Theme.DiamondBlue or Theme.TextSecondary
+        btnStroke.Color = tabObj.IsOpen and Theme.DiamondBlue or Theme.CardBorder
+        
+        -- Tween Container Size
+        local targetHeight = tabObj.IsOpen and subLayout.AbsoluteContentSize.Y or 0
+        local tw = TweenService:Create(subContainer, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(1, 0, 0, targetHeight)})
+        tw:Play()
+        
+        -- Dynamically update sidebar canvas while tweening
+        task.spawn(function()
+            for i = 1, 15 do
+                UpdateSidebarCanvas()
+                task.wait(0.02)
+            end
+        end)
+    end)
+    
+    subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        if tabObj.IsOpen then
+            subContainer.Size = UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y)
+            UpdateSidebarCanvas()
         end
     end)
     
     table.insert(Categories, tabObj)
     
+    -- CREATE SUB TABS
     function tabObj:CreateSubTab(subName)
         local subObj = { Name = subName, Page = nil }
         
         local subBtn = Instance.new("TextButton", subContainer)
-        subBtn.Size = UDim2.new(1, 0, 0, 32)
-        subBtn.BackgroundColor3 = Theme.Background
-        subBtn.Text = "   " .. subName
+        subBtn.Size = UDim2.new(1, -15, 0, 28)
+        subBtn.Position = UDim2.new(0, 15, 0, 0) -- Eingerückt
+        subBtn.BackgroundTransparency = 1
+        subBtn.Text = "•  " .. subName
         subBtn.TextColor3 = Theme.TextSecondary
         subBtn.Font = Enum.Font.GothamMedium
         subBtn.TextSize = 11
         subBtn.TextXAlignment = Enum.TextXAlignment.Left
-        Instance.new("UICorner", subBtn).CornerRadius = UDim.new(0, 6)
-        
-        local subBtnStroke = Instance.new("UIStroke", subBtn)
-        subBtnStroke.Color = Theme.CardBorder
-        subBtnStroke.Thickness = 1
         
         local page = Instance.new("ScrollingFrame", ContentArea)
         page.Name = subName .. "_Page"
@@ -321,26 +315,25 @@ function CreateMainTab(tabName, icon)
         page.Visible = false
         
         local pageLayout = Instance.new("UIListLayout", page)
-        pageLayout.Padding = UDim.new(0, 8)
+        pageLayout.Padding = UDim.new(0, 10)
+        pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
         
         pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-            page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 12)
+            page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 15)
         end)
         
         local function ActivateSub()
-            for _, s in pairs(subContainer:GetChildren()) do
-                if s:IsA("TextButton") then
-                    s.TextColor3 = Theme.TextSecondary
-                    s.BackgroundColor3 = Theme.Background
-                    s:FindFirstChildOfClass("UIStroke").Color = Theme.CardBorder
+            -- Reset all subtabs
+            for _, cat in pairs(Categories) do
+                for _, btn in pairs(cat.SubContainer:GetChildren()) do
+                    if btn:IsA("TextButton") then btn.TextColor3 = Theme.TextSecondary end
                 end
             end
             for _, p in pairs(ContentArea:GetChildren()) do
                 if p:IsA("ScrollingFrame") then p.Visible = false end
             end
-            subBtn.TextColor3 = Theme.DiamondBlue
-            subBtn.BackgroundColor3 = Theme.SectionBG
-            subBtnStroke.Color = Theme.DiamondBlue
+            
+            subBtn.TextColor3 = Theme.TextPrimary
             page.Visible = true
         end
         
@@ -354,34 +347,34 @@ function CreateMainTab(tabName, icon)
     return tabObj
 end
 
---// UI COMPONENT BUILDERS
+--// UI COMPONENTS (GLASS SECTIONS)
 function CreateSection(page, titleText)
     local section = Instance.new("Frame", page)
-    section.Size = UDim2.new(1, 0, 0, 40)
-    section.BackgroundColor3 = Theme.Sidebar
-    Instance.new("UICorner", section).CornerRadius = UDim.new(0, 8)
+    section.Size = UDim2.new(0.98, 0, 0, 40)
+    section.BackgroundColor3 = Theme.SectionBG
+    section.BackgroundTransparency = Theme.SectionTransp
+    Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
     
     local secStroke = Instance.new("UIStroke", section)
     secStroke.Color = Theme.CardBorder
-    secStroke.Thickness = 1
+    secStroke.Transparency = 0.5
     
     local secLayout = Instance.new("UIListLayout", section)
-    secLayout.Padding = UDim.new(0, 6)
+    secLayout.Padding = UDim.new(0, 8)
     secLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    Instance.new("UIPadding", section).PaddingTop = UDim.new(0, 8)
-    Instance.new("UIPadding", section).PaddingBottom = UDim.new(0, 8)
+    Instance.new("UIPadding", section).PaddingTop = UDim.new(0, 10); Instance.new("UIPadding", section).PaddingBottom = UDim.new(0, 10)
     
     local title = Instance.new("TextLabel", section)
     title.Size = UDim2.new(0.92, 0, 0, 18)
     title.BackgroundTransparency = 1
     title.Text = titleText
-    title.TextColor3 = Theme.DiamondBlue
+    title.TextColor3 = Theme.DiamondGlow
     title.Font = Enum.Font.GothamBold
     title.TextSize = 12
     title.TextXAlignment = Enum.TextXAlignment.Left
     
     secLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
-        section.Size = UDim2.new(1, 0, 0, secLayout.AbsoluteContentSize.Y + 16)
+        section.Size = UDim2.new(0.98, 0, 0, secLayout.AbsoluteContentSize.Y + 20)
     end)
     return section
 end
@@ -415,28 +408,6 @@ function CreateToggle(section, text, defaultState, callback)
     end)
 end
 
-function CreateButton(section, text, callback)
-    local btn = Instance.new("TextButton", section)
-    btn.Size = UDim2.new(0.92, 0, 0, 32)
-    btn.BackgroundColor3 = Theme.SectionBG
-    btn.Text = text
-    btn.TextColor3 = Theme.TextPrimary
-    btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 11
-    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
-    
-    local stroke = Instance.new("UIStroke", btn)
-    stroke.Color = Theme.CardBorder
-    stroke.Thickness = 1
-    
-    btn.Activated:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Theme.DiamondBlue}):Play()
-        task.wait(0.1)
-        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Theme.SectionBG}):Play()
-        if callback then callback() end
-    end)
-end
-
 function CreateSlider(section, text, min, max, default, callback)
     local frame = Instance.new("Frame", section)
     frame.Size = UDim2.new(0.92, 0, 0, 45)
@@ -456,7 +427,7 @@ function CreateSlider(section, text, min, max, default, callback)
     valLabel.Position = UDim2.new(0.7, 0, 0, 0)
     valLabel.BackgroundTransparency = 1
     valLabel.Text = tostring(default)
-    valLabel.TextColor3 = Theme.DiamondBlue
+    valLabel.TextColor3 = Theme.DiamondGlow
     valLabel.Font = Enum.Font.GothamBold
     valLabel.TextSize = 11
     valLabel.TextXAlignment = Enum.TextXAlignment.Right
@@ -478,14 +449,13 @@ function CreateSlider(section, text, min, max, default, callback)
         local pos = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
         local val = math.floor(min + (max - min) * pos)
         valLabel.Text = tostring(val)
-        sliderFill.Size = UDim2.new(pos, 0, 1, 0)
+        TweenService:Create(sliderFill, TweenInfo.new(0.1), {Size = UDim2.new(pos, 0, 1, 0)}):Play()
         if callback then callback(val) end
     end
     
     sliderBg.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-            dragging = true
-            setVal(input)
+            dragging = true; setVal(input)
         end
     end)
     UserInputService.InputChanged:Connect(function(input)
@@ -500,34 +470,66 @@ function CreateSlider(section, text, min, max, default, callback)
     end)
 end
 
+function CreateButton(section, text, callback)
+    local btn = Instance.new("TextButton", section)
+    btn.Size = UDim2.new(0.92, 0, 0, 32)
+    btn.BackgroundColor3 = Theme.SectionBG
+    btn.BackgroundTransparency = 0.1
+    btn.Text = text
+    btn.TextColor3 = Theme.TextPrimary
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    
+    local stroke = Instance.new("UIStroke", btn)
+    stroke.Color = Theme.CardBorder
+    stroke.Thickness = 1
+    
+    btn.Activated:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.1), {BackgroundColor3 = Theme.DiamondBlue, TextColor3 = Color3.new(0,0,0)}):Play()
+        task.wait(0.1)
+        TweenService:Create(btn, TweenInfo.new(0.2), {BackgroundColor3 = Theme.SectionBG, TextColor3 = Theme.TextPrimary}):Play()
+        if callback then callback() end
+    end)
+end
+
 --// ============================================================================
---// CATEGORIES & GUI SETTINGS SETUP
+--// GUI INITIALIZATION (EXAMPLE TABS)
 --// ============================================================================
 
--- MAIN CATEGORY
+-- Main
 local TabMain = CreateMainTab("Main", "🏠")
 local SubGeneral = TabMain:CreateSubTab("General")
-local SecGeneral = CreateSection(SubGeneral, "Player Settings")
-CreateToggle(SecGeneral, "Enable Speed Boost", false, function(s) end)
+local SecGeneral = CreateSection(SubGeneral, "Player Setup")
+CreateToggle(SecGeneral, "Enable ESP", false, function() end)
 
--- IMPEL DOWN CATEGORY
-local TabImpelDown = CreateMainTab("Impel Down", "💎")
-local SubImpelFarm = TabImpelDown:CreateSubTab("Auto Farm")
-local SecImpelFarm = CreateSection(SubImpelFarm, "Impel Down Dungeon")
-CreateToggle(SecImpelFarm, "Auto Clear Floor", false, function(s) end)
-CreateButton(SecImpelFarm, "Start Dungeon TP", function() end)
+-- Impel Down
+local TabImpel = CreateMainTab("Impel Down", "💎")
+local SubFarm = TabImpel:CreateSubTab("Auto Farm")
+local SecFarm = CreateSection(SubFarm, "Dungeon Farm")
+CreateToggle(SecFarm, "Auto Clear Floor", false, function() end)
+CreateButton(SecFarm, "Start Impel Down TP", function() end)
 
--- SETTINGS CATEGORY (GUI SCALE & CONFIGS)
-local TabSettings = CreateMainTab("Settings", "⚙️")
-local SubUIConfig = TabSettings:CreateSubTab("UI Settings")
-local SecScale = CreateSection(SubUIConfig, "GUI Scaling (Mobile / PC)")
-
-CreateSlider(SecScale, "GUI Scale Size", 50, 120, math.floor(defaultScale * 100), function(val)
-    GlobalScale.Scale = val / 100
+-- Settings
+local TabSet = CreateMainTab("Settings", "⚙️")
+local SubUI = TabSet:CreateSubTab("UI Scale")
+local SecScale = CreateSection(SubUI, "Custom Scale Adjuster")
+CreateSlider(SecScale, "GUI Scale Size", 40, 120, math.floor(baseScale * 100), function(v)
+    GlobalScale.Scale = v / 100
 end)
 
--- DEFAULT ACTIVE TAB
-Categories[1].Button.BackgroundColor3 = Theme.SectionBG
-Categories[1].Button.TextColor3 = Theme.DiamondBlue
-Categories[1].SubContainer.Visible = true
-if #Categories[1].SubTabs > 0 then Categories[1].SubTabs[1].Activate() end
+-- SET DEFAULT TAB
+task.delay(0.1, function()
+    -- Tab Klicken simulieren
+    Categories[1].Button.BackgroundColor3 = Theme.SectionBG
+    Categories[1].Button.TextColor3 = Theme.DiamondBlue
+    Categories[1].Button:FindFirstChildOfClass("UIStroke").Color = Theme.DiamondBlue
+    
+    Categories[1].IsOpen = true
+    local targetHeight = Categories[1].SubContainer:FindFirstChildOfClass("UIListLayout").AbsoluteContentSize.Y
+    Categories[1].SubContainer.Size = UDim2.new(1, 0, 0, targetHeight)
+    Categories[1].SubContainer.Visible = true
+    
+    if #Categories[1].SubTabs > 0 then Categories[1].SubTabs[1].Activate() end
+    UpdateSidebarCanvas()
+end)
