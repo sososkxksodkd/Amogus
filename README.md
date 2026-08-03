@@ -723,13 +723,16 @@ CreateDropdown(SecWindow, "Background Tint", {"Default Dark", "Pitch Black", "Mi
     end
 end)
 
--- 5. Text Font Style
-CreateDropdown(SecWindow, "UI Font Style", {"Gotham", "Code", "Arcade", "SciFi"}, function(fontName)
+-- 5. Text Font Style (Mit 3 neuen Schriftarten)
+CreateDropdown(SecWindow, "UI Font Style", {"Gotham", "Code", "Arcade", "SciFi", "Cartoon", "Fantasy", "Oswald"}, function(fontName)
     RyuSavedConfig.Font = fontName
     local targetFont = Enum.Font.Gotham
     if fontName == "Code" then targetFont = Enum.Font.Code
     elseif fontName == "Arcade" then targetFont = Enum.Font.Arcade
-    elseif fontName == "SciFi" then targetFont = Enum.Font.Michroma end
+    elseif fontName == "SciFi" then targetFont = Enum.Font.Michroma
+    elseif fontName == "Cartoon" then targetFont = Enum.Font.Cartoon
+    elseif fontName == "Fantasy" then targetFont = Enum.Font.Fantasy
+    elseif fontName == "Oswald" then targetFont = Enum.Font.Oswald end
     
     for _, obj in pairs(MainFrame:GetDescendants()) do
         if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
@@ -899,7 +902,10 @@ local function ApplyLoadedSettings()
     local targetFont = Enum.Font.Gotham
     if RyuSavedConfig.Font == "Code" then targetFont = Enum.Font.Code
     elseif RyuSavedConfig.Font == "Arcade" then targetFont = Enum.Font.Arcade
-    elseif RyuSavedConfig.Font == "SciFi" then targetFont = Enum.Font.Michroma end
+    elseif RyuSavedConfig.Font == "SciFi" then targetFont = Enum.Font.Michroma
+    elseif RyuSavedConfig.Font == "Cartoon" then targetFont = Enum.Font.Cartoon
+    elseif RyuSavedConfig.Font == "Fantasy" then targetFont = Enum.Font.Fantasy
+    elseif RyuSavedConfig.Font == "Oswald" then targetFont = Enum.Font.Oswald end
     for _, obj in pairs(MainFrame:GetDescendants()) do
         if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
             if obj.Font == Enum.Font.GothamBold then obj.Font = targetFont
