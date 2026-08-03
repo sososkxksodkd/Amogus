@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (ZENITH-STYLE ELEVATOR SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (SMOOTH PARABOLIC SPIDER TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
