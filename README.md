@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (TREE & PROP FILTER SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (PERFECTED SPIDER TP & FIXED CONFIG)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -23,7 +23,7 @@ for _, v in pairs(guiParent:GetChildren()) do
     if v.Name == "RyuHubPremium" or v.Name == "RyuNotifications" then v:Destroy() end 
 end
 
---// SAFE ANTICHEAT HOOK (SICHER GEGEN NIL-CALL KICKS)
+--// SAFE ANTICHEAT HOOK
 pcall(function()
     if getrawmetatable and setreadonly and newcclosure and getnamecallmethod then
         local mt = getrawmetatable(game)
@@ -109,7 +109,7 @@ local function GetCurrentSeaData()
     return StaticGPO.Sea1
 end
 
---// HYBRIDER SCANNER
+--// HYBRIDER SCANNER (OHNE CONTINUOUS AUTO-REFRESH)
 local function GetDynamicLists()
     local mobsDict, questsDict, islandsDict, weaponsDict = {}, {}, {}, {}
     local mobs, quests, islands, weapons = {}, {}, {}, {}
@@ -355,7 +355,7 @@ local function CreateSection(page, titleText)
     local section = Instance.new("Frame", page); section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
     local secLayout = Instance.new("UIListLayout", section); secLayout.Padding = UDim.new(0, 10); secLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; secLayout.SortOrder = Enum.SortOrder.LayoutOrder
     Instance.new("UIPadding", section).PaddingTop = UDim.new(0, 12); Instance.new("UIPadding", section).PaddingBottom = UDim.new(0, 12)
-    local title = Instance.new("TextLabel", section); title.LayoutOrder = -1; title.Size = UDim2.new(0.92, 0, 0, 24); title.BackgroundTransparency = 1; title.Text = titleText; title.TextColor3 = Theme.Text; title.Font = Enum.Font.GothamBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left
+    local title = Instance.new("TextLabel", section); title.LayoutOrder = -1; title.Size = UDim2.new(0.92, 0, 0, 24); title.BackgroundTransparency = 1; title.Text = titleText; title.TextColor3 = Theme.Text; title.Font = Enum.Font.GothamBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left;
     secLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() section.Size = UDim2.new(1, 0, 0, secLayout.AbsoluteContentSize.Y + 24) end)
     return section
 end
@@ -474,37 +474,7 @@ DropMob = CreateDropdown(SecFarmConfig, "Select Mob", InitMobs, "TargetMob")
 DropNPC = CreateDropdown(SecFarmConfig, "Select Quest NPC", InitQuests, "TargetNPC")
 DropWep = CreateDropdown(SecFarmConfig, "Select Weapon", InitWeapons, "TargetWeapon")
 
--- AUTO REFRESH LOOP
-task.spawn(function()
-    local function listsEqual(a, b)
-        if #a ~= #b then return false end
-        for i = 1, #a do if a[i] ~= b[i] then return false end end
-        return true
-    end
-    local lastMobs, lastQuests, lastIslands, lastWeaps = InitMobs, InitQuests, InitIslands, InitWeapons
-    while true do
-        task.wait(3)
-        local newMobs, newQuests, newIslands, newWeaps = GetDynamicLists()
-        if not listsEqual(lastMobs, newMobs) then
-            lastMobs = newMobs
-            if DropMob then DropMob:Refresh(newMobs) end
-        end
-        if not listsEqual(lastQuests, newQuests) then
-            lastQuests = newQuests
-            if DropNPC then DropNPC:Refresh(newQuests) end
-        end
-        if not listsEqual(lastWeaps, newWeaps) then
-            lastWeaps = newWeaps
-            if DropWep then DropWep:Refresh(newWeaps) end
-        end
-        if not listsEqual(lastIslands, newIslands) then
-            lastIslands = newIslands
-            if DropIsland then DropIsland:Refresh(newIslands) end
-        end
-    end
-end)
-
---// AUTO STATS UI
+-- AUTO STATS UI
 local SecAutoStats = CreateSection(SubStats, "Auto Stats System")
 
 CreateToggle(SecAutoStats, "Auto Strength", RyuConfig.AutoStrength, function(state) RyuConfig.AutoStrength = state end)
@@ -532,7 +502,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// 4-STUD RANGE & PROP FILTER SPIDER TELEPORT
+--// 4-STUD RANGE & OCEAN-SAFE SPIDER TELEPORT
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -656,11 +626,10 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 _G.soruDashing = true
                 _G.canuse = true
 
-                -- RAYCAST FILTERING: EXCLUDE TREES & PROPS (BÄUME UND DEKO IGNORIEREN)
+                -- RAYCAST FILTERING: EXCLUDE TREES & PROPS
                 local rayParams = RaycastParams.new()
                 local ignoreList = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
                 
-                -- Bäume und Env-Props in Ignore-List aufnehmen
                 pcall(function()
                     if Workspace:FindFirstChild("Env") then
                         for _, v in pairs(Workspace.Env:GetDescendants()) do
@@ -675,6 +644,14 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 rayParams.FilterType = Enum.RaycastFilterType.Exclude
                 rayParams.IgnoreWater = true
 
+                -- ERMITTELT DEN SCHWEBENEN/ECHTEN BODEN ODER WASSERSTAND
+                local waterLevel = 20 -- Fester Wasserstandschutz fürs Meer
+                pcall(function()
+                    if Workspace:FindFirstChild("Env") and Workspace.Env:FindFirstChild("WaterStuff") and Workspace.Env.WaterStuff:FindFirstChild("Water") then
+                        waterLevel = Workspace.Env.WaterStuff.Water.Position.Y + floorOffset + 2
+                    end
+                end)
+
                 local function GetTrueTopY(x, z)
                     local currentFilter = table.clone(ignoreList)
                     local rParams = RaycastParams.new()
@@ -688,12 +665,11 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         rParams.FilterDescendantsInstances = currentFilter
                         local hit = Workspace:Raycast(origin, dir, rParams)
                         if hit then
-                            -- Filter Bäume / Dekoration stumm aus
                             local name = hit.Instance.Name:lower()
                             if name:find("tree") or name:find("leaf") or name:find("grass") or name:find("stone") then
                                 table.insert(currentFilter, hit.Instance)
                             elseif hit.Instance.Transparency < 1 then
-                                return hit.Position.Y
+                                return math.max(hit.Position.Y, waterLevel)
                             else
                                 table.insert(currentFilter, hit.Instance)
                             end
@@ -701,7 +677,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                             break
                         end
                     end
-                    return 0
+                    return waterLevel
                 end
 
                 if hum then hum.PlatformStand = false end
@@ -773,7 +749,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 4, rayParams)
                     local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 6, 0), rayParams)
                     
-                    local groundYCurrent = GetTrueTopY(nextX, nextZ) + floorOffset
+                    local groundYCurrent = math.max(GetTrueTopY(nextX, nextZ) + floorOffset, waterLevel)
                     local targetY = groundYCurrent
 
                     if wallAhead and wallAhead.Instance and wallAhead.Instance.Transparency < 1 then
@@ -788,7 +764,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     else
                         local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
-                        local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset
+                        local groundYAhead = math.max(GetTrueTopY(checkPosAhead.X, checkPosAhead.Z) + floorOffset, waterLevel)
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
@@ -816,8 +792,8 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         end
                     end
                     
-                    if currentY < 4 then currentY = 4 end
-                    currentY = math.max(currentY, 1)
+                    -- WASSERSTAND-SCHUTZ: Verhindert, dass der Y-Wert im Meer ins Wasser fällt
+                    currentY = math.max(currentY, waterLevel)
                     
                     elapsedTime = elapsedTime + (dt * advanceSpeed)
                     
