@@ -1,5 +1,5 @@
 --// ============================================================================
---// RYU HUB - BATTLE ROYALE & GPO EDITION (STATE-MACHINE CLIMB SPIDER TP)
+--// RYU HUB - BATTLE ROYALE & GPO EDITION (4-STUD WALL SCAN & ROOF PROTECT TP)
 --// ============================================================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -225,7 +225,7 @@ function RyuNotify:Send(title, text, duration)
     local Stroke = Instance.new("UIStroke", NotifFrame); Stroke.Color = Color3.fromRGB(255, 255, 255); Stroke.Transparency = 1; Stroke.Thickness = 1.5
     local AccentLine = Instance.new("Frame", NotifFrame); AccentLine.Size = UDim2.new(0, 3, 0.8, 0); AccentLine.Position = UDim2.new(0, 4, 0.1, 0); AccentLine.BackgroundColor3 = Color3.fromRGB(255, 255, 255); AccentLine.BackgroundTransparency = 1; Instance.new("UICorner", AccentLine).CornerRadius = UDim.new(1, 0)
     local TitleLabel = Instance.new("TextLabel", NotifFrame); TitleLabel.Size = UDim2.new(1, -20, 0, 20); TitleLabel.Position = UDim2.new(0, 15, 0, 8); TitleLabel.BackgroundTransparency = 1; TitleLabel.Text = title; TitleLabel.TextColor3 = Color3.fromRGB(250, 250, 250); TitleLabel.TextTransparency = 1; TitleLabel.Font = Enum.Font.GothamBold; TitleLabel.TextSize = 13; TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
-    local DescLabel = Instance.new("TextLabel", NotifFrame); DescLabel.Size = UDim2.new(1, -20, 0, 20); DescLabel.Position = UDim2.new(0, 15, 0, 28); DescLabel.BackgroundTransparency = 1; DescLabel.Text = text; DescLabel.TextColor3 = Color3.fromRGB(130, 130, 135); DescLabel.TextTransparency = 1; DescLabel.Font = Enum.Font.Gotham; DescLabel.TextSize = 11; DescLabel.TextXAlignment = Enum.TextXAlignment.Left
+    local DescLabel = Instance.new("TextLabel", NotifFrame); DescLabel.Size = UDim2.new(1, -20, 0, 28); DescLabel.Position = UDim2.new(0, 15, 0, 28); DescLabel.BackgroundTransparency = 1; DescLabel.Text = text; DescLabel.TextColor3 = Color3.fromRGB(130, 130, 135); DescLabel.TextTransparency = 1; DescLabel.Font = Enum.Font.Gotham; DescLabel.TextSize = 11; DescLabel.TextXAlignment = Enum.TextXAlignment.Left
 
     TweenService:Create(NotifFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0.1}):Play()
     TweenService:Create(Stroke, TweenInfo.new(0.3), {Transparency = 0.5}):Play()
@@ -531,7 +531,7 @@ CreateSlider(SecIslandTP, "Travel Speed", 10, 65, RyuConfig.IslandSpeed, functio
     RyuConfig.IslandSpeed = val
 end)
 
---// STATE-MACHINE CLIMB SPIDER TELEPORT WITH CORRECT REMOTE SEQUENCE
+--// STATE-MACHINE CLIMB SPIDER TELEPORT WITH ROOF PROTECTION
 CreateButton(SecIslandTP, "Start Spider TP", function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
@@ -620,7 +620,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
             local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
             local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
             
-            -- HINTERGRUND-THREAD FÜR NORMALE GEH-/SPRINT-REMOTES
+            -- PERMANENT SPRINT & FOOTSTEP LOOP WÄHREND DER REISE
             local isFlyingActive = true
             task.spawn(function()
                 while isFlyingActive and _G.RyuIsTweening do
@@ -745,9 +745,12 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                     local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
                     local calcPos = Vector3.new(nextX, currentY, nextZ)
                     
-                    -- SCANNER FÜR WÄNDE (EXAKT 2 STUDS DINGE VORNE)
-                    local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 2, rayParams) 
-                        or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 2, rayParams)
+                    -- SCANNER FÜR DECKEN UND WÄNDE (4 STUDS ACCURACY MIT ROOF PROTECTION)
+                    local wallAhead = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams) 
+                        or Workspace:Raycast(calcPos + Vector3.new(0, 2, 0), flatMoveDir * 4, rayParams)
+                    
+                    -- Prüft, ob direkt über dem Kopf ein Objekt/Dach liegt (verhindert Reinfliegen von unten)
+                    local roofAbove = Workspace:Raycast(calcPos, Vector3.new(0, 5, 0), rayParams)
                     
                     local groundYCurrent = GetTrueTopY(nextX, nextZ) + floorOffset
                     local targetY = groundYCurrent
@@ -756,7 +759,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         local obstacleTopY = GetTrueTopY(wallAhead.Position.X + (flatMoveDir.X * 0.5), wallAhead.Position.Z + (flatMoveDir.Z * 0.5)) + floorOffset
                         targetY = math.max(targetY, obstacleTopY)
                         
-                        -- STATE 2: WAND BETRETEN -> STEHEN BLEIBEN & KLETTERN STARTEN
+                        -- Betrete Kletter-Zustand
                         if not isClimbingState then
                             isClimbingState = true
                             if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
@@ -767,14 +770,14 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         targetY = math.max(groundYCurrent, groundYAhead)
                     end
                     
-                    -- VORWÄRTSBEWEGUNG STOPPEN, WENN WAND VORHANDEN IST UND HÖHE NOCH NICHT ERREICHT IST
+                    -- Falls ein Dach über dir ist, verlangsame Vorwärtsdrang bis der Weg frei ist
                     local advanceSpeed = 1
-                    if isClimbingState and currentY < targetY - 1.5 then
-                        advanceSpeed = 0 -- Vorwärtsstopp an der Wand!
+                    if (isClimbingState and currentY < targetY - 1.5) or roofAbove then
+                        advanceSpeed = 0
                     end
 
-                    -- VERTIKALES KLETTERN
-                    local maxYStep = isClimbingState and (35 * dt * 25) or (18 * dt * 25)
+                    -- SANFTER DYNAMISCHER Y-SCHRITT (Max 22 Units/s für 0 Anticheat Strikes)
+                    local maxYStep = isClimbingState and (28 * dt * 25) or (16 * dt * 25)
                     local yDiff = targetY - currentY
                     
                     if yDiff > 0 then
@@ -783,7 +786,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                         currentY = math.max(currentY - maxYStep, targetY)
                     end
                     
-                    -- STATE 3: OBEN ANGEKOMMEN -> LANDEN REMOTE SCHIESSEN & KLETTERN BEENDEN
+                    -- OBEN ANGEKOMMEN: LAND REMOTE ABFEUERN & KLETTERN DEDIZIERT BEENDEN
                     if isClimbingState and math.abs(currentY - targetY) <= 1.5 then
                         isClimbingState = false
                         if footstepEvent then pcall(function() footstepEvent:FireServer("land") end) end
@@ -809,7 +812,7 @@ CreateButton(SecIslandTP, "Start Spider TP", function()
                 
                 isFlyingActive = false
                 
-                -- REISE ABGESCHLOSSEN: LAND REMOTE TRIGGERN & CLIMB BEENDEN
+                -- ENDE DER REISE: SAUBERER LAND STATE
                 if footstepEvent then pcall(function() footstepEvent:FireServer("land") end) end
                 if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
                 
@@ -910,7 +913,7 @@ CreateButton(SecCaveTP, "TP", function()
                     task.wait(0.1)
                 end
                 
-                if not tpSuccess then
+                if not tpSuccess me
                     if hum then hum:Move(Vector3.new(0,0,0)) end
                     task.wait(3)
                 end
