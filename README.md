@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (PREMIUM UI WITH IMAGE TOGGLE)
+--// IMPEL DOWN SCRIPT (PREMIUM UI WITH SETTINGS)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -23,8 +23,6 @@ local Theme = {
     SectionBG = Color3.fromRGB(24, 24, 26),
     Text = Color3.fromRGB(250, 250, 250),
     SubText = Color3.fromRGB(130, 130, 135),
-    CloudLight = Color3.fromRGB(255, 255, 255),
-    CloudDark = Color3.fromRGB(60, 60, 65),
     Accent = Color3.fromRGB(255, 255, 255),
     ToggleOff = Color3.fromRGB(35, 35, 38),
     ToggleOn = Color3.fromRGB(255, 255, 255),
@@ -32,7 +30,6 @@ local Theme = {
     Warning = Color3.fromRGB(255, 75, 75)
 }
 
-local isMobile = camera.ViewportSize.X < 850
 local MainSize = UDim2.new(0, math.min(750, camera.ViewportSize.X - 40), 0, math.min(480, camera.ViewportSize.Y - 40))
 local SidebarWidth = 160
 
@@ -62,13 +59,15 @@ local function AddClickPop(element)
     end)
 end
 
---// IMAGE BUTTON TOGGLE
+--// IMAGE BUTTON TOGGLE (GEFIXT MIT RBXTHUMB)
 local ToggleBtn = Instance.new("ImageButton")
 ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
 ToggleBtn.Position = UDim2.new(0, 25, 0, 25)
 ToggleBtn.BackgroundColor3 = Theme.Sidebar
-ToggleBtn.Image = "rbxassetid://6050149849"
+-- Der rbxthumb Fix zwingt Roblox dazu, auch Decal-IDs in Bilder umzuwandeln
+ToggleBtn.Image = "rbxthumb://type=Asset&id=6050149849&w=150&h=150" 
 ToggleBtn.Parent = RyuHub
+ToggleBtn.ScaleType = Enum.ScaleType.Crop
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
 local btnStroke = Instance.new("UIStroke", ToggleBtn)
 btnStroke.Color = Theme.Accent; btnStroke.Thickness = 2; btnStroke.Transparency = 0.5
@@ -95,6 +94,14 @@ MainFrame.BorderSizePixel = 0; MainFrame.Active = true; MainFrame.Visible = fals
 MainFrame.Parent = RyuHub
 Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 12)
 
+-- Custom Background Image
+local MainBgImage = Instance.new("ImageLabel", MainFrame)
+MainBgImage.Size = UDim2.new(1, 0, 1, 0)
+MainBgImage.BackgroundTransparency = 1
+MainBgImage.ImageTransparency = 1 
+MainBgImage.ScaleType = Enum.ScaleType.Crop
+MainBgImage.ZIndex = 0
+
 local mainStroke = Instance.new("UIStroke", MainFrame)
 mainStroke.Color = Theme.Stroke
 mainStroke.Transparency = 0.2
@@ -118,11 +125,12 @@ UserInputService.InputEnded:Connect(function(input)
 end)
 
 local Topbar = Instance.new("Frame", MainFrame)
-Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1
+Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1; Topbar.ZIndex = 2
 
+-- RYU HUB OBEN
 local Title = Instance.new("TextLabel", Topbar)
-Title.Size = UDim2.new(0, 300, 1, 0); Title.Position = UDim2.new(0, 20, 0, 0); Title.BackgroundTransparency = 1
-Title.Text = "IMPEL DOWN SCRIPT"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Size = UDim2.new(0, 300, 0, 24); Title.Position = UDim2.new(0, 20, 0, 12); Title.BackgroundTransparency = 1
+Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 2
 
 local TitleGradient = Instance.new("UIGradient", Title)
 TitleGradient.Color = ColorSequence.new{
@@ -137,13 +145,14 @@ task.spawn(function()
     TweenService:Create(TitleGradient, tweenInfo, {Offset = Vector2.new(1, 0)}):Play()
 end)
 
+-- IMPEL DOWN SCRIPT UNTEN
 local SubTitle = Instance.new("TextLabel", Topbar)
-SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1
-SubTitle.Text = "by Ryu Hub"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 36); SubTitle.BackgroundTransparency = 1
+SubTitle.Text = "Impel Down Script"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 12; SubTitle.TextXAlignment = Enum.TextXAlignment.Left; SubTitle.ZIndex = 2
 
 local CloseBtn = Instance.new("TextButton", Topbar)
 CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG
-CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 14
+CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 14; CloseBtn.ZIndex = 2
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
 Instance.new("UIStroke", CloseBtn).Color = Theme.Stroke
 AddHoverEffect(CloseBtn, Theme.SectionBG, Theme.Warning)
@@ -167,18 +176,18 @@ Topbar.InputEnded:Connect(function(input)
 end)
 
 local Line = Instance.new("Frame", MainFrame)
-Line.Size = UDim2.new(1, -40, 0, 1); Line.Position = UDim2.new(0, 20, 0, 65); Line.BackgroundColor3 = Theme.Stroke; Line.BorderSizePixel = 0
+Line.Size = UDim2.new(1, -40, 0, 1); Line.Position = UDim2.new(0, 20, 0, 65); Line.BackgroundColor3 = Theme.Stroke; Line.BorderSizePixel = 0; Line.ZIndex = 2
 
 -- SIDEBAR (LINKS)
 local Sidebar = Instance.new("ScrollingFrame", MainFrame)
-Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0
+Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0; Sidebar.ZIndex = 2
 local SideLayout = Instance.new("UIListLayout", Sidebar)
 SideLayout.Padding = UDim.new(0, 6); SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
 SideLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 -- CONTENT CONTAINER (RECHTS)
 local ContentContainer = Instance.new("Frame", MainFrame)
-ContentContainer.Size = UDim2.new(1, -(SidebarWidth + 25), 1, -85); ContentContainer.Position = UDim2.new(0, SidebarWidth + 15, 0, 75); ContentContainer.BackgroundTransparency = 1
+ContentContainer.Size = UDim2.new(1, -(SidebarWidth + 25), 1, -85); ContentContainer.Position = UDim2.new(0, SidebarWidth + 15, 0, 75); ContentContainer.BackgroundTransparency = 1; ContentContainer.ZIndex = 2
 
 local DiscordLabel = Instance.new("TextLabel", MainFrame)
 DiscordLabel.Size = UDim2.new(0, 150, 0, 20)
@@ -189,6 +198,7 @@ DiscordLabel.Font = Enum.Font.GothamBold
 DiscordLabel.TextSize = 11
 DiscordLabel.TextXAlignment = Enum.TextXAlignment.Left
 DiscordLabel.TextTransparency = 0.05
+DiscordLabel.ZIndex = 2
 
 local DiscordGradient = Instance.new("UIGradient", DiscordLabel)
 DiscordGradient.Color = ColorSequence.new{
@@ -231,6 +241,7 @@ local function CreateMainTab(name)
     tabBtn.Font = Enum.Font.GothamBlack
     tabBtn.TextSize = 13
     tabBtn.TextXAlignment = Enum.TextXAlignment.Left
+    tabBtn.ZIndex = 2
     Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8)
     tabObj.Btn = tabBtn
 
@@ -242,6 +253,7 @@ local function CreateMainTab(name)
     arrow.TextColor3 = Theme.SubText
     arrow.Font = Enum.Font.GothamBold
     arrow.TextSize = 12
+    arrow.ZIndex = 2
     tabObj.Arrow = arrow
 
     sidebarOrderCounter = sidebarOrderCounter + 1
@@ -250,6 +262,7 @@ local function CreateMainTab(name)
     subContainer.Size = UDim2.new(1, 0, 0, 0)
     subContainer.BackgroundTransparency = 1
     subContainer.ClipsDescendants = true
+    subContainer.ZIndex = 2
     tabObj.SubContainer = subContainer
 
     local subLayout = Instance.new("UIListLayout", subContainer)
@@ -299,6 +312,7 @@ local function CreateSubTab(tabObj, subName)
     subBtn.Font = Enum.Font.GothamMedium
     subBtn.TextSize = 12
     subBtn.TextXAlignment = Enum.TextXAlignment.Left
+    subBtn.ZIndex = 2
     subObj.Btn = subBtn
 
     local indicator = Instance.new("Frame", subBtn)
@@ -307,6 +321,7 @@ local function CreateSubTab(tabObj, subName)
     indicator.BackgroundColor3 = Theme.Accent
     indicator.BorderSizePixel = 0
     indicator.BackgroundTransparency = 1
+    indicator.ZIndex = 2
     Instance.new("UICorner", indicator).CornerRadius = UDim.new(1, 0)
     subObj.Indicator = indicator
 
@@ -316,6 +331,7 @@ local function CreateSubTab(tabObj, subName)
     page.ScrollBarThickness = 2
     page.ScrollBarImageColor3 = Theme.Accent
     page.Visible = false
+    page.ZIndex = 2
     subObj.Page = page
 
     local pageLayout = Instance.new("UIListLayout", page)
@@ -348,6 +364,7 @@ end
 local function CreateSection(page, titleText)
     local section = Instance.new("Frame", page)
     section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; section.BackgroundTransparency = 0
+    section.ZIndex = 2
     Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
     local sStroke = Instance.new("UIStroke", section); sStroke.Color = Theme.Stroke; sStroke.Transparency = 0.2
     
@@ -358,7 +375,7 @@ local function CreateSection(page, titleText)
     
     local title = Instance.new("TextLabel", section)
     title.LayoutOrder = -1; title.Size = UDim2.new(0.92, 0, 0, 24); title.BackgroundTransparency = 1; title.Text = titleText
-    title.TextColor3 = Theme.Text; title.Font = Enum.Font.GothamBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left
+    title.TextColor3 = Theme.Text; title.Font = Enum.Font.GothamBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left; title.ZIndex = 2
     secLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() section.Size = UDim2.new(1, 0, 0, secLayout.AbsoluteContentSize.Y + 24) end)
     return section
 end
@@ -371,27 +388,27 @@ local function CreateToggle(section, text, descText, defaultState, callback)
     
     itemOrderCounter = itemOrderCounter + 1
     local frame = Instance.new("Frame", section)
-    frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, descText and 52 or 34); frame.BackgroundTransparency = 1
+    frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, descText and 52 or 34); frame.BackgroundTransparency = 1; frame.ZIndex = 2
     
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(0.7, 0, 0, 34); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = defaultState and Theme.Text or Theme.SubText
-    label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left; label.ZIndex = 2
     
     if descText then
         local descLabel = Instance.new("TextLabel", frame)
         descLabel.Size = UDim2.new(0.7, 0, 0, 15); descLabel.Position = UDim2.new(0, 0, 0, 30); descLabel.BackgroundTransparency = 1
-        descLabel.Text = descText; descLabel.TextColor3 = Theme.SubText; descLabel.Font = Enum.Font.Gotham; descLabel.TextSize = 11; descLabel.TextXAlignment = Enum.TextXAlignment.Left
+        descLabel.Text = descText; descLabel.TextColor3 = Theme.SubText; descLabel.Font = Enum.Font.Gotham; descLabel.TextSize = 11; descLabel.TextXAlignment = Enum.TextXAlignment.Left; descLabel.ZIndex = 2
     end
     
     local tBtn = Instance.new("TextButton", frame)
-    tBtn.Size = UDim2.new(0, 42, 0, 22); tBtn.Position = UDim2.new(1, -42, 0, 6); tBtn.BackgroundColor3 = defaultState and Theme.ToggleOn or Theme.ToggleOff; tBtn.Text = ""
+    tBtn.Size = UDim2.new(0, 42, 0, 22); tBtn.Position = UDim2.new(1, -42, 0, 6); tBtn.BackgroundColor3 = defaultState and Theme.ToggleOn or Theme.ToggleOff; tBtn.Text = ""; tBtn.ZIndex = 2
     Instance.new("UICorner", tBtn).CornerRadius = UDim.new(1, 0)
     local bStroke = Instance.new("UIStroke", tBtn); bStroke.Color = defaultState and Theme.ToggleOn or Theme.Stroke; bStroke.Transparency = 0.2
     AddClickPop(tBtn)
     
     local circle = Instance.new("Frame", tBtn)
     circle.Size = UDim2.new(0, 16, 0, 16); circle.Position = defaultState and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
-    circle.BackgroundColor3 = defaultState and Theme.Background or Color3.fromRGB(150, 150, 150)
+    circle.BackgroundColor3 = defaultState and Theme.Background or Color3.fromRGB(150, 150, 150); circle.ZIndex = 2
     Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
     
     local isOn = defaultState or false
@@ -415,27 +432,27 @@ end
 local function CreateSlider(section, text, min, max, default, callback)
     itemOrderCounter = itemOrderCounter + 1
     local frame = Instance.new("Frame", section)
-    frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, 50); frame.BackgroundTransparency = 1
+    frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, 50); frame.BackgroundTransparency = 1; frame.ZIndex = 2
     
     local label = Instance.new("TextLabel", frame)
     label.Size = UDim2.new(1, 0, 0, 20); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Theme.SubText
-    label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left; label.ZIndex = 2
     
     local valLabel = Instance.new("TextLabel", frame)
     valLabel.Size = UDim2.new(0, 40, 0, 20); valLabel.Position = UDim2.new(1, -40, 0, 0); valLabel.BackgroundTransparency = 1
-    valLabel.Text = tostring(default); valLabel.TextColor3 = Theme.Accent; valLabel.Font = Enum.Font.GothamBold; valLabel.TextSize = 13; valLabel.TextXAlignment = Enum.TextXAlignment.Right
+    valLabel.Text = tostring(default); valLabel.TextColor3 = Theme.Accent; valLabel.Font = Enum.Font.GothamBold; valLabel.TextSize = 13; valLabel.TextXAlignment = Enum.TextXAlignment.Right; valLabel.ZIndex = 2
     
     local sliderBg = Instance.new("Frame", frame)
-    sliderBg.Size = UDim2.new(1, 0, 0, 4); sliderBg.Position = UDim2.new(0, 0, 0, 32); sliderBg.BackgroundColor3 = Theme.ToggleOff
+    sliderBg.Size = UDim2.new(1, 0, 0, 4); sliderBg.Position = UDim2.new(0, 0, 0, 32); sliderBg.BackgroundColor3 = Theme.ToggleOff; sliderBg.ZIndex = 2
     Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(1, 0)
     
     local sliderFill = Instance.new("Frame", sliderBg)
     local percentage = (default - min) / (max - min)
-    sliderFill.Size = UDim2.new(percentage, 0, 1, 0); sliderFill.BackgroundColor3 = Theme.Accent
+    sliderFill.Size = UDim2.new(percentage, 0, 1, 0); sliderFill.BackgroundColor3 = Theme.Accent; sliderFill.ZIndex = 2
     Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
     
     local knob = Instance.new("TextButton", sliderFill)
-    knob.Size = UDim2.new(0, 14, 0, 14); knob.Position = UDim2.new(1, -7, 0.5, -7); knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); knob.Text = ""
+    knob.Size = UDim2.new(0, 14, 0, 14); knob.Position = UDim2.new(1, -7, 0.5, -7); knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); knob.Text = ""; knob.ZIndex = 2
     Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
     
     local dragging = false
@@ -472,7 +489,7 @@ local function CreateButton(section, text, color, callback)
     itemOrderCounter = itemOrderCounter + 1
     local btn = Instance.new("TextButton", section)
     btn.LayoutOrder = itemOrderCounter; btn.Size = UDim2.new(0.92, 0, 0, 34); btn.BackgroundColor3 = color
-    btn.Text = text; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12
+    btn.Text = text; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.ZIndex = 2
     Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
     Instance.new("UIStroke", btn).Color = Theme.Stroke; Instance.new("UIStroke", btn).Transparency = 0.5
     AddClickPop(btn)
@@ -485,7 +502,7 @@ local function CreateTextBox(section, placeholder, callback)
     local box = Instance.new("TextBox", section)
     box.LayoutOrder = itemOrderCounter; box.Size = UDim2.new(0.92, 0, 0, 34); box.BackgroundColor3 = Theme.Background
     box.Text = ""; box.PlaceholderText = placeholder; box.TextColor3 = Theme.Text; box.Font = Enum.Font.GothamMedium; box.TextSize = 12
-    box.ClearTextOnFocus = false; box.ClipsDescendants = true
+    box.ClearTextOnFocus = false; box.ClipsDescendants = true; box.ZIndex = 2
     Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
     Instance.new("UIStroke", box).Color = Theme.Stroke
     if callback then box.FocusLost:Connect(function() callback(box.Text) end) end
@@ -531,6 +548,49 @@ CreateToggle(SecVisuals, "Noclip", "Walk through walls", false, Ryuhub)
 CreateToggle(SecVisuals, "Infinite Stamina", nil, false, Ryuhub)
 CreateToggle(SecVisuals, "Item ESP", "Shows rare items in Impel Down", false, Ryuhub)
 
+
+-- TAB 3: SETTINGS
+local TabSettings = CreateMainTab("Settings")
+
+local SubClient = CreateSubTab(TabSettings, "Client")
+local SecClient = CreateSection(SubClient, "System Configuration")
+CreateToggle(SecClient, "Anti-AFK Protection", "Prevents Roblox from kicking you for idling", false, function(state)
+    -- Anti AFK Logik Platzhalter
+end)
+
+local SubTheme = CreateSubTab(TabSettings, "Theme & UI")
+local SecTheme = CreateSection(SubTheme, "Customization")
+
+CreateToggle(SecTheme, "Glass Mode (Transparency)", "Makes the UI look like glass", false, function(state)
+    if state then
+        TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0.35}):Play()
+        TweenService:Create(Sidebar, TweenInfo.new(0.3), {BackgroundTransparency = 0.35}):Play()
+    else
+        TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = 0}):Play()
+        TweenService:Create(Sidebar, TweenInfo.new(0.3), {BackgroundTransparency = 1}):Play()
+    end
+end)
+
+CreateTextBox(SecTheme, "Custom Background URL (Asset ID)...", function(txt)
+    if txt and txt ~= "" then
+        local num = txt:match("%d+")
+        if num then
+            MainBgImage.Image = "rbxthumb://type=Asset&id="..num.."&w=768&h=432"
+            MainBgImage.ImageTransparency = 0.6
+        end
+    else
+        MainBgImage.ImageTransparency = 1
+    end
+end)
+
+CreateSlider(SecTheme, "Background Brightness", 0, 100, 60, function(val)
+    MainBgImage.ImageTransparency = 1 - (val / 100)
+end)
+
+local SecSave = CreateSection(SubTheme, "Save Config")
+CreateButton(SecSave, "Save Theme & Settings", Color3.fromRGB(50, 150, 50), function()
+    -- Save Logik Platzhalter
+end)
 
 -- INITIALISIERUNG
 task.spawn(function()
