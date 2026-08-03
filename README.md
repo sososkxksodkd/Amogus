@@ -1,5 +1,5 @@
 --// ==========================================
---// RYU HUB - 100% VISUALS ONLY (NO LOGIC)
+--// RYU HUB - IMPEL DOWN SOLO SCRIPT (PREMIUM UI)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -153,7 +153,7 @@ end)
 
 local SubTitle = Instance.new("TextLabel", Topbar)
 SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 38); SubTitle.BackgroundTransparency = 1
-SubTitle.Text = "Anime Battle Arena"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.Text = "Impel Down Solo Script"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 11; SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 
 local CloseBtn = Instance.new("TextButton", Topbar)
 CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG
@@ -507,168 +507,46 @@ local function CreateTextBox(section, placeholder, callback)
 end
 
 --// =======================
---// UI POPULATION (VISUALS ONLY)
+--// UI POPULATION 
 --// =======================
 
 local function Ryuhub()
     -- Platzhalter für Logik
 end
 
--- TAB 1: COMBAT
-local TabCombat = CreateMainTab("Combat")
+-- TAB 1: AUTO PLAY
+local TabAutoPlay = CreateMainTab("Auto Play")
 
-local SubSkills = CreateSubTab(TabCombat, "Skills")
-local SecSkills = CreateSection(SubSkills, "Skills Hit All")
-CreateToggle(SecSkills, "Gojo", "Use: Hollow Purple / Blue", false, Ryuhub)
-CreateToggle(SecSkills, "Akainu", "Use: Lava Fist / Magma", false, Ryuhub)
-CreateToggle(SecSkills, "Deku", "Use: Delaware / Detroit Smash", false, Ryuhub)
-CreateToggle(SecSkills, "Ichigo TS", "Use: Getsuga Tensho", false, Ryuhub)
-CreateToggle(SecSkills, "Grimmjow", "Use: Panther King Claw", false, Ryuhub)
-CreateToggle(SecSkills, "Joseph Joestar", "Use: Jeep", false, Ryuhub)
-CreateToggle(SecSkills, "Gaara", "Use: Sand Tsunami / Great Tsunami", false, Ryuhub)
-CreateToggle(SecSkills, "Josuke", "Use: Ball / Rock", false, Ryuhub)
-CreateToggle(SecSkills, "Kazuma", "Use: Kazuma Arrow", false, Ryuhub)
-CreateToggle(SecSkills, "Super Dummy", "Use: Death Brick", false, Ryuhub)
+local SubAutoMain = CreateSubTab(TabAutoPlay, "Main")
+local SecAutoPlay = CreateSection(SubAutoMain, "Impel Down Engine")
+CreateToggle(SecAutoPlay, "Enable Auto Impel Down", "Automatically clear all stages", false, Ryuhub)
+CreateToggle(SecAutoPlay, "Auto Next Stage", "Proceeds to the next floor automatically", false, Ryuhub)
+CreateToggle(SecAutoPlay, "Auto Boss Farm", "Targets boss NPCs prioritized", false, Ryuhub)
+CreateSlider(SecAutoPlay, "Farm Distance", 5, 50, 15, Ryuhub)
 
-local SubTiming = CreateSubTab(TabCombat, "Timing")
-local SecTiming = CreateSection(SubTiming, "Timing Features")
-CreateToggle(SecTiming, "Auto Black Flash", "works on: Geto,Yuji,Sukuna,Toji,Yuta and future jjk characters", false, Ryuhub)
-CreateToggle(SecTiming, "Nanami Perfect Flash", "Automatically hits perfect timing for Nanami's ratio", false, Ryuhub)
-
-local SecKokushibo = CreateSection(SubTiming, "Kokushibo")
-CreateToggle(SecKokushibo, "Auto Kokushibo Timing", "Always hit perfect timing with Kokushibo's crescent moon slashes", false, Ryuhub)
-
-local SecTengen = CreateSection(SubTiming, "Tengen")
-CreateToggle(SecTengen, "Auto Tengen Osu", "Automatically perfectly hits Tengen's rhythm game", false, Ryuhub)
-
-local SubDefense = CreateSubTab(TabCombat, "Defense")
-local SecTrade = CreateSection(SubDefense, "Auto M1 Trade Engine")
-CreateToggle(SecTrade, "Enable Auto M1 Trade", "Blocks & counters enemy M1s", false, Ryuhub)
-CreateSlider(SecTrade, "Trade Range", 10, 100, 50, Ryuhub)
-CreateSlider(SecTrade, "Hold Block (ms)", 0, 1000, 310, Ryuhub)
-CreateSlider(SecTrade, "Ping Compensation", 0, 500, 100, Ryuhub)
-
-local SecGuard = CreateSection(SubDefense, "Safety & Checks")
-CreateToggle(SecGuard, "Guard Break Guard", "Skips trade if guard is nearly broken", false, Ryuhub)
-CreateSlider(SecGuard, "Skip Above Guard %", 10, 100, 70, Ryuhub)
-CreateToggle(SecGuard, "Face Check", "Only trade if enemy is looking at you", false, Ryuhub)
-
-local SecDefenseGeneral = CreateSection(SubDefense, "Other Mods")
-CreateToggle(SecDefenseGeneral, "Micro-Teleport Evasive", nil, false, Ryuhub)
-CreateToggle(SecDefenseGeneral, "Anti-Stun Mode", nil, false, Ryuhub)
-
-local SubTechs = CreateSubTab(TabCombat, "Techs")
-local SecLockOn = CreateSection(SubTechs, "Lock-On System")
-CreateToggle(SecLockOn, "Console Cam Lock-On", "Press LEFT ALT to lock onto nearest enemy", false, Ryuhub)
-CreateToggle(SecLockOn, "Ignore Teammates", "Do not target teammates", true, Ryuhub)
-
-local SubMacro = CreateSubTab(TabCombat, "Macro")
-local SecMacro = CreateSection(SubMacro, "Macro System")
-local MacroNameBox = CreateTextBox(SecMacro, "Macro Name...", Ryuhub)
-local MacroAuthorBox = CreateTextBox(SecMacro, "Author Name...", Ryuhub)
-local btnRec = CreateButton(SecMacro, "Record (Z)", Color3.fromRGB(180, 50, 50), Ryuhub)
-local btnPlay = CreateButton(SecMacro, "Play (X)", Theme.ToggleOff, Ryuhub)
-CreateButton(SecMacro, "Export to Clipboard", Theme.ToggleOff, Ryuhub)
-local MacroImportBox = CreateTextBox(SecMacro, "Paste macro code...", Ryuhub)
-CreateButton(SecMacro, "Import Code", Theme.ToggleOff, Ryuhub)
-
-local SecLibrary = CreateSection(SubMacro, "Saved Library")
-local LibList = Instance.new("Frame", SecLibrary)
-LibList.LayoutOrder = 99; LibList.Size = UDim2.new(0.92, 0, 0, 150); LibList.BackgroundTransparency = 1
-local LibScroll = Instance.new("ScrollingFrame", LibList)
-LibScroll.Size = UDim2.new(1,0,1,0); LibScroll.BackgroundTransparency = 1; LibScroll.ScrollBarThickness = 2; LibScroll.ScrollBarImageColor3 = Theme.Accent
-local LibLayout = Instance.new("UIListLayout", LibScroll)
-LibLayout.Padding = UDim.new(0, 5)
-
-local SubESP = CreateSubTab(TabCombat, "ESP")
-local SecESP = CreateSection(SubESP, "Visual Features")
-CreateToggle(SecESP, "Elite 2D-Box ESP", nil, false, Ryuhub)
+local SecAutoSkills = CreateSection(SubAutoMain, "Auto Skills")
+CreateToggle(SecAutoSkills, "Auto Use Skill 1", nil, false, Ryuhub)
+CreateToggle(SecAutoSkills, "Auto Use Skill 2", nil, false, Ryuhub)
+CreateToggle(SecAutoSkills, "Auto Use Ultimate", "Uses ultimate when available", false, Ryuhub)
 
 
 -- TAB 2: PLAYER
 local TabPlayer = CreateMainTab("Player")
 
-local SubCharacter = CreateSubTab(TabPlayer, "Character")
-local SecCharacter = CreateSection(SubCharacter, "Character Movement")
-CreateToggle(SecCharacter, "Silent Fly", nil, false, Ryuhub)
-CreateSlider(SecCharacter, "Fly Speed", 10, 150, 50, Ryuhub)
-CreateToggle(SecCharacter, "Accurate Speed Hack", nil, false, Ryuhub)
-CreateSlider(SecCharacter, "Walk Speed", 16, 100, 35, Ryuhub)
-CreateToggle(SecCharacter, "High-Jump", nil, false, Ryuhub)
-CreateSlider(SecCharacter, "Jump Height", 20, 150, 45, Ryuhub)
-CreateToggle(SecCharacter, "Noclip Mode", nil, false, Ryuhub)
+local SubMovement = CreateSubTab(TabPlayer, "Movement")
+local SecMovement = CreateSection(SubMovement, "Local Player Settings")
+CreateToggle(SecMovement, "Enable WalkSpeed", nil, false, Ryuhub)
+CreateSlider(SecMovement, "Walk Speed", 16, 150, 35, Ryuhub)
+CreateToggle(SecMovement, "Enable JumpPower", nil, false, Ryuhub)
+CreateSlider(SecMovement, "Jump Power", 50, 250, 50, Ryuhub)
 
-local SubSpecial = CreateSubTab(TabPlayer, "Special")
-local SecPassives = CreateSection(SubSpecial, "Passives (Dashes)")
-CreateToggle(SecPassives, "Wuxian Dodges", "Gives Wuxian dodges", false, Ryuhub)
-CreateToggle(SecPassives, "Mob Dodge", "Gives Mob dodges", false, Ryuhub)
-CreateToggle(SecPassives, "Geppo", "Gives Geppo dodges", false, Ryuhub)
-CreateToggle(SecPassives, "Flashstep Dodge", "Gives Flashstep dodges", false, Ryuhub)
-CreateToggle(SecPassives, "MUI Dodge", "Gives MUI dodges", false, Ryuhub)
-CreateToggle(SecPassives, "Vigilante Float", "Gives Vigilante float", false, Ryuhub)
-CreateToggle(SecPassives, "Raiden Dodge", "Gives Raiden dodges", false, Ryuhub)
-CreateToggle(SecPassives, "Kiritsugu Dodge", "Gives Kiritsugu dodges", false, Ryuhub)
-CreateToggle(SecPassives, "NieR Dodge", "Gives NieR dodges", false, Ryuhub)
-CreateToggle(SecPassives, "Accel Dodge", "Gives Accel dodges", false, Ryuhub)
-
-local SecSpecial = CreateSection(SubSpecial, "Troll & Fun")
-CreateToggle(SecSpecial, "Rainbow Skin", nil, false, Ryuhub)
-CreateToggle(SecSpecial, "Spin Bot Public", nil, false, Ryuhub)
-CreateToggle(SecSpecial, "T-Pose", "Warning: You will die if you disable this!", false, Ryuhub)
-CreateToggle(SecSpecial, "Fake Lag / Freeze Air", nil, false, Ryuhub)
-
-local SubHitbox = CreateSubTab(TabPlayer, "Hitbox")
-local SecHitbox = CreateSection(SubHitbox, "Hitbox Expander")
-local hitHolder = Instance.new("TextLabel", SecHitbox)
-hitHolder.LayoutOrder = 1; hitHolder.Size = UDim2.new(0.92, 0, 0, 30); hitHolder.BackgroundTransparency = 1
-hitHolder.Text = "Hitbox Expander coming soon..."; hitHolder.TextColor3 = Theme.SubText; hitHolder.Font = Enum.Font.Gotham; hitHolder.TextSize = 12
-
-local SecESP2 = CreateSection(SubHitbox, "Visual Features (ESP)")
-CreateToggle(SecESP2, "Elite 2D-Box ESP", nil, false, Ryuhub)
-
-local SubUtility = CreateSubTab(TabPlayer, "Utility")
-local SecUtility = CreateSection(SubUtility, "Waypoints & Tools")
-CreateButton(SecUtility, "Save Current Position", Theme.ToggleOff, Ryuhub)
-CreateButton(SecUtility, "Teleport to Saved Position", Theme.Accent, Ryuhub).TextColor3 = Theme.Background
-CreateButton(SecUtility, "Instant Self-Kill", Theme.Warning, Ryuhub)
+local SecVisuals = CreateSection(SubMovement, "Visuals & Utility")
+CreateToggle(SecVisuals, "Noclip", "Walk through walls", false, Ryuhub)
+CreateToggle(SecVisuals, "Infinite Stamina", nil, false, Ryuhub)
+CreateToggle(SecVisuals, "Item ESP", "Shows rare items in Impel Down", false, Ryuhub)
 
 
--- TAB 3: FARM
-local TabFarm = CreateMainTab("Farm")
-
-local SubAiFarm = CreateSubTab(TabFarm, "AI Auto Farm")
-local SecAiFarm = CreateSection(SubAiFarm, "AI Farming Engine")
-CreateToggle(SecAiFarm, "AI Auto Farm", nil, false, Ryuhub)
-CreateToggle(SecAiFarm, "Target Priority Players", nil, false, Ryuhub)
-
-local SubTargetFarm = CreateSubTab(TabFarm, "Target Farm")
-local SecTargetFarm = CreateSection(SubTargetFarm, "Player Target Follower")
-local FollowTitle = Instance.new("TextLabel", SecTargetFarm)
-FollowTitle.LayoutOrder = itemOrderCounter + 1; FollowTitle.Size = UDim2.new(0.92, 0, 0, 24); FollowTitle.BackgroundTransparency = 1
-FollowTitle.Text = "Target: None"; FollowTitle.TextColor3 = Theme.Accent; FollowTitle.Font = Enum.Font.GothamBold; FollowTitle.TextSize = 13; FollowTitle.TextXAlignment = Enum.TextXAlignment.Left
-
-local FollowToggleBtn = CreateButton(SecTargetFarm, "FOLLOW: OFF", Color3.fromRGB(50, 50, 55), Ryuhub)
-local FollowListFrame = Instance.new("Frame", SecTargetFarm)
-FollowListFrame.LayoutOrder = itemOrderCounter + 2; FollowListFrame.Size = UDim2.new(0.92, 0, 0, 110); FollowListFrame.BackgroundTransparency = 1
-local FollowScroll = Instance.new("ScrollingFrame", FollowListFrame)
-FollowScroll.Size = UDim2.new(1,0,1,0); FollowScroll.BackgroundTransparency = 1; FollowScroll.ScrollBarThickness = 2; FollowScroll.ScrollBarImageColor3 = Theme.Accent
-local FollowScrollLayout = Instance.new("UIListLayout", FollowScroll)
-FollowScrollLayout.Padding = UDim.new(0, 4)
-
-
--- TAB 4: SETTINGS
-local TabSettings = CreateMainTab("Settings")
-
-local SubClient = CreateSubTab(TabSettings, "Client Settings")
-local SecClient = CreateSection(SubClient, "System Configuration")
-CreateToggle(SecClient, "Anti-AFK Protection", nil, false, Ryuhub)
-CreateToggle(SecClient, "FPS Boost No Shadows", nil, false, Ryuhub)
-CreateSlider(SecClient, "Field of View FOV", 70, 120, 70, Ryuhub)
-CreateButton(SecClient, "Save Settings", Theme.ToggleOff, Ryuhub)
-CreateButton(SecClient, "Reset Settings", Theme.Warning, Ryuhub)
-
-
--- INITIALISIERUNG (SAUBER OHNE .FIRE())
+-- INITIALISIERUNG
 task.spawn(function()
     Tabs[1].Toggle()
     Tabs[1].SubTabs[1].Open()
