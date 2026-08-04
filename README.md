@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH STATE MACHINE & CHEST FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH STATE MACHINE & FULL THEME SAVES)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -590,6 +590,186 @@ CreateToggle(SecWindow, "Glass Mode", "Transparent frosted glass UI", RyuSavedCo
     end
 end)
 
+CreateToggle(SecWindow, "World UI Blur", "Blurs the game when UI is open", RyuSavedConfig.WorldBlur, function(state)
+    RyuSavedConfig.WorldBlur = state
+    _G.BlurEnabled = state
+    if isUIOpen and state then TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 15}):Play()
+    elseif not state then TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 0}):Play() end
+end)
+
+local PremiumColors = {
+    ["White"] = Color3.fromRGB(255, 255, 255),
+    ["Crimson Red"] = Color3.fromRGB(220, 20, 60),
+    ["Neon Blue"] = Color3.fromRGB(0, 150, 255),
+    ["Emerald Green"] = Color3.fromRGB(46, 204, 113),
+    ["Royal Purple"] = Color3.fromRGB(155, 89, 182),
+    ["Hot Pink"] = Color3.fromRGB(255, 105, 180),
+    ["Gold"] = Color3.fromRGB(241, 196, 15)
+}
+CreateDropdown(SecWindow, "Accent Color", {"White", "Crimson Red", "Neon Blue", "Emerald Green", "Royal Purple", "Hot Pink", "Gold"}, function(colorName)
+    local newColor = PremiumColors[colorName]
+    if newColor then
+        RyuSavedConfig.AccentColor = {math.floor(newColor.R*255), math.floor(newColor.G*255), math.floor(newColor.B*255)}
+        Theme.Accent = newColor
+        for _, obj in pairs(RyuHub:GetDescendants()) do
+            if obj:IsA("UIStroke") and obj.Color ~= Theme.Stroke and obj.Color ~= Theme.Warning then obj.Color = newColor end
+            if obj:IsA("Frame") and obj.BackgroundColor3 ~= Theme.Background and obj.BackgroundColor3 ~= Theme.SectionBG and obj.BackgroundColor3 ~= Theme.ToggleOff and obj.BackgroundColor3 ~= Theme.Sidebar and obj.BackgroundColor3 ~= Color3.fromRGB(150, 150, 150) then 
+                obj.BackgroundColor3 = newColor 
+            end
+            if obj:IsA("TextLabel") and obj.Text == "Target: None" then obj.TextColor3 = newColor end
+        end
+    end
+end)
+
+local BgColors = {
+    ["Default Dark"] = Color3.fromRGB(12, 12, 14),
+    ["Pitch Black"] = Color3.fromRGB(0, 0, 0),
+    ["Midnight Blue"] = Color3.fromRGB(5, 10, 20),
+    ["Deep Blood"] = Color3.fromRGB(20, 5, 5)
+}
+CreateDropdown(SecWindow, "Background Tint", {"Default Dark", "Pitch Black", "Midnight Blue", "Deep Blood"}, function(colorName)
+    local newBg = BgColors[colorName]
+    if newBg then
+        RyuSavedConfig.BgColor = {math.floor(newBg.R*255), math.floor(newBg.G*255), math.floor(newBg.B*255)}
+        Theme.Background = newBg
+        if not RyuSavedConfig.GlassMode then
+            TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundColor3 = newBg}):Play()
+        end
+    end
+end)
+
+CreateDropdown(SecWindow, "UI Font Style", {"Gotham", "Code", "Arcade", "SciFi", "Cartoon", "Fantasy", "Oswald"}, function(fontName)
+    RyuSavedConfig.Font = fontName
+    local targetFont = Enum.Font.Gotham
+    if fontName == "Code" then targetFont = Enum.Font.Code
+    elseif fontName == "Arcade" then targetFont = Enum.Font.Arcade
+    elseif fontName == "SciFi" then targetFont = Enum.Font.Michroma
+    elseif fontName == "Cartoon" then targetFont = Enum.Font.Cartoon
+    elseif fontName == "Fantasy" then targetFont = Enum.Font.Fantasy
+    elseif fontName == "Oswald" then targetFont = Enum.Font.Oswald end
+    for _, obj in pairs(MainFrame:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.Font == Enum.Font.GothamBold then obj.Font = targetFont
+            elseif obj.Font == Enum.Font.GothamMedium then obj.Font = targetFont
+            else obj.Font = targetFont end
+        end
+    end
+end)
+
+CreateToggle(SecWindow, "Hide Window Borders", "Removes the outer window line", RyuSavedConfig.HideBorders, function(state)
+    RyuSavedConfig.HideBorders = state
+    mainStroke.Enabled = not state
+end)
+
+CreateSlider(SecWindow, "Window Roundness", 0, 24, RyuSavedConfig.Roundness, function(val)
+    RyuSavedConfig.Roundness = val
+    MainCorner.CornerRadius = UDim.new(0, val)
+end)
+
+CreateTextBox(SecWindow, "Custom Background URL (Asset ID)...", function(txt)
+    if txt and txt ~= "" then
+        local num = txt:match("%d+")
+        if num then
+            local url = "rbxthumb://type=Asset&id="..num.."&w=768&h=432"
+            MainBgImage.Image = url
+            RyuSavedConfig.BgImage = url
+            MainBgImage.ImageTransparency = RyuSavedConfig.BgOpacity
+        end
+    else
+        MainBgImage.Image = ""
+        RyuSavedConfig.BgImage = ""
+        MainBgImage.ImageTransparency = 1
+    end
+end)
+
+CreateSlider(SecWindow, "Background Image Opacity", 0, 100, (1 - RyuSavedConfig.BgOpacity) * 100, function(val)
+    local op = 1 - (val / 100)
+    RyuSavedConfig.BgOpacity = op
+    if MainBgImage.Image ~= "" then MainBgImage.ImageTransparency = op end
+end)
+
+local SecToggleUI = CreateSection(SubTheme, "Toggle Button Personalization")
+
+CreateTextBox(SecToggleUI, "Custom Icon ID (e.g. 6050149849)", function(txt)
+    if txt and txt ~= "" then
+        local num = txt:match("%d+")
+        if num then 
+            local url = "rbxthumb://type=Asset&id="..num.."&w=150&h=150"
+            ToggleBtn.Image = url
+            RyuSavedConfig.ToggleIcon = url
+        end
+    end
+end)
+
+CreateSlider(SecToggleUI, "Toggle Button Size", 30, 80, RyuSavedConfig.ToggleSize, function(val)
+    RyuSavedConfig.ToggleSize = val
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, val, 0, val)}):Play()
+end)
+
+CreateSlider(SecToggleUI, "Toggle Glow Intensity", 0, 100, (1 - RyuSavedConfig.ToggleGlow) * 100, function(val)
+    local glow = 1 - (val / 100)
+    RyuSavedConfig.ToggleGlow = glow
+    btnStroke.Transparency = glow
+end)
+
+local rainbowToggle = RyuSavedConfig.RainbowMode
+CreateToggle(SecToggleUI, "RGB Rainbow Ring", "Animates the toggle button border", RyuSavedConfig.RainbowMode, function(state)
+    rainbowToggle = state
+    RyuSavedConfig.RainbowMode = state
+    if not state then btnStroke.Color = Theme.Accent end
+end)
+task.spawn(function()
+    while true do
+        if rainbowToggle then btnStroke.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1) end
+        task.wait(0.1)
+    end
+end)
+
+CreateToggle(SecToggleUI, "Floating Icon Mode", "Removes the toggle button background", RyuSavedConfig.FloatingIcon, function(state)
+    RyuSavedConfig.FloatingIcon = state
+    if state then TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+    else TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play() end
+end)
+
+local SecSave = CreateSection(SubTheme, "Config & System")
+
+CreateButton(SecSave, "Save Settings To File", Color3.fromRGB(50, 150, 50), function()
+    SaveConfig()
+end)
+
+CreateButton(SecSave, "Reset UI Settings", Theme.Warning, function()
+    if delfile and isfile and isfile(configFileName) then pcall(function() delfile(configFileName) end) end
+    RyuSavedConfig = {
+        GlassMode = false, WorldBlur = false, AccentColor = {255, 255, 255}, BgColor = {12, 12, 14},
+        Font = "Gotham", HideBorders = false, Roundness = 12, BgImage = "", BgOpacity = 0.6,
+        ToggleIcon = "rbxthumb://type=Asset&id=6050149849&w=150&h=150", ToggleSize = 50, ToggleGlow = 0.5,
+        RainbowMode = false, FloatingIcon = false, AutoImpelDown = false, ImpelFarmDistance = 15
+    }
+    Theme.Background = Color3.fromRGB(12, 12, 14)
+    Theme.Accent = Color3.fromRGB(255, 255, 255)
+    TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundColor3 = Theme.Background, BackgroundTransparency = 0}):Play()
+    MainBgImage.Image = ""
+    mainStroke.Enabled = true
+    UIBlur.Size = 0
+    _G.BlurEnabled = false
+    btnStroke.Color = Theme.Accent
+    rainbowToggle = false
+    MainCorner.CornerRadius = UDim.new(0, 12)
+    ToggleBtn.Image = RyuSavedConfig.ToggleIcon
+    ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+    btnStroke.Transparency = 0.5
+    ToggleBtn.BackgroundTransparency = 0
+    for _, obj in pairs(MainFrame:GetDescendants()) do
+        if obj:IsA("UIStroke") and obj.Color ~= Theme.Stroke and obj.Color ~= Theme.Warning then obj.Color = Theme.Accent end
+        if obj:IsA("Frame") and obj.Name == "SectionContainer" then obj.BackgroundTransparency = 0 end
+        if obj:IsA("Frame") and obj.Name == "DropdownContainer" then obj.BackgroundTransparency = 0 end
+        if obj:IsA("TextBox") and obj.Name == "CustomTextBox" then obj.BackgroundTransparency = 0 end
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.Font ~= Enum.Font.GothamBold and obj.Font ~= Enum.Font.GothamMedium then obj.Font = Enum.Font.Gotham end
+        end
+    end
+end)
+
 -- INITIALISIERUNG
 task.spawn(function()
     Tabs[1].Toggle()
@@ -662,7 +842,6 @@ local function PerformMeleeAttack(targets)
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
-                
                 if type(targets) == "table" then
                     for _, npc in ipairs(targets) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
@@ -719,7 +898,6 @@ local function ToggleHover(state)
         end
         bp.Position = root.Position
         
-        -- Zwingt den Charakter strikt 90 Grad nach unten zu schauen und das Zappeln zu stoppen
         local bg = root:FindFirstChild("RyuGyro")
         if not bg then
             bg = Instance.new("BodyGyro")
@@ -771,7 +949,6 @@ local function SafeTween(targetCFrame, customSpeed, isKeyMove)
     while tick() - startTime < timeToTake do
         if not RyuSavedConfig.AutoImpelDown then break end
         
-        -- TP CHECK BYPASS: Falls uns das Spiel zurückzieht (Rubberband), stoppen wir 1s
         if isKeyMove and (root.Position - lastRealPos).Magnitude > 20 then
             bp.Position = root.Position
             task.wait(1) 
@@ -800,13 +977,11 @@ end
 
 _G.ImpelState = _G.ImpelState or "Select"
 
--- Auto Stats Background Loop
 task.spawn(function()
     while true do
         task.wait(2)
         if RyuSavedConfig.AutoImpelDown then
             pcall(function()
-                -- 700 in Strength, Rest in Defense
                 ReplicatedStorage.Events.stats:FireServer("Strength", nil, 700)
                 ReplicatedStorage.Events.stats:FireServer("Defense", nil, 800) 
             end)
@@ -824,7 +999,6 @@ task.spawn(function()
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
 
-        --// FAILSAFE (Health Check)
         local hpPercent = hum.Health / hum.MaxHealth
         if hpPercent < 0.8 then
             ToggleHover(true)
@@ -840,7 +1014,6 @@ task.spawn(function()
             continue
         end
 
-        --// STAGE 1: Auto Nightmare Selection
         if _G.ImpelState == "Select" then
             local diffChooser = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("DiffChooser")
             if diffChooser and diffChooser.Enabled then
@@ -851,14 +1024,12 @@ task.spawn(function()
             _G.ImpelState = "Vera"
         end
 
-        --// STAGE 2: Töte Vera (Anti-Zappel & 90 Grad Lock)
         if _G.ImpelState == "Vera" then
             local vera = Workspace:FindFirstChild("NPCs") and Workspace.NPCs:FindFirstChild("Vera")
             if vera then
                 local vHum = vera:FindFirstChildOfClass("Humanoid")
                 local vRoot = vera:FindFirstChild("HumanoidRootPart")
                 if vHum and vRoot and vHum.Health > 0 then
-                    -- 7.5 Studs vertikal über Vera, strikt 90 Grad nach unten (Zappeln fixiert)
                     local attackPos = vRoot.Position + Vector3.new(0, 7.5, 0)
                     local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
                     
@@ -881,7 +1052,6 @@ task.spawn(function()
             end
         end
 
-        --// STAGE 3: Sammle den Schlüssel (Wartezeit & Max Speed 45)
         if _G.ImpelState == "Key" then
             local keyPart = nil
             pcall(function()
@@ -916,7 +1086,7 @@ task.spawn(function()
             if keyPart then
                 if not _G.KeyWaitTriggered then
                     _G.KeyWaitTriggered = true
-                    task.wait(4) -- Warte genau 4 Sekunden wie gewünscht
+                    task.wait(4)
                 end
 
                 pcall(function() ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457") end)
@@ -926,7 +1096,7 @@ task.spawn(function()
                     ToggleHover(false)
                     hum.WalkSpeed = 45
                     hum:MoveTo(keyPart.Position)
-                    SafeTween(keyPart.CFrame, 45, true) -- TP Check Bypass integriert
+                    SafeTween(keyPart.CFrame, 45, true)
                 else
                     root.CFrame = keyPart.CFrame
                     root.Velocity = Vector3.new(0,0,0)
@@ -949,17 +1119,15 @@ task.spawn(function()
             else
                 if _G.KeyWaitTriggered then 
                     _G.ImpelState = "Chests" 
-                    task.wait(2) -- Warte 2 Sekunden nach Key bevor es zu Chests geht
+                    task.wait(2)
                 end
             end
         end
 
-        --// STAGE 4: Öffne die 3 Blauen Truhen (Via Model Structure)
         if _G.ImpelState == "Chests" then
             local chestsFound = false
             pcall(function()
                 for _, obj in pairs(Workspace:GetDescendants()) do
-                    -- IDENTIFIKATION: Model mit "Bottom" und "Lock"
                     if obj:IsA("Model") and obj:FindFirstChild("Bottom") and obj:FindFirstChild("Lock") then
                         local prompt = obj:FindFirstChildWhichIsA("ProximityPrompt", true)
                         if prompt and prompt.Enabled then
@@ -984,7 +1152,7 @@ task.spawn(function()
                                     pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game); task.wait(0.1); VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game) end)
                                 end
                             end
-                            break -- Gehe nacheinander zu den Truhen
+                            break
                         end
                     end
                 end
@@ -993,20 +1161,18 @@ task.spawn(function()
             continue
         end
 
-        --// STAGE 5: Pathing Coord 1
         if _G.ImpelState == "Move1" then
             local tPos1 = Vector3.new(2941.29, 2075.25, -13574.59)
             if (root.Position - tPos1).Magnitude > 5 then
                 ToggleHover(false)
                 SafeTween(CFrame.new(tPos1), 45, true)
             else
-                task.wait(1) -- Warte 1 Sekunde
+                task.wait(1)
                 _G.ImpelState = "Move2"
             end
             continue
         end
 
-        --// STAGE 6: Pathing Coord 2
         if _G.ImpelState == "Move2" then
             local tPos2 = Vector3.new(2952.60, 2075.15, -13848.57)
             if (root.Position - tPos2).Magnitude > 5 then
@@ -1018,7 +1184,6 @@ task.spawn(function()
             continue
         end
 
-        --// STAGE 7: Group Farm Impel Guards
         if _G.ImpelState == "Guards" then
             local npcs = Workspace:FindFirstChild("NPCs")
             if npcs then
@@ -1034,7 +1199,6 @@ task.spawn(function()
                 end
                 
                 if #guards > 0 then
-                    -- Gehe zur ersten Wache, töte aber alle gesammelten gleichzeitig
                     local firstGuardRoot = guards[1]:FindFirstChild("HumanoidRootPart")
                     if firstGuardRoot then
                         local attackPos = firstGuardRoot.Position + Vector3.new(0, 7.5, 0)
