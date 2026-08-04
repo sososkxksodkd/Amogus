@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & ENGINE V2.4)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH ENGINE V3)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -42,6 +42,7 @@ local RyuSavedConfig = {
     ImpelFarmDistance = 15
 }
 
+-- Settings laden (falls vorhanden)
 if readfile and isfile and isfile(configFileName) then
     pcall(function()
         local data = HttpService:JSONDecode(readfile(configFileName))
@@ -1109,29 +1110,22 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.4: VERA FIX, STATS, HAKI, GUARDS, LABYRINTH STOP)
+--// IMPEL DOWN AUTO FARM ENGINE (V3: VERA LOCK, AUTO STATS & HAKI, GUARDS)
 --// ============================================================================
 
--- SIDE FEATURE: AUTO STATS (800 DEF, 800 STR)
+-- SIDE FEATURE: AUTO STATS
 task.spawn(function()
     while true do
-        task.wait(1) 
+        task.wait(3)
         if RyuSavedConfig.AutoImpelDown then
             pcall(function()
-                local statsFolder = LocalPlayer:FindFirstChild("Stats") or LocalPlayer:FindFirstChild("Data")
                 local rs = game:GetService("ReplicatedStorage")
-                
-                if statsFolder and rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats") then
-                    local defVal = 0
-                    local strVal = 0
-                    if statsFolder:FindFirstChild("Defense") then defVal = statsFolder.Defense.Value end
-                    if statsFolder:FindFirstChild("Strength") then strVal = statsFolder.Strength.Value end
+                if rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats") then
+                    local argsStr = {"Strength", {[3] = 100}}
+                    rs.Events.stats:FireServer(unpack(argsStr))
                     
-                    if defVal < 800 then
-                        rs.Events.stats:FireServer("Defense", {[3] = 100})
-                    elseif strVal < 800 then
-                        rs.Events.stats:FireServer("Strength", {[3] = 100})
-                    end
+                    local argsDef = {"Defense", {[3] = 100}}
+                    rs.Events.stats:FireServer(unpack(argsDef))
                 end
             end)
         end
@@ -1139,7 +1133,6 @@ task.spawn(function()
 end)
 
 _G.ImpelState = "Init"
-_G.HakiActivated = false
 
 task.spawn(function()
     while true do
@@ -1161,7 +1154,7 @@ task.spawn(function()
             continue 
         end
 
-        -- SCHRITT 2: Finde und Töte Vera (Hinter ihr, 6 Studs hoch, Blick nach unten)
+        -- SCHRITT 2: Finde und Töte Vera (Flüssiges Tracking & Strikt 90 Grad Lock)
         local vera = Workspace:FindFirstChild("NPCs") and Workspace.NPCs:FindFirstChild("Vera")
         if vera then
             _G.ImpelState = "Key" 
@@ -1170,17 +1163,14 @@ task.spawn(function()
             if vHum and vRoot and vHum.Health > 0 then
                 if CheckHPAndFailsafe(root, hum) then continue end
                 
-                -- Position 4 Studs hinter ihr, 6 Studs in der Luft, Winkel schaut direkt auf sie
-                local flatLook = vRoot.CFrame.LookVector
-                flatLook = Vector3.new(flatLook.X, 0, flatLook.Z).Unit
-                local attackPos = vRoot.Position - (flatLook * 4) + Vector3.new(0, 6, 0)
-                local targetCFrame = CFrame.lookAt(attackPos, vRoot.Position)
+                local attackPos = vRoot.Position + Vector3.new(0, 7.5, 0)
+                local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
                 
                 if (root.Position - attackPos).Magnitude > 15 then
                     SafeTween(targetCFrame, 50, false)
                 else
                     ToggleHover(true)
-                    root.CFrame = targetCFrame
+                    root.CFrame = root.CFrame:Lerp(targetCFrame, 0.5)
                     root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                     root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                 end
@@ -1192,7 +1182,7 @@ task.spawn(function()
             end
         end
 
-        -- SCHRITT 3: Finde und sammle den Schlüssel (mit 2-Stud Abstand)
+        -- SCHRITT 3: Finde und sammle den Schlüssel
         if _G.ImpelState == "Key" then
             local keyPart = nil
             pcall(function()
@@ -1273,23 +1263,29 @@ task.spawn(function()
             end
         end
 
-        -- SCHRITT 4: Haki aktivieren
+        -- SCHRITT 4: Auto Haki (Spirit Essence)
         if _G.ImpelState == "Haki" then
-            if not _G.HakiActivated then
+            local essence = LocalPlayer.Backpack:FindFirstChild("Spirit Essence") or char:FindFirstChild("Spirit Essence")
+            if essence then
+                hum:EquipTool(essence)
+                task.wait(0.5)
+                essence:Activate()
+                
                 pcall(function()
-                    local essence = LocalPlayer.Backpack:FindFirstChild("Spirit Essence") or char:FindFirstChild("Spirit Essence")
-                    if essence then
-                        hum:EquipTool(essence)
-                        task.wait(0.2)
-                        essence:Activate()
-                        task.wait(0.5)
+                    local function getNil(name,class) 
+                        for _,v in next, getnilinstances() do 
+                            if v.ClassName==class and v.Name==name then return v;end 
+                        end 
                     end
-                    
-                    local function getNil(name,class) for _,v in next, getnilinstances()do if v.ClassName==class and v.Name==name then return v;end end end
                     local args = {true}
-                    Instance.new("RemoteEvent", nil):FireServer(unpack(args))
+                    local busoRemote = getNil("Buso", "RemoteEvent")
+                    if busoRemote then 
+                        busoRemote:FireServer(unpack(args)) 
+                    else
+                        Instance.new("RemoteEvent", nil):FireServer(unpack(args))
+                    end
                 end)
-                _G.HakiActivated = true
+                task.wait(1)
             end
             _G.ImpelState = "Waypoints"
             continue
@@ -1308,18 +1304,24 @@ task.spawn(function()
             continue
         end
 
-        -- SCHRITT 6: Impel Guards farmen (Single Target Fokus, 40 Speed Tween)
+        -- SCHRITT 6: Impel Guards farmen (Single-Target 1v1)
         if _G.ImpelState == "Guards" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
             
             local targetGuard = nil
+            local closestDist = math.huge
+            
             for _, v in pairs(npcsFolder:GetChildren()) do
                 if v.Name:find("Impel Guard") then
                     local gHum = v:FindFirstChildOfClass("Humanoid")
-                    if gHum and gHum.Health > 0 then
-                        targetGuard = v
-                        break
+                    local gRoot = v:FindFirstChild("HumanoidRootPart")
+                    if gHum and gRoot and gHum.Health > 0 then
+                        local d = (root.Position - gRoot.Position).Magnitude
+                        if d < closestDist then
+                            closestDist = d
+                            targetGuard = v
+                        end
                     end
                 end
             end
@@ -1329,36 +1331,25 @@ task.spawn(function()
                 if tRoot then
                     if CheckHPAndFailsafe(root, hum) then continue end
                     
-                    local flatLook = tRoot.CFrame.LookVector
-                    flatLook = Vector3.new(flatLook.X, 0, flatLook.Z).Unit
-                    local attackPos = tRoot.Position - (flatLook * 4) + Vector3.new(0, 6, 0)
-                    local targetCFrame = CFrame.lookAt(attackPos, tRoot.Position)
+                    local attackPos = tRoot.Position + Vector3.new(0, 7.5, 0)
+                    local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
                     
                     if (root.Position - attackPos).Magnitude > 15 then
-                        SafeTween(targetCFrame, 40, false) -- Tween zu Guard mit 40 Speed
+                        SafeTween(targetCFrame, 40, false)
                     else
                         ToggleHover(true)
-                        root.CFrame = targetCFrame
+                        root.CFrame = root.CFrame:Lerp(targetCFrame, 0.5)
                         root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                         root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                     end
 
                     EquipTargetWeapon()
-                    PerformMeleeAttack({targetGuard}) 
+                    PerformMeleeAttack({targetGuard})
                     task.wait(0.05)
                 end
-                continue
             else
-                _G.ImpelState = "LabyrinthStop"
-                continue
+                _G.ImpelState = "Finished" 
             end
-        end
-
-        -- SCHRITT 7: Labyrinth Stopp
-        if _G.ImpelState == "LabyrinthStop" then
-            ToggleHover(true)
-            root.Velocity = Vector3.new(0, 0, 0)
-            if hum then hum:Move(Vector3.new(0,0,0), false) end
             continue
         end
 
