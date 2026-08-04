@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & LEGIT PATHFINDING)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH ANTI-JITTER & 50-STUD RADAR)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -43,7 +43,6 @@ local RyuSavedConfig = {
     ImpelFarmDistance = 15
 }
 
--- Settings laden (falls vorhanden)
 if readfile and isfile and isfile(configFileName) then
     pcall(function()
         local data = HttpService:JSONDecode(readfile(configFileName))
@@ -734,12 +733,16 @@ local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
     root.CFrame = targetCFrame
 end
 
-local function ToggleHover(state)
+local function ToggleHover(state, lookDown)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    
     if state then
+        if hum then hum.AutoRotate = false end
+        
         local bp = root:FindFirstChild("RyuHover")
         if not bp then
             bp = Instance.new("BodyPosition")
@@ -749,17 +752,35 @@ local function ToggleHover(state)
             bp.P = 50000
             bp.Parent = root
         end
-        bp.Position = root.Position
+        
+        if lookDown then
+            local bg = root:FindFirstChild("RyuGyro")
+            if not bg then
+                bg = Instance.new("BodyGyro")
+                bg.Name = "RyuGyro"
+                bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+                bg.P = 50000
+                bg.D = 500
+                bg.Parent = root
+            end
+            bg.CFrame = CFrame.Angles(math.rad(-90), 0, 0)
+        else
+            local bg = root:FindFirstChild("RyuGyro")
+            if bg then bg:Destroy() end
+        end
     else
+        if hum then hum.AutoRotate = true end
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp:Destroy() end
+        local bg = root:FindFirstChild("RyuGyro")
+        if bg then bg:Destroy() end
     end
 end
 
 -- HP FAILSAFE
 local function CheckHPAndFailsafe(root, hum)
     if hum.Health / hum.MaxHealth < 0.8 then
-        ToggleHover(true)
+        ToggleHover(true, false)
         root.CFrame = root.CFrame + Vector3.new(0, 14, 0)
         
         pcall(function()
@@ -797,7 +818,7 @@ local SubAutoMain = CreateSubTab(TabAutoPlay, "Main")
 local SecAutoPlay = CreateSection(SubAutoMain, "Impel Down Engine")
 CreateToggle(SecAutoPlay, "Enable Auto Impel Down", "Automatically clear all stages", RyuSavedConfig.AutoImpelDown, function(state) 
     RyuSavedConfig.AutoImpelDown = state 
-    if not state then ToggleHover(false) end
+    if not state then ToggleHover(false, false) end
 end)
 CreateToggle(SecAutoPlay, "Auto Next Stage", "Proceeds to the next floor automatically", false, Ryuhub)
 CreateToggle(SecAutoPlay, "Auto Boss Farm", "Targets boss NPCs prioritized", false, Ryuhub)
@@ -1111,7 +1132,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.3: LABYRINTH ADDED, CHESTS REMOVED)
+--// IMPEL DOWN AUTO FARM ENGINE (V2.4: 50-STUD RADAR & SAFE PATHFINDING)
 --// ============================================================================
 
 -- SIDE FEATURE: AUTO STATS
@@ -1164,14 +1185,16 @@ task.spawn(function()
             if vHum and vRoot and vHum.Health > 0 then
                 if CheckHPAndFailsafe(root, hum) then continue end
                 
-                local attackPos = vRoot.Position + Vector3.new(0, 7.5, 0)
-                local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
+                -- HÖHENANPASSUNG AUF 6.5 & SICHERSCHWEBE
+                local attackPos = vRoot.Position + Vector3.new(0, 6.5, 0)
                 
                 if (root.Position - attackPos).Magnitude > 15 then
-                    SafeTween(targetCFrame, 50, false)
+                    SafeTween(CFrame.new(attackPos), 50, false)
                 else
-                    ToggleHover(true)
-                    root.CFrame = targetCFrame
+                    ToggleHover(true, true) -- Schaltet Gyro auf -90 Pitch ein
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = attackPos end
+                    
                     root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                     root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                 end
@@ -1183,7 +1206,7 @@ task.spawn(function()
             end
         end
 
-        -- SCHRITT 3: Finde und sammle den Schlüssel (mit 2-Stud Abstand)
+        -- SCHRITT 3: Finde und sammle den Schlüssel
         if _G.ImpelState == "Key" then
             local keyPart = nil
             pcall(function()
@@ -1234,7 +1257,7 @@ task.spawn(function()
 
                 local dist = (root.Position - keyPart.Position).Magnitude
                 if dist > 4 then
-                    ToggleHover(false)
+                    ToggleHover(false, false)
                     hum.WalkSpeed = 45
                     hum:MoveTo(keyPart.Position)
                     SafeTween(safeCFrame, 45, true) 
@@ -1277,17 +1300,21 @@ task.spawn(function()
             continue
         end
 
-        -- SCHRITT 5: Impel Guards farmen
-        if _G.ImpelState == "Guards" then
+        -- SCHRITT 5 & 7: Impel Guards farmen (50-STUD RADAR)
+        if _G.ImpelState == "Guards" or _G.ImpelState == "PostLabyrinthGuards" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
             
             local guards = {}
             for _, v in pairs(npcsFolder:GetChildren()) do
-                if v.Name:find("Impel Guard") then
+                if v.Name:find("Impel Guard") or v.Name:find("Guard") then
                     local gHum = v:FindFirstChildOfClass("Humanoid")
-                    if gHum and gHum.Health > 0 then
-                        table.insert(guards, v)
+                    local gRoot = v:FindFirstChild("HumanoidRootPart")
+                    if gHum and gRoot and gHum.Health > 0 then
+                        -- RADAR CHECK: Nur wenn innerhalb von 50 Studs
+                        if (gRoot.Position - root.Position).Magnitude <= 50 then
+                            table.insert(guards, v)
+                        end
                     end
                 end
             end
@@ -1298,14 +1325,15 @@ task.spawn(function()
                 if tRoot then
                     if CheckHPAndFailsafe(root, hum) then continue end
                     
-                    local attackPos = tRoot.Position + Vector3.new(0, 7.5, 0)
-                    local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
+                    local attackPos = tRoot.Position + Vector3.new(0, 6.5, 0)
                     
                     if (root.Position - attackPos).Magnitude > 15 then
-                        SafeTween(targetCFrame, 50, false)
+                        SafeTween(CFrame.new(attackPos), 50, false)
                     else
-                        ToggleHover(true)
-                        root.CFrame = targetCFrame
+                        ToggleHover(true, true) -- Starrer Gyro-Lock nach unten
+                        local bp = root:FindFirstChild("RyuHover")
+                        if bp then bp.Position = attackPos end
+                        
                         root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                         root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                     end
@@ -1316,7 +1344,11 @@ task.spawn(function()
                 end
                 continue
             else
-                _G.ImpelState = "Labyrinth"
+                if _G.ImpelState == "Guards" then
+                    _G.ImpelState = "Labyrinth"
+                else
+                    _G.ImpelState = "NextStage"
+                end
                 continue
             end
         end
@@ -1326,9 +1358,8 @@ task.spawn(function()
             local labyrinthTarget = Vector3.new(2664.91, 2075.15, -15491.03)
             
             if (root.Position - labyrinthTarget).Magnitude > 5 then
-                ToggleHover(false)
+                ToggleHover(false, false)
                 
-                -- Berechne echten, physischen Weg
                 local path = PathfindingService:CreatePath({
                     AgentRadius = 2.5,
                     AgentHeight = 5,
@@ -1345,33 +1376,28 @@ task.spawn(function()
                     for i, waypoint in ipairs(waypoints) do
                         if not RyuSavedConfig.AutoImpelDown then break end
                         
-                        -- Permanent Sprint spamming
                         pcall(function()
                             if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint") then
                                 ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457")
                             end
                         end)
                         
-                        if waypoint.Action == Enum.PathWaypointAction.Jump then
-                            hum.Jump = true
-                        end
+                        if waypoint.Action == Enum.PathWaypointAction.Jump then hum.Jump = true end
                         
                         hum.WalkSpeed = 45
                         hum:MoveTo(waypoint.Position)
                         SafeTween(CFrame.new(waypoint.Position), 45, true)
                         
-                        -- Wenn wir hängen bleiben oder TP Check uns zurückzieht, brich die for-Schleife ab und berechne Pfad neu
                         if (root.Position - waypoint.Position).Magnitude > 15 then
                             break
                         end
                     end
                 else
-                    -- Fallback, falls der Pfad nicht berechnet werden kann
                     task.wait(1)
                 end
             else
                 root.Velocity = Vector3.new(0, 0, 0)
-                _G.ImpelState = "NextStage"
+                _G.ImpelState = "PostLabyrinthGuards"
             end
             task.wait(0.1)
             continue
