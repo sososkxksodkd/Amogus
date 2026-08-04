@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (REWORKED AUTO-FARM ENGINE V3.3 - PERMANENT VERA LOCK)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & ENGINE V2.4)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -42,7 +42,6 @@ local RyuSavedConfig = {
     ImpelFarmDistance = 15
 }
 
--- Settings laden (falls vorhanden)
 if readfile and isfile and isfile(configFileName) then
     pcall(function()
         local data = HttpService:JSONDecode(readfile(configFileName))
@@ -652,7 +651,7 @@ local function PerformMeleeAttack(targets)
     end)
 end
 
--- TWEEN FUNCTION WITH TP CHECK BYPASS
+-- TWEEN FUNCTION WITH TP CHECK BYPASS & CLIMB ANTI-STUCK
 local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -683,6 +682,7 @@ local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
     end
 
     local lastRealPos = root.Position
+    local stuckTicks = 0
 
     while tick() - startTime < timeToTake do
         if not RyuSavedConfig.AutoImpelDown then break end
@@ -695,6 +695,27 @@ local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
             dist = (targetPos - startPos).Magnitude
             timeToTake = dist / speed
             startTime = tick()
+        end
+        
+        -- ANTI-STUCK
+        if isMoveCheck then
+            if (root.Position - lastRealPos).Magnitude < 0.5 then
+                stuckTicks = stuckTicks + 1
+                if stuckTicks > 5 then
+                    pcall(function()
+                        if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb") then
+                            ReplicatedStorage.Events.climb:InvokeServer(true)
+                        end
+                    end)
+                end
+            else
+                stuckTicks = 0
+                pcall(function()
+                    if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb") then
+                        ReplicatedStorage.Events.climb:InvokeServer(false)
+                    end
+                end)
+            end
         end
         
         lastRealPos = root.Position
@@ -1088,21 +1109,23 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.3: PERMANENT VERA LOCK)
+--// IMPEL DOWN AUTO FARM ENGINE (V2.4: VERA FIX, STATS, HAKI, GUARDS, LABYRINTH STOP)
 --// ============================================================================
 
--- SIDE FEATURE: AUTO STATS (800 DEFENSE & 800 STRENGTH WITH [3]=100)
+-- SIDE FEATURE: AUTO STATS (800 DEF, 800 STR)
 task.spawn(function()
     while true do
-        task.wait(0.2)
+        task.wait(1) 
         if RyuSavedConfig.AutoImpelDown then
             pcall(function()
                 local statsFolder = LocalPlayer:FindFirstChild("Stats") or LocalPlayer:FindFirstChild("Data")
                 local rs = game:GetService("ReplicatedStorage")
                 
                 if statsFolder and rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats") then
-                    local defVal = statsFolder:FindFirstChild("Defense") and statsFolder.Defense.Value or 0
-                    local strVal = statsFolder:FindFirstChild("Strength") and statsFolder.Strength.Value or 0
+                    local defVal = 0
+                    local strVal = 0
+                    if statsFolder:FindFirstChild("Defense") then defVal = statsFolder.Defense.Value end
+                    if statsFolder:FindFirstChild("Strength") then strVal = statsFolder.Strength.Value end
                     
                     if defVal < 800 then
                         rs.Events.stats:FireServer("Defense", {[3] = 100})
@@ -1116,19 +1139,7 @@ task.spawn(function()
 end)
 
 _G.ImpelState = "Init"
-_G.GuardWaitTimer = 0
-
--- HILFSFUNKTION: VERA SICHERSUCHEN
-local function FindVeraNPC()
-    local npcsFolder = Workspace:FindFirstChild("NPCs")
-    if npcsFolder then
-        local v = npcsFolder:FindFirstChild("Vera")
-        if v and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChildOfClass("Humanoid") then
-            return v
-        end
-    end
-    return nil
-end
+_G.HakiActivated = false
 
 task.spawn(function()
     while true do
@@ -1140,7 +1151,7 @@ task.spawn(function()
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
 
-        -- PHASE 1: Auto Nightmare Difficulty
+        -- SCHRITT 1: Auto Nightmare Difficulty
         local diffChooser = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("DiffChooser")
         if diffChooser and diffChooser.Enabled then
             pcall(function()
@@ -1150,18 +1161,19 @@ task.spawn(function()
             continue 
         end
 
-        -- PHASE 2: Vera Bekämpfen (Festgehaltene while-Schleife bis Vera besiegt ist)
-        local vera = FindVeraNPC()
+        -- SCHRITT 2: Finde und Töte Vera (Hinter ihr, 6 Studs hoch, Blick nach unten)
+        local vera = Workspace:FindFirstChild("NPCs") and Workspace.NPCs:FindFirstChild("Vera")
         if vera then
-            _G.ImpelState = "VeraPhase"
+            _G.ImpelState = "Key" 
             local vHum = vera:FindFirstChildOfClass("Humanoid")
             local vRoot = vera:FindFirstChild("HumanoidRootPart")
-            
-            while vera and vera.Parent and vHum and vHum.Health > 0 and RyuSavedConfig.AutoImpelDown do
-                if CheckHPAndFailsafe(root, hum) then task.wait(0.1) end
+            if vHum and vRoot and vHum.Health > 0 then
+                if CheckHPAndFailsafe(root, hum) then continue end
                 
-                -- Position 6 Studs über und leicht hinter Vera, schaut schräg runter zu ihr
-                local attackPos = (vRoot.CFrame * CFrame.new(0, 6, 2)).Position
+                -- Position 4 Studs hinter ihr, 6 Studs in der Luft, Winkel schaut direkt auf sie
+                local flatLook = vRoot.CFrame.LookVector
+                flatLook = Vector3.new(flatLook.X, 0, flatLook.Z).Unit
+                local attackPos = vRoot.Position - (flatLook * 4) + Vector3.new(0, 6, 0)
                 local targetCFrame = CFrame.lookAt(attackPos, vRoot.Position)
                 
                 if (root.Position - attackPos).Magnitude > 15 then
@@ -1176,12 +1188,11 @@ task.spawn(function()
                 EquipTargetWeapon()
                 PerformMeleeAttack({vera})
                 task.wait(0.05)
+                continue 
             end
-            _G.ImpelState = "Key"
-            continue
         end
 
-        -- PHASE 3: Finde und sammle den Schlüssel (2-Stud Abstand)
+        -- SCHRITT 3: Finde und sammle den Schlüssel (mit 2-Stud Abstand)
         if _G.ImpelState == "Key" then
             local keyPart = nil
             pcall(function()
@@ -1257,31 +1268,34 @@ task.spawn(function()
                 task.wait(0.1)
                 continue
             elseif _G.KeyWaitTriggered then
-                _G.ImpelState = "AutoHaki"
+                _G.ImpelState = "Haki"
                 _G.KeyWaitTriggered = false
             end
         end
 
-        -- PHASE 4.1: Auto Haki Aktivierung (Spirit Essence)
-        if _G.ImpelState == "AutoHaki" then
-            pcall(function()
-                local bp = LocalPlayer:FindFirstChild("Backpack")
-                local essence = bp and bp:FindFirstChild("Spirit Essence") or char:FindFirstChild("Spirit Essence")
-                if essence then
-                    if essence.Parent == bp then hum:EquipTool(essence) end
-                    task.wait(0.2)
-                    
-                    local remote = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Haki")
-                    if remote then
-                        remote:FireServer(true)
+        -- SCHRITT 4: Haki aktivieren
+        if _G.ImpelState == "Haki" then
+            if not _G.HakiActivated then
+                pcall(function()
+                    local essence = LocalPlayer.Backpack:FindFirstChild("Spirit Essence") or char:FindFirstChild("Spirit Essence")
+                    if essence then
+                        hum:EquipTool(essence)
+                        task.wait(0.2)
+                        essence:Activate()
+                        task.wait(0.5)
                     end
-                end
-            end)
+                    
+                    local function getNil(name,class) for _,v in next, getnilinstances()do if v.ClassName==class and v.Name==name then return v;end end end
+                    local args = {true}
+                    Instance.new("RemoteEvent", nil):FireServer(unpack(args))
+                end)
+                _G.HakiActivated = true
+            end
             _G.ImpelState = "Waypoints"
             continue
         end
 
-        -- PHASE 5: Wegpunkte Ablaufen
+        -- SCHRITT 5: Wegpunkte Ablaufen
         if _G.ImpelState == "Waypoints" then
             local wp1 = Vector3.new(2941.29, 2075.25, -13574.59)
             local wp2 = Vector3.new(2952.60, 2075.15, -13848.57)
@@ -1291,13 +1305,12 @@ task.spawn(function()
             SafeTween(CFrame.new(wp2), 45, true)
             
             _G.ImpelState = "Guards"
-            _G.GuardWaitTimer = 0 
             continue
         end
 
-        -- PHASE 6: Impel Guards Einzeln Abgehen & Farmen (Max 40 Speed)
+        -- SCHRITT 6: Impel Guards farmen (Single Target Fokus, 40 Speed Tween)
         if _G.ImpelState == "Guards" then
-            local npcsFolder = Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Live")
+            local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
             
             local targetGuard = nil
@@ -1312,18 +1325,17 @@ task.spawn(function()
             end
             
             if targetGuard then
-                _G.GuardWaitTimer = 0
                 local tRoot = targetGuard:FindFirstChild("HumanoidRootPart")
-                local tHum = targetGuard:FindFirstChildOfClass("Humanoid")
-                
-                while targetGuard and targetGuard.Parent and tHum and tHum.Health > 0 and RyuSavedConfig.AutoImpelDown do
-                    if CheckHPAndFailsafe(root, hum) then task.wait(0.1) end
+                if tRoot then
+                    if CheckHPAndFailsafe(root, hum) then continue end
                     
-                    local attackPos = (tRoot.CFrame * CFrame.new(0, 6, 2)).Position
+                    local flatLook = tRoot.CFrame.LookVector
+                    flatLook = Vector3.new(flatLook.X, 0, flatLook.Z).Unit
+                    local attackPos = tRoot.Position - (flatLook * 4) + Vector3.new(0, 6, 0)
                     local targetCFrame = CFrame.lookAt(attackPos, tRoot.Position)
                     
-                    if (root.Position - attackPos).Magnitude > 10 then
-                        SafeTween(targetCFrame, 40, false) -- Max 40 Studs/s
+                    if (root.Position - attackPos).Magnitude > 15 then
+                        SafeTween(targetCFrame, 40, false) -- Tween zu Guard mit 40 Speed
                     else
                         ToggleHover(true)
                         root.CFrame = targetCFrame
@@ -1337,13 +1349,17 @@ task.spawn(function()
                 end
                 continue
             else
-                _G.GuardWaitTimer = _G.GuardWaitTimer + 0.1
-                if _G.GuardWaitTimer > 50 then 
-                    _G.ImpelState = "Idle"
-                    _G.GuardWaitTimer = 0
-                end
+                _G.ImpelState = "LabyrinthStop"
                 continue
             end
+        end
+
+        -- SCHRITT 7: Labyrinth Stopp
+        if _G.ImpelState == "LabyrinthStop" then
+            ToggleHover(true)
+            root.Velocity = Vector3.new(0, 0, 0)
+            if hum then hum:Move(Vector3.new(0,0,0), false) end
+            continue
         end
 
     end
