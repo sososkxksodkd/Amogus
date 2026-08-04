@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (REWORKED AUTO-FARM ENGINE V3)
+--// IMPEL DOWN SCRIPT (REWORKED AUTO-FARM ENGINE V3.1 - VERA FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -1088,7 +1088,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3: REWORKED ENGINE)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.1: REWORKED ENGINE)
 --// ============================================================================
 
 -- SIDE FEATURE: AUTO STATS (800 DEFENSE & 800 STRENGTH WITH [3]=100)
@@ -1118,6 +1118,16 @@ end)
 _G.ImpelState = "Init"
 _G.GuardWaitTimer = 0
 
+-- HILFSFUNKTION: VERA SICHERSUCHEN
+local function FindVeraNPC()
+    local npcs = Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Live") or Workspace
+    local v = npcs:FindFirstChild("Vera")
+    if v and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChildOfClass("Humanoid") then
+        return v
+    end
+    return nil
+end
+
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1138,14 +1148,15 @@ task.spawn(function()
             continue 
         end
 
-        -- PHASE 2: Finde und Töte Vera (Hinter ihr + 6 Studs Höhe + Blick nach unten)
-        local vera = Workspace:FindFirstChild("NPCs") and Workspace.NPCs:FindFirstChild("Vera")
+        -- PHASE 2: Vera Bekämpfen (Hinter ihr + 6 Studs Höhe + Blick nach unten)
+        local vera = FindVeraNPC()
         if vera then
-            _G.ImpelState = "Key" 
+            _G.ImpelState = "VeraPhase"
             local vHum = vera:FindFirstChildOfClass("Humanoid")
             local vRoot = vera:FindFirstChild("HumanoidRootPart")
-            if vHum and vRoot and vHum.Health > 0 then
-                if CheckHPAndFailsafe(root, hum) then continue end
+            
+            while vera and vera.Parent and vHum and vHum.Health > 0 and RyuSavedConfig.AutoImpelDown do
+                if CheckHPAndFailsafe(root, hum) then task.wait(0.1) end
                 
                 -- Position 6 Studs über und leicht hinter Vera, schaut schräg runter zu ihr
                 local attackPos = (vRoot.CFrame * CFrame.new(0, 6, 2)).Position
@@ -1163,8 +1174,9 @@ task.spawn(function()
                 EquipTargetWeapon()
                 PerformMeleeAttack({vera})
                 task.wait(0.05)
-                continue 
             end
+            _G.ImpelState = "Key"
+            continue
         end
 
         -- PHASE 3: Finde und sammle den Schlüssel (2-Stud Abstand)
@@ -1257,16 +1269,7 @@ task.spawn(function()
                     if essence.Parent == bp then hum:EquipTool(essence) end
                     task.wait(0.2)
                     
-                    local function getNilSafe(name, class) 
-                        if getnilinstances then
-                            for _, v in next, getnilinstances() do 
-                                if v.ClassName == class and v.Name == name then return v end 
-                            end
-                        end
-                        return nil
-                    end
-
-                    local remote = getNilSafe("RemoteEvent", "RemoteEvent") or (ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Haki"))
+                    local remote = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Haki")
                     if remote then
                         remote:FireServer(true)
                     end
@@ -1292,7 +1295,7 @@ task.spawn(function()
 
         -- PHASE 6: Impel Guards Einzeln Abgehen & Farmen (Max 40 Speed)
         if _G.ImpelState == "Guards" then
-            local npcsFolder = Workspace:FindFirstChild("NPCs")
+            local npcsFolder = Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Live")
             if not npcsFolder then continue end
             
             local targetGuard = nil
@@ -1312,7 +1315,7 @@ task.spawn(function()
                 local tHum = targetGuard:FindFirstChildOfClass("Humanoid")
                 
                 while targetGuard and targetGuard.Parent and tHum and tHum.Health > 0 and RyuSavedConfig.AutoImpelDown do
-                    if CheckHPAndFailsafe(root, hum) then break end
+                    if CheckHPAndFailsafe(root, hum) then task.wait(0.1) end
                     
                     local attackPos = (tRoot.CFrame * CFrame.new(0, 6, 2)).Position
                     local targetCFrame = CFrame.lookAt(attackPos, tRoot.Position)
