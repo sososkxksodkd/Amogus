@@ -1067,7 +1067,7 @@ local function ApplyLoadedSettings()
     for _, obj in pairs(MainFrame:GetDescendants()) do
         if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
             if obj.Font == Enum.Font.GothamBold then obj.Font = targetFont
-            elseif obj.Font == Enum.Font.GothamMedium dread font = targetFont
+            elseif obj.Font == Enum.Font.GothamMedium then obj.Font = targetFont
             else obj.Font = targetFont end
         end
     end
@@ -1257,13 +1257,16 @@ task.spawn(function()
                     if essence.Parent == bp then hum:EquipTool(essence) end
                     task.wait(0.2)
                     
-                    function getNil(name,class) 
-                        for _,v in next, getnilinstances() do 
-                            if v.ClassName==class and v.Name==name then return v; end 
-                        end 
+                    local function getNilSafe(name, class) 
+                        if getnilinstances then
+                            for _, v in next, getnilinstances() do 
+                                if v.ClassName == class and v.Name == name then return v end 
+                            end
+                        end
+                        return nil
                     end
 
-                    local remote = getNil("RemoteEvent", "RemoteEvent") or (ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Haki"))
+                    local remote = getNilSafe("RemoteEvent", "RemoteEvent") or (ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Haki"))
                     if remote then
                         remote:FireServer(true)
                     end
