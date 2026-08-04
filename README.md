@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI - KICK & VERA FIX)
+--// IMPEL DOWN SCRIPT (REWORKED AUTO-FARM ENGINE V3.3 - PERMANENT VERA LOCK)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -1088,7 +1088,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.2: REWORKED VERA & SAFE KICK PREVENTION)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.3: PERMANENT VERA LOCK)
 --// ============================================================================
 
 -- SIDE FEATURE: AUTO STATS (800 DEFENSE & 800 STRENGTH WITH [3]=100)
@@ -1150,7 +1150,7 @@ task.spawn(function()
             continue 
         end
 
-        -- PHASE 2: Vera Bekämpfen
+        -- PHASE 2: Vera Bekämpfen (Festgehaltene while-Schleife bis Vera besiegt ist)
         local vera = FindVeraNPC()
         if vera then
             _G.ImpelState = "VeraPhase"
