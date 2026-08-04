@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & ENGINE V2)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & ENGINE V2.1)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -139,6 +139,7 @@ MainFrame.Parent = RyuHub
 local MainCorner = Instance.new("UICorner", MainFrame)
 MainCorner.CornerRadius = UDim.new(0, 12)
 
+-- Custom Background Image
 local MainBgImage = Instance.new("ImageLabel", MainFrame)
 MainBgImage.Size = UDim2.new(1, 0, 1, 0)
 MainBgImage.BackgroundTransparency = 1
@@ -268,7 +269,9 @@ local function UpdateSidebarCanvas()
     local totalH = 10
     for _, t in pairs(Tabs) do
         totalH = totalH + 36 + 6
-        if t.IsOpen then totalH = totalH + t.SubLayout.AbsoluteContentSize.Y + 6 end
+        if t.IsOpen then
+            totalH = totalH + t.SubLayout.AbsoluteContentSize.Y + 6
+        end
     end
     Sidebar.CanvasSize = UDim2.new(0, 0, 0, totalH)
 end
@@ -278,23 +281,42 @@ local function CreateMainTab(name)
 
     sidebarOrderCounter = sidebarOrderCounter + 1
     local tabBtn = Instance.new("TextButton", Sidebar)
-    tabBtn.LayoutOrder = sidebarOrderCounter; tabBtn.Size = UDim2.new(1, 0, 0, 36); tabBtn.BackgroundColor3 = Theme.Sidebar
-    tabBtn.Text = "  " .. string.upper(name); tabBtn.TextColor3 = Theme.SubText; tabBtn.Font = Enum.Font.GothamBlack; tabBtn.TextSize = 13; tabBtn.TextXAlignment = Enum.TextXAlignment.Left; tabBtn.ZIndex = 2
+    tabBtn.LayoutOrder = sidebarOrderCounter
+    tabBtn.Size = UDim2.new(1, 0, 0, 36)
+    tabBtn.BackgroundColor3 = Theme.Sidebar
+    tabBtn.Text = "  " .. string.upper(name)
+    tabBtn.TextColor3 = Theme.SubText
+    tabBtn.Font = Enum.Font.GothamBlack
+    tabBtn.TextSize = 13
+    tabBtn.TextXAlignment = Enum.TextXAlignment.Left
+    tabBtn.ZIndex = 2
     Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8)
     tabObj.Btn = tabBtn
 
     local arrow = Instance.new("TextLabel", tabBtn)
-    arrow.Size = UDim2.new(0, 20, 1, 0); arrow.Position = UDim2.new(1, -25, 0, 0); arrow.BackgroundTransparency = 1
-    arrow.Text = "v"; arrow.TextColor3 = Theme.SubText; arrow.Font = Enum.Font.GothamBold; arrow.TextSize = 12; arrow.ZIndex = 2
+    arrow.Size = UDim2.new(0, 20, 1, 0)
+    arrow.Position = UDim2.new(1, -25, 0, 0)
+    arrow.BackgroundTransparency = 1
+    arrow.Text = "v"
+    arrow.TextColor3 = Theme.SubText
+    arrow.Font = Enum.Font.GothamBold
+    arrow.TextSize = 12
+    arrow.ZIndex = 2
     tabObj.Arrow = arrow
 
     sidebarOrderCounter = sidebarOrderCounter + 1
     local subContainer = Instance.new("Frame", Sidebar)
-    subContainer.LayoutOrder = sidebarOrderCounter; subContainer.Size = UDim2.new(1, 0, 0, 0); subContainer.BackgroundTransparency = 1; subContainer.ClipsDescendants = true; subContainer.ZIndex = 2
+    subContainer.LayoutOrder = sidebarOrderCounter
+    subContainer.Size = UDim2.new(1, 0, 0, 0)
+    subContainer.BackgroundTransparency = 1
+    subContainer.ClipsDescendants = true
+    subContainer.ZIndex = 2
     tabObj.SubContainer = subContainer
 
     local subLayout = Instance.new("UIListLayout", subContainer)
-    subLayout.Padding = UDim.new(0, 2); subLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left; subLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    subLayout.Padding = UDim.new(0, 2)
+    subLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+    subLayout.SortOrder = Enum.SortOrder.LayoutOrder
     tabObj.SubLayout = subLayout
 
     local function toggleTab()
@@ -330,21 +352,39 @@ local function CreateSubTab(tabObj, subName)
     local subObj = { Btn = nil, Page = nil, Indicator = nil, Open = nil }
 
     local subBtn = Instance.new("TextButton", tabObj.SubContainer)
-    subBtn.LayoutOrder = #tabObj.SubTabs + 1; subBtn.Size = UDim2.new(1, 0, 0, 28); subBtn.BackgroundTransparency = 1
-    subBtn.Text = "     " .. subName; subBtn.TextColor3 = Theme.SubText; subBtn.Font = Enum.Font.GothamMedium; subBtn.TextSize = 12; subBtn.TextXAlignment = Enum.TextXAlignment.Left; subBtn.ZIndex = 2
+    subBtn.LayoutOrder = #tabObj.SubTabs + 1
+    subBtn.Size = UDim2.new(1, 0, 0, 28)
+    subBtn.BackgroundTransparency = 1
+    subBtn.Text = "     " .. subName
+    subBtn.TextColor3 = Theme.SubText
+    subBtn.Font = Enum.Font.GothamMedium
+    subBtn.TextSize = 12
+    subBtn.TextXAlignment = Enum.TextXAlignment.Left
+    subBtn.ZIndex = 2
     subObj.Btn = subBtn
 
     local indicator = Instance.new("Frame", subBtn)
-    indicator.Size = UDim2.new(0, 16, 0, 2); indicator.Position = UDim2.new(0, 20, 1, -4); indicator.BackgroundColor3 = Theme.Accent; indicator.BorderSizePixel = 0; indicator.BackgroundTransparency = 1; indicator.ZIndex = 2
+    indicator.Size = UDim2.new(0, 16, 0, 2)
+    indicator.Position = UDim2.new(0, 20, 1, -4)
+    indicator.BackgroundColor3 = Theme.Accent
+    indicator.BorderSizePixel = 0
+    indicator.BackgroundTransparency = 1
+    indicator.ZIndex = 2
     Instance.new("UICorner", indicator).CornerRadius = UDim.new(1, 0)
     subObj.Indicator = indicator
 
     local page = Instance.new("ScrollingFrame", ContentContainer)
-    page.Size = UDim2.new(1, 0, 1, 0); page.BackgroundTransparency = 1; page.ScrollBarThickness = 2; page.ScrollBarImageColor3 = Theme.Accent; page.Visible = false; page.ZIndex = 2
+    page.Size = UDim2.new(1, 0, 1, 0)
+    page.BackgroundTransparency = 1
+    page.ScrollBarThickness = 2
+    page.ScrollBarImageColor3 = Theme.Accent
+    page.Visible = false
+    page.ZIndex = 2
     subObj.Page = page
 
     local pageLayout = Instance.new("UIListLayout", page)
-    pageLayout.Padding = UDim.new(0, 12); pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    pageLayout.Padding = UDim.new(0, 12)
+    pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
         page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20)
     end)
@@ -371,7 +411,9 @@ end
 
 local function CreateSection(page, titleText)
     local section = Instance.new("Frame", page)
-    section.Name = "SectionContainer"; section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; section.BackgroundTransparency = 0; section.ZIndex = 2
+    section.Name = "SectionContainer"
+    section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; section.BackgroundTransparency = 0
+    section.ZIndex = 2
     Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
     local sStroke = Instance.new("UIStroke", section); sStroke.Color = Theme.Stroke; sStroke.Transparency = 0.2
     
@@ -1112,7 +1154,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2: VERA LOCK, TP BYPASS, CHESTS, WAYPOINTS)
+--// IMPEL DOWN AUTO FARM ENGINE (V2.1: 2-STUD DISTANCE OFFSET)
 --// ============================================================================
 
 -- SIDE FEATURE: AUTO STATS
@@ -1156,10 +1198,10 @@ task.spawn(function()
             continue 
         end
 
-        -- SCHRITT 2: Finde und Töte Vera (Strikt 90 Grad Lock, Absolut starr)
+        -- SCHRITT 2: Finde und Töte Vera
         local vera = Workspace:FindFirstChild("NPCs") and Workspace.NPCs:FindFirstChild("Vera")
         if vera then
-            _G.ImpelState = "Key" -- State switch for next phase
+            _G.ImpelState = "Key" 
             local vHum = vera:FindFirstChildOfClass("Humanoid")
             local vRoot = vera:FindFirstChild("HumanoidRootPart")
             if vHum and vRoot and vHum.Health > 0 then
@@ -1172,7 +1214,6 @@ task.spawn(function()
                     SafeTween(targetCFrame, 50, false)
                 else
                     ToggleHover(true)
-                    -- Absolute Freeze to avoid jitter
                     root.CFrame = targetCFrame
                     root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                     root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
@@ -1185,7 +1226,7 @@ task.spawn(function()
             end
         end
 
-        -- SCHRITT 3: Finde und sammle den Schlüssel
+        -- SCHRITT 3: Finde und sammle den Schlüssel (mit 2-Stud Abstand)
         if _G.ImpelState == "Key" then
             local keyPart = nil
             pcall(function()
@@ -1221,7 +1262,7 @@ task.spawn(function()
             if keyPart then
                 if not _G.KeyWaitTriggered then
                     _G.KeyWaitTriggered = true
-                    task.wait(4) -- Warten vor dem Holen
+                    task.wait(4) 
                 end
 
                 pcall(function()
@@ -1229,15 +1270,19 @@ task.spawn(function()
                         ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457")
                     end
                 end)
+                
+                local flatDir = Vector3.new(root.Position.X - keyPart.Position.X, 0, root.Position.Z - keyPart.Position.Z)
+                if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
+                local safeCFrame = CFrame.lookAt(keyPart.Position + flatDir.Unit * 2, keyPart.Position)
 
                 local dist = (root.Position - keyPart.Position).Magnitude
                 if dist > 4 then
                     ToggleHover(false)
                     hum.WalkSpeed = 45
                     hum:MoveTo(keyPart.Position)
-                    SafeTween(keyPart.CFrame, 45, true) 
+                    SafeTween(safeCFrame, 45, true) 
                 else
-                    root.CFrame = keyPart.CFrame
+                    root.CFrame = safeCFrame
                     root.Velocity = Vector3.new(0,0,0)
                     
                     local prompt = keyPart:FindFirstChildOfClass("ProximityPrompt")
@@ -1262,7 +1307,7 @@ task.spawn(function()
             end
         end
         
-        -- SCHRITT 4: 3 Kisten Looten
+        -- SCHRITT 4: 3 Kisten Looten (mit 2-Stud Abstand)
         if _G.ImpelState == "Chests" then
             task.wait(2)
             
@@ -1284,12 +1329,16 @@ task.spawn(function()
                 
                 local cPart = chest:FindFirstChild("Lock") or chest.PrimaryPart
                 if cPart then
+                    local flatDir = Vector3.new(root.Position.X - cPart.Position.X, 0, root.Position.Z - cPart.Position.Z)
+                    if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
+                    local safeCFrame = CFrame.lookAt(cPart.Position + flatDir.Unit * 2, cPart.Position)
+
                     ToggleHover(false)
                     hum.WalkSpeed = 45
                     hum:MoveTo(cPart.Position)
-                    SafeTween(cPart.CFrame, 45, true)
+                    SafeTween(safeCFrame, 45, true)
                     
-                    root.CFrame = cPart.CFrame
+                    root.CFrame = safeCFrame
                     root.Velocity = Vector3.new(0,0,0)
                     
                     local prompt = chest:FindFirstChildOfClass("ProximityPrompt", true)
