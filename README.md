@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & VERA LOGIC FIXED)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & VERA SOLO LOGIC)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -1325,6 +1325,7 @@ end)
 
 _G.ImpelState = "Init"
 _G.VeraSeen = false
+_G.CutsceneStarted = false
 
 task.spawn(function()
     while true do
@@ -1346,37 +1347,35 @@ task.spawn(function()
             continue 
         end
 
-        -- SCHRITT 2: Finde und Töte Vera
+        -- SCHRITT 2: Finde und Töte Vera (Solo Farm Logic)
         if _G.ImpelState == "Init" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             local vera = npcsFolder and npcsFolder:FindFirstChild("Vera")
             
             if vera then
-                _G.VeraSpawnedAndRegistered = true
                 local vHum = vera:FindFirstChildOfClass("Humanoid")
                 local vRoot = vera:FindFirstChild("HumanoidRootPart")
                 
                 if vHum and vRoot and vHum.Health > 0 then
+                    _G.VeraSpawnedAndRegistered = true
                     if CheckHPAndFailsafe(root, hum) then continue end
                     
-                    if not _G.VeraLastHp then _G.VeraLastHp = vHum.Health end
-                    if vHum.Health < _G.VeraLastHp then
-                        _G.VeraLastHp = vHum.Health
-                        _G.VeraLastHitTime = tick()
-                    end
-                    
-                    local timeSinceLastHit = tick() - (_G.VeraLastHitTime or tick())
-                    
-                    local attackPos = vRoot.Position + Vector3.new(0, 6, 0)
-                    local targetCFrame = CFrame.lookAt(attackPos, vRoot.Position)
-                    
-                    if (root.Position - attackPos).Magnitude > 10 or timeSinceLastHit > 2 then
+                    local playerPos = root.Position
+                    local mobPos = vRoot.Position
+
+                    local flatDir = Vector3.new(playerPos.X - mobPos.X, 0, playerPos.Z - mobPos.Z)
+                    if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
+
+                    local attackPos = mobPos + (flatDir.Unit * 3) + Vector3.new(0, 6, 0)
+                    local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mobPos.X, attackPos.Y, mobPos.Z))
+
+                    local dist = (playerPos - attackPos).Magnitude
+                    if dist > 15 then
                         ToggleHover(false)
                         SafeTween(targetCFrame, 50, false)
-                        _G.VeraLastHitTime = tick() 
                     else
                         ToggleHover(true)
-                        root.CFrame = root.CFrame:Lerp(targetCFrame, 0.5)
+                        root.CFrame = root.CFrame:Lerp(targetCFrame, 0.35)
                         local bp = root:FindFirstChild("RyuHover")
                         if bp then bp.Position = attackPos end
                         root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
@@ -1385,14 +1384,50 @@ task.spawn(function()
 
                     EquipTargetWeapon()
                     PerformMeleeAttack({vera})
+                    task.wait(0.05)
+                    continue 
+                else
+                    ToggleHover(false)
+                    _G.ImpelState = "WaitForCutscene"
                 end
             else
                 if _G.VeraSpawnedAndRegistered then
                     ToggleHover(false)
-                    _G.ImpelState = "Key"
+                    _G.ImpelState = "WaitForCutscene"
                 end
             end
             task.wait(0.05)
+            continue
+        end
+
+        -- SCHRITT 2.5: Warten auf Cutscene
+        if _G.ImpelState == "WaitForCutscene" then
+            local inCutscene = false
+            pcall(function()
+                if camera.CameraType == Enum.CameraType.Scriptable then
+                    inCutscene = true
+                end
+                local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                if pg and (pg:FindFirstChild("Cutscene") or pg:FindFirstChild("Cinematic") or pg:FindFirstChild("Dialogue")) then
+                    inCutscene = true
+                end
+            end)
+
+            if inCutscene then
+                _G.CutsceneStarted = true
+                ToggleHover(false)
+                if hum then hum:Move(Vector3.new(0,0,0), false) end
+                root.Velocity = Vector3.new(0, 0, 0)
+                task.wait(0.5)
+                continue
+            else
+                if _G.CutsceneStarted then
+                    _G.CutsceneStarted = false
+                    _G.ImpelState = "Key"
+                else
+                    task.wait(0.5)
+                end
+            end
             continue
         end
 
@@ -1430,11 +1465,6 @@ task.spawn(function()
             end)
 
             if keyPart then
-                if not _G.KeyWaitTriggered then
-                    _G.KeyWaitTriggered = true
-                    task.wait(4) 
-                end
-
                 local flatDir = Vector3.new(root.Position.X - keyPart.Position.X, 0, root.Position.Z - keyPart.Position.Z)
                 if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
                 local safePos = keyPart.Position + flatDir.Unit * 2
@@ -1464,9 +1494,8 @@ task.spawn(function()
                 end
                 task.wait(0.1)
                 continue
-            elseif _G.KeyWaitTriggered then
+            else
                 _G.ImpelState = "Waypoints"
-                _G.KeyWaitTriggered = false
             end
         end
 
@@ -1505,24 +1534,22 @@ task.spawn(function()
                 if tRoot and tHum then
                     if CheckHPAndFailsafe(root, hum) then continue end
                     
-                    if not _G.GuardLastHp then _G.GuardLastHp = tHum.Health end
-                    if tHum.Health < _G.GuardLastHp then
-                        _G.GuardLastHp = tHum.Health
-                        _G.GuardLastHitTime = tick()
-                    end
+                    local playerPos = root.Position
+                    local mobPos = tRoot.Position
+
+                    local flatDir = Vector3.new(playerPos.X - mobPos.X, 0, playerPos.Z - mobPos.Z)
+                    if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
+
+                    local attackPos = mobPos + (flatDir.Unit * 3) + Vector3.new(0, 6, 0)
+                    local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mobPos.X, attackPos.Y, mobPos.Z))
                     
-                    local timeSinceLastHit = tick() - (_G.GuardLastHitTime or tick())
-                    
-                    local attackPos = tRoot.Position + Vector3.new(0, 6, 0)
-                    local targetCFrame = CFrame.lookAt(attackPos, tRoot.Position)
-                    
-                    if (root.Position - attackPos).Magnitude > 10 or timeSinceLastHit > 2 then
+                    local dist = (playerPos - attackPos).Magnitude
+                    if dist > 15 then
                         ToggleHover(false)
                         SafeTween(targetCFrame, 50, false)
-                        _G.GuardLastHitTime = tick()
                     else
                         ToggleHover(true)
-                        root.CFrame = root.CFrame:Lerp(targetCFrame, 0.5)
+                        root.CFrame = root.CFrame:Lerp(targetCFrame, 0.35)
                         local bp = root:FindFirstChild("RyuHover")
                         if bp then bp.Position = attackPos end
                         root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
@@ -1531,12 +1558,13 @@ task.spawn(function()
 
                     EquipTargetWeapon()
                     PerformMeleeAttack(guards) 
+                    task.wait(0.05)
                 end
+                continue
             else
                 _G.ImpelState = "Labyrinth"
+                continue
             end
-            task.wait(0.05)
-            continue
         end
 
         -- SCHRITT 6: Das Labyrinth durchqueren (Legit Pathfinding)
