@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & ENGINE V2.2)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & LEGIT PATHFINDING)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -12,6 +12,7 @@ local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local PathfindingService = game:GetService("PathfindingService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -688,19 +689,17 @@ local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
     while tick() - startTime < timeToTake do
         if not RyuSavedConfig.AutoImpelDown then break end
         
-        -- TP CHECK BYPASS: If distance jumped unexpectedly, we got rubberbanded
+        -- TP CHECK BYPASS
         if isMoveCheck and (root.Position - lastRealPos).Magnitude > 20 then
             bp.Position = root.Position
-            task.wait(1) -- Stop movement for 1s to satisfy Anti-Cheat
-            
-            -- Recalculate tween from new pos
+            task.wait(1) 
             startPos = root.Position
             dist = (targetPos - startPos).Magnitude
             timeToTake = dist / speed
             startTime = tick()
         end
         
-        -- ANTI-STUCK (Climb)
+        -- ANTI-STUCK
         if isMoveCheck then
             if (root.Position - lastRealPos).Magnitude < 0.5 then
                 stuckTicks = stuckTicks + 1
@@ -1112,7 +1111,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.1: 2-STUD DISTANCE OFFSET)
+--// IMPEL DOWN AUTO FARM ENGINE (V2.3: LABYRINTH ADDED, CHESTS REMOVED)
 --// ============================================================================
 
 -- SIDE FEATURE: AUTO STATS
@@ -1260,68 +1259,12 @@ task.spawn(function()
                 task.wait(0.1)
                 continue
             elseif _G.KeyWaitTriggered then
-                _G.ImpelState = "Chests"
+                _G.ImpelState = "Waypoints"
                 _G.KeyWaitTriggered = false
             end
         end
-        
-        -- SCHRITT 4: 3 Kisten Looten (mit 2-Stud Abstand)
-        if _G.ImpelState == "Chests" then
-            task.wait(2)
-            
-            local chests = {}
-            pcall(function()
-                for _, v in pairs(Workspace:GetDescendants()) do
-                    if v:IsA("Model") and v:FindFirstChild("Lock") and v:FindFirstChild("Top") then
-                        if v.Name:match("-") or v.Name:find("Chest") then
-                            table.insert(chests, v)
-                        end
-                    end
-                end
-            end)
-            
-            local collected = 0
-            for _, chest in ipairs(chests) do
-                if collected >= 3 then break end
-                if not RyuSavedConfig.AutoImpelDown then break end
-                
-                local cPart = chest:FindFirstChild("Lock") or chest.PrimaryPart
-                if cPart then
-                    local targetPos = cPart:IsA("Model") and cPart:GetPivot().Position or cPart.Position
-                    local flatDir = Vector3.new(root.Position.X - targetPos.X, 0, root.Position.Z - targetPos.Z)
-                    if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
-                    local safeCFrame = CFrame.lookAt(targetPos + flatDir.Unit * 2, targetPos)
 
-                    ToggleHover(false)
-                    hum.WalkSpeed = 45
-                    hum:MoveTo(targetPos)
-                    SafeTween(safeCFrame, 45, true)
-                    
-                    root.CFrame = safeCFrame
-                    root.Velocity = Vector3.new(0,0,0)
-                    
-                    local prompt = chest:FindFirstChildOfClass("ProximityPrompt", true)
-                    if prompt then
-                        if fireproximityprompt then fireproximityprompt(prompt, 1) else
-                            prompt:InputHoldBegin() task.wait(prompt.HoldDuration + 0.1) prompt:InputHoldEnd()
-                        end
-                    else
-                        pcall(function()
-                            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                            task.wait(0.1)
-                            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                        end)
-                    end
-                    task.wait(3) 
-                    collected = collected + 1
-                end
-            end
-            
-            _G.ImpelState = "Waypoints"
-            continue
-        end
-
-        -- SCHRITT 5: Wegpunkte Ablaufen
+        -- SCHRITT 4: Wegpunkte Ablaufen
         if _G.ImpelState == "Waypoints" then
             local wp1 = Vector3.new(2941.29, 2075.25, -13574.59)
             local wp2 = Vector3.new(2952.60, 2075.15, -13848.57)
@@ -1334,7 +1277,7 @@ task.spawn(function()
             continue
         end
 
-        -- SCHRITT 6: Impel Guards farmen
+        -- SCHRITT 5: Impel Guards farmen
         if _G.ImpelState == "Guards" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
@@ -1371,8 +1314,68 @@ task.spawn(function()
                     PerformMeleeAttack(guards) 
                     task.wait(0.05)
                 end
+                continue
+            else
+                _G.ImpelState = "Labyrinth"
+                continue
             end
+        end
+
+        -- SCHRITT 6: Das Labyrinth durchqueren (Legit Pathfinding)
+        if _G.ImpelState == "Labyrinth" then
+            local labyrinthTarget = Vector3.new(2664.91, 2075.15, -15491.03)
+            
+            if (root.Position - labyrinthTarget).Magnitude > 5 then
+                ToggleHover(false)
+                
+                -- Berechne echten, physischen Weg
+                local path = PathfindingService:CreatePath({
+                    AgentRadius = 2.5,
+                    AgentHeight = 5,
+                    AgentCanJump = true,
+                    WaypointSpacing = 4
+                })
+                
+                local success, err = pcall(function()
+                    path:ComputeAsync(root.Position, labyrinthTarget)
+                end)
+                
+                if success and path.Status == Enum.PathStatus.Success then
+                    local waypoints = path:GetWaypoints()
+                    for i, waypoint in ipairs(waypoints) do
+                        if not RyuSavedConfig.AutoImpelDown then break end
+                        
+                        -- Permanent Sprint spamming
+                        pcall(function()
+                            if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint") then
+                                ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457")
+                            end
+                        end)
+                        
+                        if waypoint.Action == Enum.PathWaypointAction.Jump then
+                            hum.Jump = true
+                        end
+                        
+                        hum.WalkSpeed = 45
+                        hum:MoveTo(waypoint.Position)
+                        SafeTween(CFrame.new(waypoint.Position), 45, true)
+                        
+                        -- Wenn wir hängen bleiben oder TP Check uns zurückzieht, brich die for-Schleife ab und berechne Pfad neu
+                        if (root.Position - waypoint.Position).Magnitude > 15 then
+                            break
+                        end
+                    end
+                else
+                    -- Fallback, falls der Pfad nicht berechnet werden kann
+                    task.wait(1)
+                end
+            else
+                root.Velocity = Vector3.new(0, 0, 0)
+                _G.ImpelState = "NextStage"
+            end
+            task.wait(0.1)
             continue
         end
+
     end
 end)
