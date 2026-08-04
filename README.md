@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH CLIMB-GLITCH & STATS SPAM)
+--// IMPEL DOWN SCRIPT (REWORKED AUTO-FARM ENGINE V3)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -1067,7 +1067,7 @@ local function ApplyLoadedSettings()
     for _, obj in pairs(MainFrame:GetDescendants()) do
         if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
             if obj.Font == Enum.Font.GothamBold then obj.Font = targetFont
-            elseif obj.Font == Enum.Font.GothamMedium then obj.Font = targetFont
+            elseif obj.Font == Enum.Font.GothamMedium dread font = targetFont
             else obj.Font = targetFont end
         end
     end
@@ -1088,30 +1088,26 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.4: CLIMB-GLITCH & DYNAMIC STATS)
+--// IMPEL DOWN AUTO FARM ENGINE (V3: REWORKED ENGINE)
 --// ============================================================================
 
--- SIDE FEATURE: AUTO STATS (SPAM 1 POINT)
+-- SIDE FEATURE: AUTO STATS (800 DEFENSE & 800 STRENGTH WITH [3]=100)
 task.spawn(function()
     while true do
-        task.wait(0.5) -- Schnelleres spammen
+        task.wait(0.2)
         if RyuSavedConfig.AutoImpelDown then
             pcall(function()
                 local statsFolder = LocalPlayer:FindFirstChild("Stats") or LocalPlayer:FindFirstChild("Data")
                 local rs = game:GetService("ReplicatedStorage")
                 
                 if statsFolder and rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats") then
-                    local defVal = 0
-                    if statsFolder:FindFirstChild("Defense") then
-                        defVal = statsFolder.Defense.Value
-                    end
+                    local defVal = statsFolder:FindFirstChild("Defense") and statsFolder.Defense.Value or 0
+                    local strVal = statsFolder:FindFirstChild("Strength") and statsFolder.Strength.Value or 0
                     
-                    -- Wenn Defense unter 1000 ist -> 1 Punkt in Defense
-                    if defVal < 1000 then
-                        rs.Events.stats:FireServer("Defense", {[3] = 1})
-                    else
-                        -- Ansonsten 1 Punkt in Strength
-                        rs.Events.stats:FireServer("Strength", {[3] = 1})
+                    if defVal < 800 then
+                        rs.Events.stats:FireServer("Defense", {[3] = 100})
+                    elseif strVal < 800 then
+                        rs.Events.stats:FireServer("Strength", {[3] = 100})
                     end
                 end
             end)
@@ -1132,7 +1128,7 @@ task.spawn(function()
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
 
-        -- SCHRITT 1: Auto Nightmare Difficulty
+        -- PHASE 1: Auto Nightmare Difficulty
         local diffChooser = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("DiffChooser")
         if diffChooser and diffChooser.Enabled then
             pcall(function()
@@ -1142,7 +1138,7 @@ task.spawn(function()
             continue 
         end
 
-        -- SCHRITT 2: Finde und Töte Vera
+        -- PHASE 2: Finde und Töte Vera (Hinter ihr + 6 Studs Höhe + Blick nach unten)
         local vera = Workspace:FindFirstChild("NPCs") and Workspace.NPCs:FindFirstChild("Vera")
         if vera then
             _G.ImpelState = "Key" 
@@ -1151,8 +1147,9 @@ task.spawn(function()
             if vHum and vRoot and vHum.Health > 0 then
                 if CheckHPAndFailsafe(root, hum) then continue end
                 
-                local attackPos = vRoot.Position + Vector3.new(0, 7.5, 0)
-                local targetCFrame = CFrame.new(attackPos) * CFrame.Angles(math.rad(-90), 0, 0)
+                -- Position 6 Studs über und leicht hinter Vera, schaut schräg runter zu ihr
+                local attackPos = (vRoot.CFrame * CFrame.new(0, 6, 2)).Position
+                local targetCFrame = CFrame.lookAt(attackPos, vRoot.Position)
                 
                 if (root.Position - attackPos).Magnitude > 15 then
                     SafeTween(targetCFrame, 50, false)
@@ -1170,7 +1167,7 @@ task.spawn(function()
             end
         end
 
-        -- SCHRITT 3: Finde und sammle den Schlüssel (mit 2-Stud Abstand)
+        -- PHASE 3: Finde und sammle den Schlüssel (2-Stud Abstand)
         if _G.ImpelState == "Key" then
             local keyPart = nil
             pcall(function()
@@ -1246,12 +1243,37 @@ task.spawn(function()
                 task.wait(0.1)
                 continue
             elseif _G.KeyWaitTriggered then
-                _G.ImpelState = "Waypoints"
+                _G.ImpelState = "AutoHaki"
                 _G.KeyWaitTriggered = false
             end
         end
 
-        -- SCHRITT 4: Wegpunkte Ablaufen
+        -- PHASE 4.1: Auto Haki Aktivierung (Spirit Essence)
+        if _G.ImpelState == "AutoHaki" then
+            pcall(function()
+                local bp = LocalPlayer:FindFirstChild("Backpack")
+                local essence = bp and bp:FindFirstChild("Spirit Essence") or char:FindFirstChild("Spirit Essence")
+                if essence then
+                    if essence.Parent == bp then hum:EquipTool(essence) end
+                    task.wait(0.2)
+                    
+                    function getNil(name,class) 
+                        for _,v in next, getnilinstances() do 
+                            if v.ClassName==class and v.Name==name then return v; end 
+                        end 
+                    end
+
+                    local remote = getNil("RemoteEvent", "RemoteEvent") or (ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Haki"))
+                    if remote then
+                        remote:FireServer(true)
+                    end
+                end
+            end)
+            _G.ImpelState = "Waypoints"
+            continue
+        end
+
+        -- PHASE 5: Wegpunkte Ablaufen
         if _G.ImpelState == "Waypoints" then
             local wp1 = Vector3.new(2941.29, 2075.25, -13574.59)
             local wp2 = Vector3.new(2952.60, 2075.15, -13848.57)
@@ -1261,37 +1283,39 @@ task.spawn(function()
             SafeTween(CFrame.new(wp2), 45, true)
             
             _G.ImpelState = "Guards"
-            _G.GuardWaitTimer = 0 -- Reset timer
+            _G.GuardWaitTimer = 0 
             continue
         end
 
-        -- SCHRITT 5: Impel Guards farmen
+        -- PHASE 6: Impel Guards Einzeln Abgehen & Farmen (Max 40 Speed)
         if _G.ImpelState == "Guards" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
             
-            local guards = {}
+            local targetGuard = nil
             for _, v in pairs(npcsFolder:GetChildren()) do
                 if v.Name:find("Impel Guard") then
                     local gHum = v:FindFirstChildOfClass("Humanoid")
                     if gHum and gHum.Health > 0 then
-                        table.insert(guards, v)
+                        targetGuard = v
+                        break
                     end
                 end
             end
             
-            if #guards > 0 then
+            if targetGuard then
                 _G.GuardWaitTimer = 0
-                local target = guards[1]
-                local tRoot = target:FindFirstChild("HumanoidRootPart")
-                if tRoot then
-                    if CheckHPAndFailsafe(root, hum) then continue end
+                local tRoot = targetGuard:FindFirstChild("HumanoidRootPart")
+                local tHum = targetGuard:FindFirstChildOfClass("Humanoid")
+                
+                while targetGuard and targetGuard.Parent and tHum and tHum.Health > 0 and RyuSavedConfig.AutoImpelDown do
+                    if CheckHPAndFailsafe(root, hum) then break end
                     
-                    local attackPos = tRoot.Position + Vector3.new(0, 7.5, 0)
-                    local targetCFrame = CFrame.new(attackPos) * CFrame.Angles(math.rad(-90), 0, 0)
+                    local attackPos = (tRoot.CFrame * CFrame.new(0, 6, 2)).Position
+                    local targetCFrame = CFrame.lookAt(attackPos, tRoot.Position)
                     
-                    if (root.Position - attackPos).Magnitude > 15 then
-                        SafeTween(targetCFrame, 50, false)
+                    if (root.Position - attackPos).Magnitude > 10 then
+                        SafeTween(targetCFrame, 40, false) -- Max 40 Studs/s
                     else
                         ToggleHover(true)
                         root.CFrame = targetCFrame
@@ -1300,48 +1324,18 @@ task.spawn(function()
                     end
 
                     EquipTargetWeapon()
-                    PerformMeleeAttack(guards) 
+                    PerformMeleeAttack({targetGuard}) 
                     task.wait(0.05)
                 end
                 continue
             else
                 _G.GuardWaitTimer = _G.GuardWaitTimer + 0.1
-                if _G.GuardWaitTimer > 50 then -- 5 Sekunden gewartet -> Raum ist leer
-                    _G.ImpelState = "Labyrinth"
+                if _G.GuardWaitTimer > 50 then 
+                    _G.ImpelState = "Idle"
                     _G.GuardWaitTimer = 0
                 end
                 continue
             end
-        end
-
-        -- SCHRITT 6: Das Labyrinth durchqueren (Climb-Glitch durch die Wände)
-        if _G.ImpelState == "Labyrinth" then
-            local labyrinthTarget = Vector3.new(2664.91, 2075.15, -15491.03)
-            
-            if (root.Position - labyrinthTarget).Magnitude > 5 then
-                ToggleHover(false)
-                
-                -- Force Climb-State to bypass Anti-Cheat walls
-                pcall(function()
-                    if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb") then
-                        ReplicatedStorage.Events.climb:InvokeServer(true)
-                    end
-                end)
-                
-                SafeTween(CFrame.new(labyrinthTarget), 45, true)
-            else
-                -- Disable Climb-State
-                pcall(function()
-                    if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb") then
-                        ReplicatedStorage.Events.climb:InvokeServer(false)
-                    end
-                end)
-                
-                root.Velocity = Vector3.new(0, 0, 0)
-                _G.ImpelState = "NextStage"
-            end
-            task.wait(0.1)
-            continue
         end
 
     end
