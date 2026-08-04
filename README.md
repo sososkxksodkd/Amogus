@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (REWORKED AUTO-FARM ENGINE V3.1 - VERA FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI - KICK & VERA FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -1088,7 +1088,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.1: REWORKED ENGINE)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.2: REWORKED VERA & SAFE KICK PREVENTION)
 --// ============================================================================
 
 -- SIDE FEATURE: AUTO STATS (800 DEFENSE & 800 STRENGTH WITH [3]=100)
@@ -1120,10 +1120,12 @@ _G.GuardWaitTimer = 0
 
 -- HILFSFUNKTION: VERA SICHERSUCHEN
 local function FindVeraNPC()
-    local npcs = Workspace:FindFirstChild("NPCs") or Workspace:FindFirstChild("Live") or Workspace
-    local v = npcs:FindFirstChild("Vera")
-    if v and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChildOfClass("Humanoid") then
-        return v
+    local npcsFolder = Workspace:FindFirstChild("NPCs")
+    if npcsFolder then
+        local v = npcsFolder:FindFirstChild("Vera")
+        if v and v:FindFirstChild("HumanoidRootPart") and v:FindFirstChildOfClass("Humanoid") then
+            return v
+        end
     end
     return nil
 end
@@ -1148,7 +1150,7 @@ task.spawn(function()
             continue 
         end
 
-        -- PHASE 2: Vera Bekämpfen (Hinter ihr + 6 Studs Höhe + Blick nach unten)
+        -- PHASE 2: Vera Bekämpfen
         local vera = FindVeraNPC()
         if vera then
             _G.ImpelState = "VeraPhase"
