@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & PURE REACTIVE ENGINE)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & ENGINE V2.2)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -12,7 +12,6 @@ local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local PathfindingService = game:GetService("PathfindingService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -25,12 +24,25 @@ for _, v in pairs(guiParent:GetChildren()) do if v.Name == "RyuHubPremium" then 
 --// CONFIG SAVE SYSTEM
 local configFileName = "RyuHub_ImpelDown_Config.json"
 local RyuSavedConfig = {
-    GlassMode = false, WorldBlur = false, AccentColor = {255, 255, 255}, BgColor = {12, 12, 14},
-    Font = "Gotham", HideBorders = false, Roundness = 12, BgImage = "", BgOpacity = 0.6,
-    ToggleIcon = "rbxthumb://type=Asset&id=6050149849&w=150&h=150", ToggleSize = 50, ToggleGlow = 0.5,
-    RainbowMode = false, FloatingIcon = false, AutoImpelDown = false, ImpelFarmDistance = 15
+    GlassMode = false,
+    WorldBlur = false,
+    AccentColor = {255, 255, 255},
+    BgColor = {12, 12, 14},
+    Font = "Gotham",
+    HideBorders = false,
+    Roundness = 12,
+    BgImage = "",
+    BgOpacity = 0.6,
+    ToggleIcon = "rbxthumb://type=Asset&id=6050149849&w=150&h=150",
+    ToggleSize = 50,
+    ToggleGlow = 0.5,
+    RainbowMode = false,
+    FloatingIcon = false,
+    AutoImpelDown = false,
+    ImpelFarmDistance = 15
 }
 
+-- Settings laden (falls vorhanden)
 if readfile and isfile and isfile(configFileName) then
     pcall(function()
         local data = HttpService:JSONDecode(readfile(configFileName))
@@ -39,17 +51,23 @@ if readfile and isfile and isfile(configFileName) then
 end
 
 local function SaveConfig()
-    if writefile then pcall(function() writefile(configFileName, HttpService:JSONEncode(RyuSavedConfig)) end) end
+    if writefile then
+        pcall(function() writefile(configFileName, HttpService:JSONEncode(RyuSavedConfig)) end)
+    end
 end
 
 --// PREMIUM MONOCHROME THEME
 local Theme = {
     Background = Color3.fromRGB(RyuSavedConfig.BgColor[1], RyuSavedConfig.BgColor[2], RyuSavedConfig.BgColor[3]),
-    Sidebar = Color3.fromRGB(18, 18, 20), SectionBG = Color3.fromRGB(24, 24, 26),
-    Text = Color3.fromRGB(250, 250, 250), SubText = Color3.fromRGB(130, 130, 135),
+    Sidebar = Color3.fromRGB(18, 18, 20),
+    SectionBG = Color3.fromRGB(24, 24, 26),
+    Text = Color3.fromRGB(250, 250, 250),
+    SubText = Color3.fromRGB(130, 130, 135),
     Accent = Color3.fromRGB(RyuSavedConfig.AccentColor[1], RyuSavedConfig.AccentColor[2], RyuSavedConfig.AccentColor[3]),
-    ToggleOff = Color3.fromRGB(35, 35, 38), ToggleOn = Color3.fromRGB(255, 255, 255),
-    Stroke = Color3.fromRGB(45, 45, 50), Warning = Color3.fromRGB(255, 75, 75)
+    ToggleOff = Color3.fromRGB(35, 35, 38),
+    ToggleOn = Color3.fromRGB(255, 255, 255),
+    Stroke = Color3.fromRGB(45, 45, 50),
+    Warning = Color3.fromRGB(255, 75, 75)
 }
 
 local MainSize = UDim2.new(0, math.min(750, camera.ViewportSize.X - 40), 0, math.min(480, camera.ViewportSize.Y - 40))
@@ -87,11 +105,16 @@ end
 
 --// IMAGE BUTTON TOGGLE
 local ToggleBtn = Instance.new("ImageButton")
-ToggleBtn.Size = UDim2.new(0, 50, 0, 50); ToggleBtn.Position = UDim2.new(0, 25, 0, 25); ToggleBtn.BackgroundColor3 = Theme.Sidebar
-ToggleBtn.Image = RyuSavedConfig.ToggleIcon; ToggleBtn.Parent = RyuHub; ToggleBtn.ScaleType = Enum.ScaleType.Crop
+ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+ToggleBtn.Position = UDim2.new(0, 25, 0, 25)
+ToggleBtn.BackgroundColor3 = Theme.Sidebar
+ToggleBtn.Image = RyuSavedConfig.ToggleIcon 
+ToggleBtn.Parent = RyuHub
+ToggleBtn.ScaleType = Enum.ScaleType.Crop
 ToggleBtn.ClipsDescendants = true
 Instance.new("UICorner", ToggleBtn).CornerRadius = UDim.new(1, 0)
-local btnStroke = Instance.new("UIStroke", ToggleBtn); btnStroke.Color = Theme.Accent; btnStroke.Thickness = 2; btnStroke.Transparency = 0.5
+local btnStroke = Instance.new("UIStroke", ToggleBtn)
+btnStroke.Color = Theme.Accent; btnStroke.Thickness = 2; btnStroke.Transparency = 0.5
 
 AddClickPop(ToggleBtn)
 local tDragStart, tStartPos, isDraggingBtn = nil, nil, false
@@ -109,14 +132,24 @@ end)
 
 --// MAIN WINDOW FRAME
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 0, 0, 0); MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0); MainFrame.BackgroundColor3 = Theme.Background
-MainFrame.BorderSizePixel = 0; MainFrame.Active = true; MainFrame.Visible = false; MainFrame.ClipsDescendants = true; MainFrame.Parent = RyuHub
-local MainCorner = Instance.new("UICorner", MainFrame); MainCorner.CornerRadius = UDim.new(0, 12)
+MainFrame.Size = UDim2.new(0, 0, 0, 0); MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+MainFrame.BackgroundColor3 = Theme.Background
+MainFrame.BorderSizePixel = 0; MainFrame.Active = true; MainFrame.Visible = false; MainFrame.ClipsDescendants = true
+MainFrame.Parent = RyuHub
+local MainCorner = Instance.new("UICorner", MainFrame)
+MainCorner.CornerRadius = UDim.new(0, 12)
 
 local MainBgImage = Instance.new("ImageLabel", MainFrame)
-MainBgImage.Size = UDim2.new(1, 0, 1, 0); MainBgImage.BackgroundTransparency = 1; MainBgImage.ImageTransparency = 1; MainBgImage.ScaleType = Enum.ScaleType.Crop; MainBgImage.ZIndex = 0
+MainBgImage.Size = UDim2.new(1, 0, 1, 0)
+MainBgImage.BackgroundTransparency = 1
+MainBgImage.ImageTransparency = 1 
+MainBgImage.ScaleType = Enum.ScaleType.Crop
+MainBgImage.ZIndex = 0
 
-local mainStroke = Instance.new("UIStroke", MainFrame); mainStroke.Color = Theme.Stroke; mainStroke.Transparency = 0.2; mainStroke.Thickness = 1.5
+local mainStroke = Instance.new("UIStroke", MainFrame)
+mainStroke.Color = Theme.Stroke
+mainStroke.Transparency = 0.2
+mainStroke.Thickness = 1.5
 
 local isUIOpen = false
 UserInputService.InputEnded:Connect(function(input)
@@ -144,20 +177,31 @@ local Topbar = Instance.new("Frame", MainFrame)
 Topbar.Size = UDim2.new(1, 0, 0, 60); Topbar.BackgroundTransparency = 1; Topbar.ZIndex = 2
 
 local Title = Instance.new("TextLabel", Topbar)
-Title.Size = UDim2.new(0, 300, 0, 24); Title.Position = UDim2.new(0, 20, 0, 12); Title.BackgroundTransparency = 1; Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 2
+Title.Size = UDim2.new(0, 300, 0, 24); Title.Position = UDim2.new(0, 20, 0, 12); Title.BackgroundTransparency = 1
+Title.Text = "RYU HUB"; Title.Font = Enum.Font.GothamBlack; Title.TextSize = 22; Title.TextXAlignment = Enum.TextXAlignment.Left; Title.ZIndex = 2
 
 local TitleGradient = Instance.new("UIGradient", Title)
-TitleGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 180, 185)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 185))}
+TitleGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 180, 185)),   
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)), 
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 185))    
+}
 TitleGradient.Offset = Vector2.new(-1, 0)
-task.spawn(function() TweenService:Create(TitleGradient, TweenInfo.new(2.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Offset = Vector2.new(1, 0)}):Play() end)
+
+task.spawn(function()
+    local tweenInfo = TweenInfo.new(2.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true)
+    TweenService:Create(TitleGradient, tweenInfo, {Offset = Vector2.new(1, 0)}):Play()
+end)
 
 local SubTitle = Instance.new("TextLabel", Topbar)
-SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 36); SubTitle.BackgroundTransparency = 1; SubTitle.Text = "IMPEL DOWN SCRIPT"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 12; SubTitle.TextXAlignment = Enum.TextXAlignment.Left; SubTitle.ZIndex = 2
+SubTitle.Size = UDim2.new(0, 300, 0, 15); SubTitle.Position = UDim2.new(0, 20, 0, 36); SubTitle.BackgroundTransparency = 1
+SubTitle.Text = "IMPEL DOWN SCRIPT"; SubTitle.TextColor3 = Theme.SubText; SubTitle.Font = Enum.Font.Gotham; SubTitle.TextSize = 12; SubTitle.TextXAlignment = Enum.TextXAlignment.Left; SubTitle.ZIndex = 2
 
 local CloseBtn = Instance.new("TextButton", Topbar)
-CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG; CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 14; CloseBtn.ZIndex = 2
+CloseBtn.Size = UDim2.new(0, 28, 0, 28); CloseBtn.Position = UDim2.new(1, -40, 0, 15); CloseBtn.BackgroundColor3 = Theme.SectionBG
+CloseBtn.Text = "X"; CloseBtn.TextColor3 = Theme.SubText; CloseBtn.Font = Enum.Font.GothamBold; CloseBtn.TextSize = 14; CloseBtn.ZIndex = 2
 Instance.new("UICorner", CloseBtn).CornerRadius = UDim.new(0, 6)
-Instance.new("UIStroke", CloseBtn).Color = Theme.Stroke
+local closeStroke = Instance.new("UIStroke", CloseBtn); closeStroke.Color = Theme.Stroke
 AddHoverEffect(CloseBtn, Theme.SectionBG, Theme.Warning)
 CloseBtn.MouseButton1Click:Connect(function() 
     isUIOpen = false
@@ -167,143 +211,340 @@ CloseBtn.MouseButton1Click:Connect(function()
 end)
 
 local mDragging, mDragStart, mStartPos
-Topbar.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = true; mDragStart = input.Position; mStartPos = MainFrame.Position end end)
-Topbar.InputChanged:Connect(function(input) if mDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local delta = input.Position - mDragStart; MainFrame.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y) end end)
-Topbar.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = false end end)
+Topbar.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = true; mDragStart = input.Position; mStartPos = MainFrame.Position end
+end)
+Topbar.InputChanged:Connect(function(input)
+    if mDragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - mDragStart
+        MainFrame.Position = UDim2.new(mStartPos.X.Scale, mStartPos.X.Offset + delta.X, mStartPos.Y.Scale, mStartPos.Y.Offset + delta.Y)
+    end
+end)
+Topbar.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then mDragging = false end
+end)
 
 local Line = Instance.new("Frame", MainFrame)
 Line.Size = UDim2.new(1, -40, 0, 1); Line.Position = UDim2.new(0, 20, 0, 65); Line.BackgroundColor3 = Theme.Stroke; Line.BorderSizePixel = 0; Line.ZIndex = 2
 
 local Sidebar = Instance.new("ScrollingFrame", MainFrame)
 Sidebar.Size = UDim2.new(0, SidebarWidth, 1, -85); Sidebar.Position = UDim2.new(0, 10, 0, 75); Sidebar.BackgroundTransparency = 1; Sidebar.ScrollBarThickness = 0; Sidebar.ZIndex = 2
-local SideLayout = Instance.new("UIListLayout", Sidebar); SideLayout.Padding = UDim.new(0, 6); SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left; SideLayout.SortOrder = Enum.SortOrder.LayoutOrder
+local SideLayout = Instance.new("UIListLayout", Sidebar)
+SideLayout.Padding = UDim.new(0, 6); SideLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
+SideLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 local ContentContainer = Instance.new("Frame", MainFrame)
 ContentContainer.Size = UDim2.new(1, -(SidebarWidth + 25), 1, -85); ContentContainer.Position = UDim2.new(0, SidebarWidth + 15, 0, 75); ContentContainer.BackgroundTransparency = 1; ContentContainer.ZIndex = 2
 
 local DiscordLabel = Instance.new("TextLabel", MainFrame)
-DiscordLabel.Size = UDim2.new(0, 150, 0, 20); DiscordLabel.Position = UDim2.new(0, 15, 1, -30); DiscordLabel.BackgroundTransparency = 1; DiscordLabel.Text = "DISCORD.GG/RYUHUB"; DiscordLabel.Font = Enum.Font.GothamBold; DiscordLabel.TextSize = 11; DiscordLabel.TextXAlignment = Enum.TextXAlignment.Left; DiscordLabel.TextTransparency = 0.05; DiscordLabel.ZIndex = 2
+DiscordLabel.Size = UDim2.new(0, 150, 0, 20)
+DiscordLabel.Position = UDim2.new(0, 15, 1, -30)
+DiscordLabel.BackgroundTransparency = 1
+DiscordLabel.Text = "DISCORD.GG/RYUHUB"
+DiscordLabel.Font = Enum.Font.GothamBold
+DiscordLabel.TextSize = 11
+DiscordLabel.TextXAlignment = Enum.TextXAlignment.Left
+DiscordLabel.TextTransparency = 0.05
+DiscordLabel.ZIndex = 2
 
 local DiscordGradient = Instance.new("UIGradient", DiscordLabel)
-DiscordGradient.Color = ColorSequence.new{ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 180, 185)), ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)), ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 185))}
+DiscordGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(180, 180, 185)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 255, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(180, 180, 185))
+}
 DiscordGradient.Offset = Vector2.new(-1, 0)
-task.spawn(function() TweenService:Create(DiscordGradient, TweenInfo.new(2.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Offset = Vector2.new(1, 0)}):Play() end)
 
---// UI SYSTEM BUILDER
-local Tabs, sidebarOrderCounter, itemOrderCounter = {}, 0, 0
+task.spawn(function()
+    TweenService:Create(DiscordGradient, TweenInfo.new(2.0, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Offset = Vector2.new(1, 0)}):Play()
+end)
+
+--// HIERARCHISCHES ACCORDEON-SYSTEM
+local Tabs = {}
+local sidebarOrderCounter = 0
+local itemOrderCounter = 0
+
 local function UpdateSidebarCanvas()
     local totalH = 10
-    for _, t in pairs(Tabs) do totalH = totalH + 36 + 6; if t.IsOpen then totalH = totalH + t.SubLayout.AbsoluteContentSize.Y + 6 end end
+    for _, t in pairs(Tabs) do
+        totalH = totalH + 36 + 6
+        if t.IsOpen then totalH = totalH + t.SubLayout.AbsoluteContentSize.Y + 6 end
+    end
     Sidebar.CanvasSize = UDim2.new(0, 0, 0, totalH)
 end
 
 local function CreateMainTab(name)
     local tabObj = { Btn = nil, Arrow = nil, SubContainer = nil, SubLayout = nil, IsOpen = false, SubTabs = {}, Toggle = nil }
+
     sidebarOrderCounter = sidebarOrderCounter + 1
-    local tabBtn = Instance.new("TextButton", Sidebar); tabBtn.LayoutOrder = sidebarOrderCounter; tabBtn.Size = UDim2.new(1, 0, 0, 36); tabBtn.BackgroundColor3 = Theme.Sidebar; tabBtn.Text = "  " .. string.upper(name); tabBtn.TextColor3 = Theme.SubText; tabBtn.Font = Enum.Font.GothamBlack; tabBtn.TextSize = 13; tabBtn.TextXAlignment = Enum.TextXAlignment.Left; tabBtn.ZIndex = 2
-    Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8); tabObj.Btn = tabBtn
-    local arrow = Instance.new("TextLabel", tabBtn); arrow.Size = UDim2.new(0, 20, 1, 0); arrow.Position = UDim2.new(1, -25, 0, 0); arrow.BackgroundTransparency = 1; arrow.Text = "v"; arrow.TextColor3 = Theme.SubText; arrow.Font = Enum.Font.GothamBold; arrow.TextSize = 12; arrow.ZIndex = 2; tabObj.Arrow = arrow
+    local tabBtn = Instance.new("TextButton", Sidebar)
+    tabBtn.LayoutOrder = sidebarOrderCounter; tabBtn.Size = UDim2.new(1, 0, 0, 36); tabBtn.BackgroundColor3 = Theme.Sidebar
+    tabBtn.Text = "  " .. string.upper(name); tabBtn.TextColor3 = Theme.SubText; tabBtn.Font = Enum.Font.GothamBlack; tabBtn.TextSize = 13; tabBtn.TextXAlignment = Enum.TextXAlignment.Left; tabBtn.ZIndex = 2
+    Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8)
+    tabObj.Btn = tabBtn
+
+    local arrow = Instance.new("TextLabel", tabBtn)
+    arrow.Size = UDim2.new(0, 20, 1, 0); arrow.Position = UDim2.new(1, -25, 0, 0); arrow.BackgroundTransparency = 1
+    arrow.Text = "v"; arrow.TextColor3 = Theme.SubText; arrow.Font = Enum.Font.GothamBold; arrow.TextSize = 12; arrow.ZIndex = 2
+    tabObj.Arrow = arrow
+
     sidebarOrderCounter = sidebarOrderCounter + 1
-    local subContainer = Instance.new("Frame", Sidebar); subContainer.LayoutOrder = sidebarOrderCounter; subContainer.Size = UDim2.new(1, 0, 0, 0); subContainer.BackgroundTransparency = 1; subContainer.ClipsDescendants = true; subContainer.ZIndex = 2; tabObj.SubContainer = subContainer
-    local subLayout = Instance.new("UIListLayout", subContainer); subLayout.Padding = UDim.new(0, 2); subLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left; subLayout.SortOrder = Enum.SortOrder.LayoutOrder; tabObj.SubLayout = subLayout
+    local subContainer = Instance.new("Frame", Sidebar)
+    subContainer.LayoutOrder = sidebarOrderCounter; subContainer.Size = UDim2.new(1, 0, 0, 0); subContainer.BackgroundTransparency = 1; subContainer.ClipsDescendants = true; subContainer.ZIndex = 2
+    tabObj.SubContainer = subContainer
+
+    local subLayout = Instance.new("UIListLayout", subContainer)
+    subLayout.Padding = UDim.new(0, 2); subLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left; subLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabObj.SubLayout = subLayout
+
     local function toggleTab()
         tabObj.IsOpen = not tabObj.IsOpen
         local targetSize = tabObj.IsOpen and UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) or UDim2.new(1, 0, 0, 0)
         TweenService:Create(subContainer, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = targetSize}):Play()
         if tabObj.IsOpen then
-            arrow.Text = "^"; TweenService:Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.Text, BackgroundColor3 = Theme.SectionBG}):Play(); TweenService:Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.Text}):Play()
+            arrow.Text = "^"
+            TweenService:Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.Text, BackgroundColor3 = Theme.SectionBG}):Play()
+            TweenService:Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.Text}):Play()
         else
-            arrow.Text = "v"; TweenService:Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.SubText, BackgroundColor3 = Theme.Sidebar}):Play(); TweenService:Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.SubText}):Play()
+            arrow.Text = "v"
+            TweenService:Create(tabBtn, TweenInfo.new(0.25), {TextColor3 = Theme.SubText, BackgroundColor3 = Theme.Sidebar}):Play()
+            TweenService:Create(arrow, TweenInfo.new(0.25), {TextColor3 = Theme.SubText}):Play()
         end
-        task.delay(0.26, UpdateSidebarCanvas); UpdateSidebarCanvas()
+        task.delay(0.26, UpdateSidebarCanvas)
+        UpdateSidebarCanvas()
     end
-    tabBtn.MouseButton1Click:Connect(toggleTab); tabObj.Toggle = toggleTab
-    subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() if tabObj.IsOpen then subContainer.Size = UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) end; UpdateSidebarCanvas() end)
+
+    tabBtn.MouseButton1Click:Connect(toggleTab)
+    tabObj.Toggle = toggleTab
+
+    subLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        if tabObj.IsOpen then subContainer.Size = UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) end
+        UpdateSidebarCanvas()
+    end)
+
     table.insert(Tabs, tabObj)
     return tabObj
 end
 
 local function CreateSubTab(tabObj, subName)
     local subObj = { Btn = nil, Page = nil, Indicator = nil, Open = nil }
-    local subBtn = Instance.new("TextButton", tabObj.SubContainer); subBtn.LayoutOrder = #tabObj.SubTabs + 1; subBtn.Size = UDim2.new(1, 0, 0, 28); subBtn.BackgroundTransparency = 1; subBtn.Text = "     " .. subName; subBtn.TextColor3 = Theme.SubText; subBtn.Font = Enum.Font.GothamMedium; subBtn.TextSize = 12; subBtn.TextXAlignment = Enum.TextXAlignment.Left; subBtn.ZIndex = 2; subObj.Btn = subBtn
-    local indicator = Instance.new("Frame", subBtn); indicator.Size = UDim2.new(0, 16, 0, 2); indicator.Position = UDim2.new(0, 20, 1, -4); indicator.BackgroundColor3 = Theme.Accent; indicator.BorderSizePixel = 0; indicator.BackgroundTransparency = 1; indicator.ZIndex = 2; Instance.new("UICorner", indicator).CornerRadius = UDim.new(1, 0); subObj.Indicator = indicator
-    local page = Instance.new("ScrollingFrame", ContentContainer); page.Size = UDim2.new(1, 0, 1, 0); page.BackgroundTransparency = 1; page.ScrollBarThickness = 2; page.ScrollBarImageColor3 = Theme.Accent; page.Visible = false; page.ZIndex = 2; subObj.Page = page
-    local pageLayout = Instance.new("UIListLayout", page); pageLayout.Padding = UDim.new(0, 12); pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
-    pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20) end)
+
+    local subBtn = Instance.new("TextButton", tabObj.SubContainer)
+    subBtn.LayoutOrder = #tabObj.SubTabs + 1; subBtn.Size = UDim2.new(1, 0, 0, 28); subBtn.BackgroundTransparency = 1
+    subBtn.Text = "     " .. subName; subBtn.TextColor3 = Theme.SubText; subBtn.Font = Enum.Font.GothamMedium; subBtn.TextSize = 12; subBtn.TextXAlignment = Enum.TextXAlignment.Left; subBtn.ZIndex = 2
+    subObj.Btn = subBtn
+
+    local indicator = Instance.new("Frame", subBtn)
+    indicator.Size = UDim2.new(0, 16, 0, 2); indicator.Position = UDim2.new(0, 20, 1, -4); indicator.BackgroundColor3 = Theme.Accent; indicator.BorderSizePixel = 0; indicator.BackgroundTransparency = 1; indicator.ZIndex = 2
+    Instance.new("UICorner", indicator).CornerRadius = UDim.new(1, 0)
+    subObj.Indicator = indicator
+
+    local page = Instance.new("ScrollingFrame", ContentContainer)
+    page.Size = UDim2.new(1, 0, 1, 0); page.BackgroundTransparency = 1; page.ScrollBarThickness = 2; page.ScrollBarImageColor3 = Theme.Accent; page.Visible = false; page.ZIndex = 2
+    subObj.Page = page
+
+    local pageLayout = Instance.new("UIListLayout", page)
+    pageLayout.Padding = UDim.new(0, 12); pageLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    pageLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+        page.CanvasSize = UDim2.new(0, 0, 0, pageLayout.AbsoluteContentSize.Y + 20)
+    end)
+
     local function openSubTab()
-        for _, t in pairs(Tabs) do for _, st in pairs(t.SubTabs) do st.Page.Visible = false; TweenService:Create(st.Btn, TweenInfo.new(0.2), {TextColor3 = Theme.SubText}):Play(); TweenService:Create(st.Indicator, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play() end end
-        page.Visible = true; TweenService:Create(subBtn, TweenInfo.new(0.2), {TextColor3 = Theme.Text}):Play(); TweenService:Create(indicator, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
+        for _, t in pairs(Tabs) do
+            for _, st in pairs(t.SubTabs) do
+                st.Page.Visible = false
+                TweenService:Create(st.Btn, TweenInfo.new(0.2), {TextColor3 = Theme.SubText}):Play()
+                TweenService:Create(st.Indicator, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+            end
+        end
+        page.Visible = true
+        TweenService:Create(subBtn, TweenInfo.new(0.2), {TextColor3 = Theme.Text}):Play()
+        TweenService:Create(indicator, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
     end
-    subBtn.MouseButton1Click:Connect(openSubTab); subObj.Open = openSubTab
+
+    subBtn.MouseButton1Click:Connect(openSubTab)
+    subObj.Open = openSubTab
+
     table.insert(tabObj.SubTabs, subObj)
     return page
 end
 
 local function CreateSection(page, titleText)
-    local section = Instance.new("Frame", page); section.Name = "SectionContainer"; section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; section.BackgroundTransparency = 0; section.ZIndex = 2; Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
+    local section = Instance.new("Frame", page)
+    section.Name = "SectionContainer"; section.Size = UDim2.new(0.98, 0, 0, 50); section.BackgroundColor3 = Theme.SectionBG; section.BackgroundTransparency = 0; section.ZIndex = 2
+    Instance.new("UICorner", section).CornerRadius = UDim.new(0, 10)
     local sStroke = Instance.new("UIStroke", section); sStroke.Color = Theme.Stroke; sStroke.Transparency = 0.2
-    local secLayout = Instance.new("UIListLayout", section); secLayout.Padding = UDim.new(0, 10); secLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; secLayout.SortOrder = Enum.SortOrder.LayoutOrder
-    local secPadding = Instance.new("UIPadding", section); secPadding.PaddingTop = UDim.new(0, 12); secPadding.PaddingBottom = UDim.new(0, 12)
-    local title = Instance.new("TextLabel", section); title.LayoutOrder = -1; title.Size = UDim2.new(0.92, 0, 0, 24); title.BackgroundTransparency = 1; title.Text = titleText; title.TextColor3 = Theme.Text; title.Font = Enum.Font.GothamBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left; title.ZIndex = 2
+    
+    local secLayout = Instance.new("UIListLayout", section)
+    secLayout.Padding = UDim.new(0, 10); secLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center; secLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    local secPadding = Instance.new("UIPadding", section)
+    secPadding.PaddingTop = UDim.new(0, 12); secPadding.PaddingBottom = UDim.new(0, 12)
+    
+    local title = Instance.new("TextLabel", section)
+    title.LayoutOrder = -1; title.Size = UDim2.new(0.92, 0, 0, 24); title.BackgroundTransparency = 1; title.Text = titleText
+    title.TextColor3 = Theme.Text; title.Font = Enum.Font.GothamBold; title.TextSize = 14; title.TextXAlignment = Enum.TextXAlignment.Left; title.ZIndex = 2
     secLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() section.Size = UDim2.new(1, 0, 0, secLayout.AbsoluteContentSize.Y + 24) end)
     return section
 end
 
 local function CreateToggle(section, text, descText, defaultState, callback)
-    if type(defaultState) == "function" then callback = defaultState; defaultState = false end
-    itemOrderCounter = itemOrderCounter + 1
-    local frame = Instance.new("Frame", section); frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, descText and 52 or 34); frame.BackgroundTransparency = 1; frame.ZIndex = 2
-    local label = Instance.new("TextLabel", frame); label.Size = UDim2.new(0.7, 0, 0, 34); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = defaultState and Theme.Text or Theme.SubText; label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left; label.ZIndex = 2
-    if descText then
-        local descLabel = Instance.new("TextLabel", frame); descLabel.Size = UDim2.new(0.7, 0, 0, 15); descLabel.Position = UDim2.new(0, 0, 0, 30); descLabel.BackgroundTransparency = 1; descLabel.Text = descText; descLabel.TextColor3 = Theme.SubText; descLabel.Font = Enum.Font.Gotham; descLabel.TextSize = 11; descLabel.TextXAlignment = Enum.TextXAlignment.Left; descLabel.ZIndex = 2
+    if type(defaultState) == "function" then
+        callback = defaultState
+        defaultState = false
     end
-    local tBtn = Instance.new("TextButton", frame); tBtn.Size = UDim2.new(0, 42, 0, 22); tBtn.Position = UDim2.new(1, -42, 0, 6); tBtn.BackgroundColor3 = defaultState and Theme.ToggleOn or Theme.ToggleOff; tBtn.Text = ""; tBtn.ZIndex = 2; Instance.new("UICorner", tBtn).CornerRadius = UDim.new(1, 0)
-    local bStroke = Instance.new("UIStroke", tBtn); bStroke.Color = defaultState and Theme.ToggleOn or Theme.Stroke; bStroke.Transparency = 0.2; AddClickPop(tBtn)
-    local circle = Instance.new("Frame", tBtn); circle.Size = UDim2.new(0, 16, 0, 16); circle.Position = defaultState and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8); circle.BackgroundColor3 = defaultState and Theme.Background or Color3.fromRGB(150, 150, 150); circle.ZIndex = 2; Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+    
+    itemOrderCounter = itemOrderCounter + 1
+    local frame = Instance.new("Frame", section)
+    frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, descText and 52 or 34); frame.BackgroundTransparency = 1; frame.ZIndex = 2
+    
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(0.7, 0, 0, 34); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = defaultState and Theme.Text or Theme.SubText
+    label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left; label.ZIndex = 2
+    
+    if descText then
+        local descLabel = Instance.new("TextLabel", frame)
+        descLabel.Size = UDim2.new(0.7, 0, 0, 15); descLabel.Position = UDim2.new(0, 0, 0, 30); descLabel.BackgroundTransparency = 1
+        descLabel.Text = descText; descLabel.TextColor3 = Theme.SubText; descLabel.Font = Enum.Font.Gotham; descLabel.TextSize = 11; descLabel.TextXAlignment = Enum.TextXAlignment.Left; descLabel.ZIndex = 2
+    end
+    
+    local tBtn = Instance.new("TextButton", frame)
+    tBtn.Size = UDim2.new(0, 42, 0, 22); tBtn.Position = UDim2.new(1, -42, 0, 6); tBtn.BackgroundColor3 = defaultState and Theme.ToggleOn or Theme.ToggleOff; tBtn.Text = ""; tBtn.ZIndex = 2
+    Instance.new("UICorner", tBtn).CornerRadius = UDim.new(1, 0)
+    local bStroke = Instance.new("UIStroke", tBtn); bStroke.Color = defaultState and Theme.ToggleOn or Theme.Stroke; bStroke.Transparency = 0.2
+    AddClickPop(tBtn)
+    
+    local circle = Instance.new("Frame", tBtn)
+    circle.Size = UDim2.new(0, 16, 0, 16); circle.Position = defaultState and UDim2.new(1, -19, 0.5, -8) or UDim2.new(0, 3, 0.5, -8)
+    circle.BackgroundColor3 = defaultState and Theme.Background or Color3.fromRGB(150, 150, 150); circle.ZIndex = 2
+    Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
+    
     local isOn = defaultState or false
     tBtn.MouseButton1Click:Connect(function()
         isOn = not isOn
-        if isOn then TweenService:Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOn}):Play(); TweenService:Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(1, -19, 0.5, -8), BackgroundColor3 = Theme.Background}):Play(); TweenService:Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.Text}):Play(); bStroke.Color = Theme.ToggleOn else TweenService:Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOff}):Play(); TweenService:Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(0, 3, 0.5, -8), BackgroundColor3 = Color3.fromRGB(150, 150, 150)}):Play(); TweenService:Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.SubText}):Play(); bStroke.Color = Theme.Stroke end
+        if isOn then
+            TweenService:Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOn}):Play()
+            TweenService:Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(1, -19, 0.5, -8), BackgroundColor3 = Theme.Background}):Play()
+            TweenService:Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.Text}):Play()
+            bStroke.Color = Theme.ToggleOn
+        else
+            TweenService:Create(tBtn, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {BackgroundColor3 = Theme.ToggleOff}):Play()
+            TweenService:Create(circle, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {Position = UDim2.new(0, 3, 0.5, -8), BackgroundColor3 = Color3.fromRGB(150, 150, 150)}):Play()
+            TweenService:Create(label, TweenInfo.new(0.25, Enum.EasingStyle.Quad), {TextColor3 = Theme.SubText}):Play()
+            bStroke.Color = Theme.Stroke
+        end
         if callback then callback(isOn) end
     end)
 end
 
 local function CreateSlider(section, text, min, max, default, callback)
     itemOrderCounter = itemOrderCounter + 1
-    local frame = Instance.new("Frame", section); frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, 50); frame.BackgroundTransparency = 1; frame.ZIndex = 2
-    local label = Instance.new("TextLabel", frame); label.Size = UDim2.new(1, 0, 0, 20); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Theme.SubText; label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left; label.ZIndex = 2
-    local valLabel = Instance.new("TextLabel", frame); valLabel.Size = UDim2.new(0, 40, 0, 20); valLabel.Position = UDim2.new(1, -40, 0, 0); valLabel.BackgroundTransparency = 1; valLabel.Text = tostring(default); valLabel.TextColor3 = Theme.Accent; valLabel.Font = Enum.Font.GothamBold; valLabel.TextSize = 13; valLabel.TextXAlignment = Enum.TextXAlignment.Right; valLabel.ZIndex = 2
-    local sliderBg = Instance.new("Frame", frame); sliderBg.Size = UDim2.new(1, 0, 0, 4); sliderBg.Position = UDim2.new(0, 0, 0, 32); sliderBg.BackgroundColor3 = Theme.ToggleOff; sliderBg.ZIndex = 2; Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(1, 0)
-    local sliderFill = Instance.new("Frame", sliderBg); local percentage = (default - min) / (max - min); sliderFill.Size = UDim2.new(percentage, 0, 1, 0); sliderFill.BackgroundColor3 = Theme.Accent; sliderFill.ZIndex = 2; Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
-    local knob = Instance.new("TextButton", sliderFill); knob.Size = UDim2.new(0, 14, 0, 14); knob.Position = UDim2.new(1, -7, 0.5, -7); knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); knob.Text = ""; knob.ZIndex = 2; Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+    local frame = Instance.new("Frame", section)
+    frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, 50); frame.BackgroundTransparency = 1; frame.ZIndex = 2
+    
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, 0, 0, 20); label.BackgroundTransparency = 1; label.Text = text; label.TextColor3 = Theme.SubText
+    label.Font = Enum.Font.GothamMedium; label.TextSize = 13; label.TextXAlignment = Enum.TextXAlignment.Left; label.ZIndex = 2
+    
+    local valLabel = Instance.new("TextLabel", frame)
+    valLabel.Size = UDim2.new(0, 40, 0, 20); valLabel.Position = UDim2.new(1, -40, 0, 0); valLabel.BackgroundTransparency = 1
+    valLabel.Text = tostring(default); valLabel.TextColor3 = Theme.Accent; valLabel.Font = Enum.Font.GothamBold; valLabel.TextSize = 13; valLabel.TextXAlignment = Enum.TextXAlignment.Right; valLabel.ZIndex = 2
+    
+    local sliderBg = Instance.new("Frame", frame)
+    sliderBg.Size = UDim2.new(1, 0, 0, 4); sliderBg.Position = UDim2.new(0, 0, 0, 32); sliderBg.BackgroundColor3 = Theme.ToggleOff; sliderBg.ZIndex = 2
+    Instance.new("UICorner", sliderBg).CornerRadius = UDim.new(1, 0)
+    
+    local sliderFill = Instance.new("Frame", sliderBg)
+    local percentage = (default - min) / (max - min)
+    sliderFill.Size = UDim2.new(percentage, 0, 1, 0); sliderFill.BackgroundColor3 = Theme.Accent; sliderFill.ZIndex = 2
+    Instance.new("UICorner", sliderFill).CornerRadius = UDim.new(1, 0)
+    
+    local knob = Instance.new("TextButton", sliderFill)
+    knob.Size = UDim2.new(0, 14, 0, 14); knob.Position = UDim2.new(1, -7, 0.5, -7); knob.BackgroundColor3 = Color3.fromRGB(255, 255, 255); knob.Text = ""; knob.ZIndex = 2
+    Instance.new("UICorner", knob).CornerRadius = UDim.new(1, 0)
+    
     local dragging = false
-    local function setSlider(value) local relative = math.clamp((value - min) / (max - min), 0, 1); valLabel.Text = tostring(value); TweenService:Create(sliderFill, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {Size = UDim2.new(relative, 0, 1, 0)}):Play(); if callback then callback(value) end end
-    knob.InputBegan:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = true; TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -9, 0.5, -9)}):Play() end end)
-    UserInputService.InputEnded:Connect(function(input) if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then dragging = false; TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(1, -7, 0.5, -7)}):Play() end end)
-    UserInputService.InputChanged:Connect(function(input) if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1); local value = math.floor(min + (max - min) * relative); setSlider(value) end end)
+    local function setSlider(value)
+        local relative = math.clamp((value - min) / (max - min), 0, 1)
+        valLabel.Text = tostring(value)
+        TweenService:Create(sliderFill, TweenInfo.new(0.08, Enum.EasingStyle.Quad), {Size = UDim2.new(relative, 0, 1, 0)}):Play()
+        if callback then callback(value) end
+    end
+    
+    knob.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 18, 0, 18), Position = UDim2.new(1, -9, 0.5, -9)}):Play()
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = false
+            TweenService:Create(knob, TweenInfo.new(0.1, Enum.EasingStyle.Quad), {Size = UDim2.new(0, 14, 0, 14), Position = UDim2.new(1, -7, 0.5, -7)}):Play()
+        end
+    end)
+    
+    UserInputService.InputChanged:Connect(function(input)
+        if dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            local relative = math.clamp((input.Position.X - sliderBg.AbsolutePosition.X) / sliderBg.AbsoluteSize.X, 0, 1)
+            local value = math.floor(min + (max - min) * relative)
+            setSlider(value)
+        end
+    end)
 end
 
 local function CreateButton(section, text, color, callback)
     itemOrderCounter = itemOrderCounter + 1
-    local btn = Instance.new("TextButton", section); btn.LayoutOrder = itemOrderCounter; btn.Size = UDim2.new(0.92, 0, 0, 34); btn.BackgroundColor3 = color; btn.Name = "CustomButton"; btn.Text = text; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.ZIndex = 2; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", btn).Color = Theme.Stroke; Instance.new("UIStroke", btn).Transparency = 0.5; AddClickPop(btn); btn.MouseButton1Click:Connect(callback)
+    local btn = Instance.new("TextButton", section)
+    btn.LayoutOrder = itemOrderCounter; btn.Size = UDim2.new(0.92, 0, 0, 34); btn.BackgroundColor3 = color
+    btn.Name = "CustomButton"
+    btn.Text = text; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.ZIndex = 2
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", btn).Color = Theme.Stroke; Instance.new("UIStroke", btn).Transparency = 0.5
+    AddClickPop(btn)
+    btn.MouseButton1Click:Connect(callback)
     return btn
 end
 
 local function CreateTextBox(section, placeholder, callback)
     itemOrderCounter = itemOrderCounter + 1
-    local box = Instance.new("TextBox", section); box.LayoutOrder = itemOrderCounter; box.Size = UDim2.new(0.92, 0, 0, 34); box.BackgroundColor3 = Theme.Background; box.Name = "CustomTextBox"; box.Text = ""; box.PlaceholderText = placeholder; box.TextColor3 = Theme.Text; box.Font = Enum.Font.GothamMedium; box.TextSize = 12; box.ClearTextOnFocus = false; box.ClipsDescendants = true; box.ZIndex = 2; Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6); Instance.new("UIStroke", box).Color = Theme.Stroke; if callback then box.FocusLost:Connect(function() callback(box.Text) end) end
+    local box = Instance.new("TextBox", section)
+    box.LayoutOrder = itemOrderCounter; box.Size = UDim2.new(0.92, 0, 0, 34); box.BackgroundColor3 = Theme.Background
+    box.Name = "CustomTextBox"
+    box.Text = ""; box.PlaceholderText = placeholder; box.TextColor3 = Theme.Text; box.Font = Enum.Font.GothamMedium; box.TextSize = 12
+    box.ClearTextOnFocus = false; box.ClipsDescendants = true; box.ZIndex = 2
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+    Instance.new("UIStroke", box).Color = Theme.Stroke
+    if callback then box.FocusLost:Connect(function() callback(box.Text) end) end
     return box
 end
 
 local function CreateDropdown(section, headerText, itemsList, callback)
     itemOrderCounter = itemOrderCounter + 1
-    local frame = Instance.new("Frame", section); frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1; frame.ZIndex = 2
-    local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(itemsList[1]); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left; header.ZIndex = 2
-    local scroll = Instance.new("ScrollingFrame", frame); scroll.Name = "DropdownContainer"; scroll.Size = UDim2.new(1, 0, 0, 130); scroll.Position = UDim2.new(0, 0, 0, 25); scroll.BackgroundColor3 = Theme.Background; scroll.ScrollBarThickness = 4; scroll.ZIndex = 2; Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
-    local listLayout = Instance.new("UIListLayout", scroll); listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    local frame = Instance.new("Frame", section)
+    frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1; frame.ZIndex = 2
+    
+    local header = Instance.new("TextLabel", frame)
+    header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(itemsList[1])
+    header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left; header.ZIndex = 2
+    
+    local scroll = Instance.new("ScrollingFrame", frame)
+    scroll.Name = "DropdownContainer"
+    scroll.Size = UDim2.new(1, 0, 0, 130); scroll.Position = UDim2.new(0, 0, 0, 25); scroll.BackgroundColor3 = Theme.Background
+    scroll.ScrollBarThickness = 4; scroll.ZIndex = 2
+    Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
+    local listLayout = Instance.new("UIListLayout", scroll)
+    listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    
     for _, itemName in ipairs(itemsList) do
-        local btn = Instance.new("TextButton", scroll); btn.Name = "DropButton"; btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. tostring(itemName); btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; btn.ZIndex = 2; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
-        btn.MouseButton1Click:Connect(function() header.Text = headerText .. ": " .. tostring(itemName); if callback then callback(itemName) end end)
+        local btn = Instance.new("TextButton", scroll)
+        btn.Name = "DropButton"
+        btn.Size = UDim2.new(0.94, 0, 0, 26); btn.BackgroundColor3 = Theme.SectionBG; btn.Text = "  " .. tostring(itemName)
+        btn.TextColor3 = Theme.Text; btn.Font = Enum.Font.GothamBold; btn.TextSize = 12; btn.TextXAlignment = Enum.TextXAlignment.Left; btn.ZIndex = 2
+        Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+        btn.MouseButton1Click:Connect(function()
+            header.Text = headerText .. ": " .. tostring(itemName)
+            if callback then callback(itemName) end
+        end)
     end
     task.defer(function() scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) end)
     return frame
@@ -324,7 +565,8 @@ local function EquipTargetWeapon()
     local targetWep = nil
     for _, item in pairs(LocalPlayer.Backpack:GetChildren()) do
         if item:IsA("Tool") and (item:GetAttribute("MeleeTool") or item.Name:lower():find("combat") or item.Name:lower():find("sword")) then
-            targetWep = item; break
+            targetWep = item
+            break
         end
     end
     if not targetWep then
@@ -353,6 +595,7 @@ local function PerformMeleeAttack(targets)
             lastSwing = now
             task.spawn(function()
                 local hitParts = {}
+                
                 if type(targets) == "table" then
                     for _, npc in ipairs(targets) do
                         local mRoot = npc:FindFirstChild("HumanoidRootPart")
@@ -367,17 +610,36 @@ local function PerformMeleeAttack(targets)
                 if currentComboIndex == 1 then animName = "Dash" end
                 if currentComboIndex == 4 then animName = "GroundPunch4" end
                 
-                local animObj = ReplicatedStorage:FindFirstChild("CombatAnimations") and ReplicatedStorage.CombatAnimations:FindFirstChild("Melee") and ReplicatedStorage.CombatAnimations.Melee:FindFirstChild(animName)
+                local animObj = ReplicatedStorage:FindFirstChild("CombatAnimations") 
+                    and ReplicatedStorage.CombatAnimations:FindFirstChild("Melee")
+                    and ReplicatedStorage.CombatAnimations.Melee:FindFirstChild(animName)
                 
                 if animObj then
-                    local argsAnim = {"swingsfx", "Melee", currentComboIndex, "Ground", currentComboIndex == 1, animObj, 2, 1.5}
+                    local argsAnim = {
+                        "swingsfx",
+                        "Melee",
+                        currentComboIndex,
+                        "Ground",
+                        currentComboIndex == 1,
+                        animObj,
+                        2,
+                        1.5
+                    }
                     if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("CombatRegister") then
                         pcall(function() ReplicatedStorage.Events.CombatRegister:InvokeServer(argsAnim) end)
                     end
                 end
                 
                 if #hitParts > 0 then
-                    local argsDamage = {"damage", hitParts, "Melee", {currentComboIndex, "Ground", "Melee"}, true, root.CFrame, ["aircombo"] = "Ground"}
+                    local argsDamage = {
+                        "damage",
+                        hitParts,
+                        "Melee",
+                        {currentComboIndex, "Ground", "Melee"},
+                        true,
+                        root.CFrame,
+                        ["aircombo"] = "Ground"
+                    }
                     if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("CombatRegister") then
                         pcall(function() ReplicatedStorage.Events.CombatRegister:InvokeServer(argsDamage) end)
                     end
@@ -390,142 +652,87 @@ local function PerformMeleeAttack(targets)
     end)
 end
 
--- SPIDERLERP TRANSPORT ENGINE (NUR FÜR TRANSPORT)
-local function SpiderLerp(tPos, currentSpeed)
+-- TWEEN FUNCTION WITH TP CHECK BYPASS & CLIMB ANTI-STUCK
+local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not root or not hum then return end
-
-    local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
-    local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
-    local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
-
-    local floorOffset = (hum.HipHeight or 2) + (root.Size.Y / 2)
-    local baseMinY = 1
-    local rayParams = RaycastParams.new()
-    local ignoreList = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-    pcall(function()
-        if Workspace:FindFirstChild("Env") then
-            for _, v in pairs(Workspace.Env:GetDescendants()) do
-                if v.Name:lower():find("tree") or v.Name:lower():find("leaf") or v.Name:lower():find("prop") or v.Name:lower():find("fence") then
-                    table.insert(ignoreList, v)
-                end
-            end
-        end
-    end)
-    rayParams.FilterDescendantsInstances = ignoreList
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-    rayParams.IgnoreWater = true
-
-    local function GetTrueTopY(x, z)
-        local currentFilter = table.clone(ignoreList)
-        local rParams = RaycastParams.new(); rParams.FilterType = Enum.RaycastFilterType.Exclude; rParams.IgnoreWater = true
-        local origin = Vector3.new(x, 3000, z)
-        local dir = Vector3.new(0, -4000, 0)
-        for i = 1, 10 do
-            rParams.FilterDescendantsInstances = currentFilter
-            local hit = Workspace:Raycast(origin, dir, rParams)
-            if hit then
-                local name = hit.Instance.Name:lower()
-                if name:find("tree") or name:find("leaf") or name:find("grass") or name:find("stone") then table.insert(currentFilter, hit.Instance)
-                elseif hit.Instance.Transparency < 1 then return math.max(hit.Position.Y + floorOffset, baseMinY)
-                else table.insert(currentFilter, hit.Instance) end
-            else break end
-        end
-        return baseMinY
-    end
+    if not root then return end
 
     local startPos = root.Position
-    local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
-    local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
-    local totalDist = (flatStart - flatTarget).Magnitude
+    local targetPos = targetCFrame.Position
+    local dist = (targetPos - startPos).Magnitude
     
-    if totalDist < 5 then root.CFrame = CFrame.new(tPos); return true end 
+    local speed = customSpeed or 50 
+    local timeToTake = dist / speed
     
-    local elapsedTime = 0
-    local currentY = root.Position.Y
-    local isClimbingState = false
+    if timeToTake < 0.1 then 
+        root.CFrame = targetCFrame
+        return 
+    end
 
-    pcall(function() if sprintEvent then sprintEvent:FireServer("rbxassetid://15382065457") end end)
-
+    local startTime = tick()
+    
     local bp = root:FindFirstChild("RyuHover")
-    if not bp then bp = Instance.new("BodyPosition"); bp.Name = "RyuHover"; bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge); bp.D = 500; bp.P = 50000; bp.Parent = root end
+    if not bp then
+        bp = Instance.new("BodyPosition")
+        bp.Name = "RyuHover"
+        bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bp.D = 500
+        bp.P = 50000
+        bp.Parent = root
+    end
 
-    while elapsedTime < 100 do
+    local lastRealPos = root.Position
+    local stuckTicks = 0
+
+    while tick() - startTime < timeToTake do
         if not RyuSavedConfig.AutoImpelDown then break end
-        local dt = RunService.Heartbeat:Wait()
-        dt = math.clamp(dt, 0.001, 0.05)
         
-        local currentPos = root.Position
-        local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
-        local remainingDist = (flatCurrent - flatTarget).Magnitude
-        
-        if remainingDist <= 5 then break end
-        
-        local stepDist = math.min((currentSpeed or 45) * dt, remainingDist)
-        local flatMoveDir = (flatTarget - flatCurrent)
-        if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
-        
-        local nextX = currentPos.X + (flatMoveDir.X * stepDist)
-        local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
-        local calcPos = Vector3.new(nextX, currentY, nextZ)
-        
-        local rightOffset = Vector3.new(flatMoveDir.Z, 0, -flatMoveDir.X) * 2.5
-        local wallCenter = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams)
-        local wallLeft = Workspace:Raycast(calcPos - rightOffset, flatMoveDir * 4, rayParams)
-        local wallRight = Workspace:Raycast(calcPos + rightOffset, flatMoveDir * 4, rayParams)
-        
-        local headPart = char:FindFirstChild("Head")
-        local headHit = false
-        if headPart then
-            local headRay = Workspace:Raycast(headPart.Position, flatMoveDir * 4, rayParams)
-            if headRay and headRay.Instance and headRay.Instance.Transparency < 1 then headHit = true end
+        -- TP CHECK BYPASS: If distance jumped unexpectedly, we got rubberbanded
+        if isMoveCheck and (root.Position - lastRealPos).Magnitude > 20 then
+            bp.Position = root.Position
+            task.wait(1) -- Stop movement for 1s to satisfy Anti-Cheat
+            
+            -- Recalculate tween from new pos
+            startPos = root.Position
+            dist = (targetPos - startPos).Magnitude
+            timeToTake = dist / speed
+            startTime = tick()
         end
         
-        local groundYCurrent = GetTrueTopY(nextX, nextZ)
-        local targetY = groundYCurrent
+        -- ANTI-STUCK (Climb)
+        if isMoveCheck then
+            if (root.Position - lastRealPos).Magnitude < 0.5 then
+                stuckTicks = stuckTicks + 1
+                if stuckTicks > 5 then
+                    pcall(function()
+                        if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb") then
+                            ReplicatedStorage.Events.climb:InvokeServer(true)
+                        end
+                    end)
+                end
+            else
+                stuckTicks = 0
+                pcall(function()
+                    if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb") then
+                        ReplicatedStorage.Events.climb:InvokeServer(false)
+                    end
+                end)
+            end
+        end
+        
+        lastRealPos = root.Position
 
-        local activeHit = wallCenter or wallLeft or wallRight or headHit
-        if activeHit then
-            local hitObjPos = (typeof(activeHit) == "RaycastResult") and activeHit.Position or (calcPos + flatMoveDir * 4)
-            local obstacleTopY = GetTrueTopY(hitObjPos.X + (flatMoveDir.X * 0.8), hitObjPos.Z + (flatMoveDir.Z * 0.8))
-            targetY = math.max(targetY, obstacleTopY)
-            if not isClimbingState then isClimbingState = true; if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end end
-        else
-            local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
-            local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z)
-            targetY = math.max(groundYCurrent, groundYAhead)
-        end
+        local alpha = (tick() - startTime) / timeToTake
+        local intermediatePos = startPos:Lerp(targetPos, alpha)
         
-        local advanceSpeed = 1
-        if (isClimbingState or headHit) and currentY < targetY - 0.5 then advanceSpeed = 0 end
-        local maxYStep = (isClimbingState or headHit) and (75 * dt * 25) or (35 * dt * 25)
-        local yDiff = targetY - currentY
-        
-        if yDiff > 0 then currentY = math.min(currentY + maxYStep, targetY) elseif yDiff < 0 then currentY = math.max(currentY - maxYStep, targetY) end
-        
-        if (isClimbingState or headHit) and math.abs(currentY - targetY) <= 0.5 then
-            isClimbingState = false; headHit = false
-            if footstepEvent then pcall(function() footstepEvent:FireServer("land") end) end
-            if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
-        end
-        
-        currentY = math.max(currentY, baseMinY)
-        elapsedTime = elapsedTime + (dt * advanceSpeed)
-        
-        local finalPos = Vector3.new(nextX, currentY, nextZ)
-        local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
-        
-        root.CFrame = CFrame.lookAt(finalPos, lookPos)
-        if hum then hum:Move(flatMoveDir * advanceSpeed, false) end
-        root.Velocity = Vector3.new(flatMoveDir.X * (currentSpeed or 45) * advanceSpeed, 0, flatMoveDir.Z * (currentSpeed or 45) * advanceSpeed)
-        if bp then bp.Position = finalPos end
+        bp.Position = intermediatePos
+        root.CFrame = CFrame.new(intermediatePos) * targetCFrame.Rotation
+        RunService.Heartbeat:Wait()
     end
     
-    if hum then hum:Move(Vector3.new(0,0,0), false) end
-    root.Velocity = Vector3.new(0, 0, 0)
-    return true
+    bp.Position = targetPos
+    root.CFrame = targetCFrame
 end
 
 local function ToggleHover(state)
@@ -535,7 +742,14 @@ local function ToggleHover(state)
     
     if state then
         local bp = root:FindFirstChild("RyuHover")
-        if not bp then bp = Instance.new("BodyPosition"); bp.Name = "RyuHover"; bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge); bp.D = 500; bp.P = 50000; bp.Parent = root end
+        if not bp then
+            bp = Instance.new("BodyPosition")
+            bp.Name = "RyuHover"
+            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bp.D = 500
+            bp.P = 50000
+            bp.Parent = root
+        end
         bp.Position = root.Position
     else
         local bp = root:FindFirstChild("RyuHover")
@@ -543,14 +757,43 @@ local function ToggleHover(state)
     end
 end
 
+-- HP FAILSAFE
+local function CheckHPAndFailsafe(root, hum)
+    if hum.Health / hum.MaxHealth < 0.8 then
+        ToggleHover(true)
+        root.CFrame = root.CFrame + Vector3.new(0, 14, 0)
+        
+        pcall(function()
+            if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Block") then
+                ReplicatedStorage.Events.Block:InvokeServer(true, "Melee", true)
+            end
+        end)
+        
+        while hum.Health / hum.MaxHealth < 0.8 do
+            task.wait(0.5)
+        end
+        
+        pcall(function()
+            if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Block") then
+                ReplicatedStorage.Events.Block:InvokeServer(false, "Melee", true)
+            end
+        end)
+        return true
+    end
+    return false
+end
+
 --// =======================
 --// UI POPULATION 
 --// =======================
 
-local function Ryuhub() end
+local function Ryuhub()
+    -- Platzhalter
+end
 
 -- TAB 1: AUTO PLAY
 local TabAutoPlay = CreateMainTab("Auto Play")
+
 local SubAutoMain = CreateSubTab(TabAutoPlay, "Main")
 local SecAutoPlay = CreateSection(SubAutoMain, "Impel Down Engine")
 CreateToggle(SecAutoPlay, "Enable Auto Impel Down", "Automatically clear all stages", RyuSavedConfig.AutoImpelDown, function(state) 
@@ -559,7 +802,10 @@ CreateToggle(SecAutoPlay, "Enable Auto Impel Down", "Automatically clear all sta
 end)
 CreateToggle(SecAutoPlay, "Auto Next Stage", "Proceeds to the next floor automatically", false, Ryuhub)
 CreateToggle(SecAutoPlay, "Auto Boss Farm", "Targets boss NPCs prioritized", false, Ryuhub)
-CreateSlider(SecAutoPlay, "Farm Distance", 5, 50, RyuSavedConfig.ImpelFarmDistance, function(val) RyuSavedConfig.ImpelFarmDistance = val end)
+CreateSlider(SecAutoPlay, "Farm Distance", 5, 50, RyuSavedConfig.ImpelFarmDistance, function(val)
+    RyuSavedConfig.ImpelFarmDistance = val
+end)
+
 local SecAutoSkills = CreateSection(SubAutoMain, "Auto Skills")
 CreateToggle(SecAutoSkills, "Auto Use Skill 1", nil, false, Ryuhub)
 CreateToggle(SecAutoSkills, "Auto Use Skill 2", nil, false, Ryuhub)
@@ -567,12 +813,14 @@ CreateToggle(SecAutoSkills, "Auto Use Ultimate", "Uses ultimate when available",
 
 -- TAB 2: PLAYER
 local TabPlayer = CreateMainTab("Player")
+
 local SubMovement = CreateSubTab(TabPlayer, "Movement")
 local SecMovement = CreateSection(SubMovement, "Local Player Settings")
 CreateToggle(SecMovement, "Enable WalkSpeed", nil, false, Ryuhub)
 CreateSlider(SecMovement, "Walk Speed", 16, 150, 35, Ryuhub)
 CreateToggle(SecMovement, "Enable JumpPower", nil, false, Ryuhub)
 CreateSlider(SecMovement, "Jump Power", 50, 250, 50, Ryuhub)
+
 local SecVisuals = CreateSection(SubMovement, "Visuals & Utility")
 CreateToggle(SecVisuals, "Noclip", "Walk through walls", false, Ryuhub)
 CreateToggle(SecVisuals, "Infinite Stamina", nil, false, Ryuhub)
@@ -580,107 +828,294 @@ CreateToggle(SecVisuals, "Item ESP", "Shows rare items in Impel Down", false, Ry
 
 -- TAB 3: SETTINGS
 local TabSettings = CreateMainTab("Settings")
+
 local SubClient = CreateSubTab(TabSettings, "Client")
 local SecClient = CreateSection(SubClient, "System Configuration")
 CreateToggle(SecClient, "Anti-AFK Protection", "Prevents Roblox from kicking you for idling", false, function(state)
-    if state then _G.AntiAfkConnection = LocalPlayer.Idled:Connect(function() game:GetService("VirtualUser"):CaptureController(); game:GetService("VirtualUser"):ClickButton2(Vector2.new()) end)
-    else if _G.AntiAfkConnection then _G.AntiAfkConnection:Disconnect() end end
-end)
-local SubTheme = CreateSubTab(TabSettings, "Theme & UI")
-local SecWindow = CreateSection(SubTheme, "Window Personalization")
-CreateToggle(SecWindow, "Glass Mode", "Transparent frosted glass UI", RyuSavedConfig.GlassMode, function(state)
-    RyuSavedConfig.GlassMode = state
-    local mainTrans = state and 0.4 or 0; local secTrans = state and 0.5 or 0
-    TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = mainTrans, BackgroundColor3 = state and Color3.fromRGB(5,5,5) or Theme.Background}):Play()
-    for _, obj in pairs(MainFrame:GetDescendants()) do
-        if obj:IsA("Frame") and (obj.Name == "SectionContainer" or obj.Name == "DropdownContainer") then TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundTransparency = secTrans}):Play()
-        elseif obj:IsA("TextBox") and obj.Name == "CustomTextBox" then TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundTransparency = secTrans}):Play() end
+    if state then
+        _G.AntiAfkConnection = LocalPlayer.Idled:Connect(function()
+            game:GetService("VirtualUser"):CaptureController()
+            game:GetService("VirtualUser"):ClickButton2(Vector2.new())
+        end)
+    else
+        if _G.AntiAfkConnection then _G.AntiAfkConnection:Disconnect() end
     end
 end)
-CreateToggle(SecWindow, "World UI Blur", "Blurs the game when UI is open", RyuSavedConfig.WorldBlur, function(state)
-    RyuSavedConfig.WorldBlur = state; _G.BlurEnabled = state
-    if isUIOpen and state then TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 15}):Play() elseif not state then TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 0}):Play() end
+
+local SubTheme = CreateSubTab(TabSettings, "Theme & UI")
+
+--// THEME SETTINGS
+local SecWindow = CreateSection(SubTheme, "Window Personalization")
+
+CreateToggle(SecWindow, "Glass Mode", "Transparent frosted glass UI", RyuSavedConfig.GlassMode, function(state)
+    RyuSavedConfig.GlassMode = state
+    local mainTrans = state and 0.4 or 0
+    local secTrans = state and 0.5 or 0
+    
+    TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundTransparency = mainTrans, BackgroundColor3 = state and Color3.fromRGB(5,5,5) or Theme.Background}):Play()
+    
+    for _, obj in pairs(MainFrame:GetDescendants()) do
+        if obj:IsA("Frame") and (obj.Name == "SectionContainer" or obj.Name == "DropdownContainer") then
+            TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundTransparency = secTrans}):Play()
+        elseif obj:IsA("TextBox") and obj.Name == "CustomTextBox" then
+            TweenService:Create(obj, TweenInfo.new(0.3), {BackgroundTransparency = secTrans}):Play()
+        end
+    end
 end)
-local PremiumColors = {["White"] = Color3.fromRGB(255, 255, 255), ["Crimson Red"] = Color3.fromRGB(220, 20, 60), ["Neon Blue"] = Color3.fromRGB(0, 150, 255), ["Emerald Green"] = Color3.fromRGB(46, 204, 113), ["Royal Purple"] = Color3.fromRGB(155, 89, 182), ["Hot Pink"] = Color3.fromRGB(255, 105, 180), ["Gold"] = Color3.fromRGB(241, 196, 15)}
+
+CreateToggle(SecWindow, "World UI Blur", "Blurs the game when UI is open", RyuSavedConfig.WorldBlur, function(state)
+    RyuSavedConfig.WorldBlur = state
+    _G.BlurEnabled = state
+    if isUIOpen and state then TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 15}):Play()
+    elseif not state then TweenService:Create(UIBlur, TweenInfo.new(0.3), {Size = 0}):Play() end
+end)
+
+local PremiumColors = {
+    ["White"] = Color3.fromRGB(255, 255, 255),
+    ["Crimson Red"] = Color3.fromRGB(220, 20, 60),
+    ["Neon Blue"] = Color3.fromRGB(0, 150, 255),
+    ["Emerald Green"] = Color3.fromRGB(46, 204, 113),
+    ["Royal Purple"] = Color3.fromRGB(155, 89, 182),
+    ["Hot Pink"] = Color3.fromRGB(255, 105, 180),
+    ["Gold"] = Color3.fromRGB(241, 196, 15)
+}
 CreateDropdown(SecWindow, "Accent Color", {"White", "Crimson Red", "Neon Blue", "Emerald Green", "Royal Purple", "Hot Pink", "Gold"}, function(colorName)
     local newColor = PremiumColors[colorName]
     if newColor then
-        RyuSavedConfig.AccentColor = {math.floor(newColor.R*255), math.floor(newColor.G*255), math.floor(newColor.B*255)}; Theme.Accent = newColor
+        RyuSavedConfig.AccentColor = {math.floor(newColor.R*255), math.floor(newColor.G*255), math.floor(newColor.B*255)}
+        Theme.Accent = newColor
         for _, obj in pairs(RyuHub:GetDescendants()) do
             if obj:IsA("UIStroke") and obj.Color ~= Theme.Stroke and obj.Color ~= Theme.Warning then obj.Color = newColor end
-            if obj:IsA("Frame") and obj.BackgroundColor3 ~= Theme.Background and obj.BackgroundColor3 ~= Theme.SectionBG and obj.BackgroundColor3 ~= Theme.ToggleOff and obj.BackgroundColor3 ~= Theme.Sidebar and obj.BackgroundColor3 ~= Color3.fromRGB(150, 150, 150) then obj.BackgroundColor3 = newColor end
+            if obj:IsA("Frame") and obj.BackgroundColor3 ~= Theme.Background and obj.BackgroundColor3 ~= Theme.SectionBG and obj.BackgroundColor3 ~= Theme.ToggleOff and obj.BackgroundColor3 ~= Theme.Sidebar and obj.BackgroundColor3 ~= Color3.fromRGB(150, 150, 150) then 
+                obj.BackgroundColor3 = newColor 
+            end
             if obj:IsA("TextLabel") and obj.Text == "Target: None" then obj.TextColor3 = newColor end
         end
     end
 end)
-local BgColors = {["Default Dark"] = Color3.fromRGB(12, 12, 14), ["Pitch Black"] = Color3.fromRGB(0, 0, 0), ["Midnight Blue"] = Color3.fromRGB(5, 10, 20), ["Deep Blood"] = Color3.fromRGB(20, 5, 5)}
+
+local BgColors = {
+    ["Default Dark"] = Color3.fromRGB(12, 12, 14),
+    ["Pitch Black"] = Color3.fromRGB(0, 0, 0),
+    ["Midnight Blue"] = Color3.fromRGB(5, 10, 20),
+    ["Deep Blood"] = Color3.fromRGB(20, 5, 5)
+}
 CreateDropdown(SecWindow, "Background Tint", {"Default Dark", "Pitch Black", "Midnight Blue", "Deep Blood"}, function(colorName)
     local newBg = BgColors[colorName]
-    if newBg then RyuSavedConfig.BgColor = {math.floor(newBg.R*255), math.floor(newBg.G*255), math.floor(newBg.B*255)}; Theme.Background = newBg; if not RyuSavedConfig.GlassMode then TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundColor3 = newBg}):Play() end end
+    if newBg then
+        RyuSavedConfig.BgColor = {math.floor(newBg.R*255), math.floor(newBg.G*255), math.floor(newBg.B*255)}
+        Theme.Background = newBg
+        if not RyuSavedConfig.GlassMode then
+            TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundColor3 = newBg}):Play()
+        end
+    end
 end)
+
 CreateDropdown(SecWindow, "UI Font Style", {"Gotham", "Code", "Arcade", "SciFi", "Cartoon", "Fantasy", "Oswald"}, function(fontName)
-    RyuSavedConfig.Font = fontName; local targetFont = Enum.Font.Gotham
-    if fontName == "Code" then targetFont = Enum.Font.Code elseif fontName == "Arcade" then targetFont = Enum.Font.Arcade elseif fontName == "SciFi" then targetFont = Enum.Font.Michroma elseif fontName == "Cartoon" then targetFont = Enum.Font.Cartoon elseif fontName == "Fantasy" then targetFont = Enum.Font.Fantasy elseif fontName == "Oswald" then targetFont = Enum.Font.Oswald end
-    for _, obj in pairs(MainFrame:GetDescendants()) do if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then if obj.Font == Enum.Font.GothamBold then obj.Font = targetFont elseif obj.Font == Enum.Font.GothamMedium then obj.Font = targetFont else obj.Font = targetFont end end end
+    RyuSavedConfig.Font = fontName
+    local targetFont = Enum.Font.Gotham
+    if fontName == "Code" then targetFont = Enum.Font.Code
+    elseif fontName == "Arcade" then targetFont = Enum.Font.Arcade
+    elseif fontName == "SciFi" then targetFont = Enum.Font.Michroma
+    elseif fontName == "Cartoon" then targetFont = Enum.Font.Cartoon
+    elseif fontName == "Fantasy" then targetFont = Enum.Font.Fantasy
+    elseif fontName == "Oswald" then targetFont = Enum.Font.Oswald end
+    
+    for _, obj in pairs(MainFrame:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.Font == Enum.Font.GothamBold then obj.Font = targetFont
+            elseif obj.Font == Enum.Font.GothamMedium then obj.Font = targetFont
+            else obj.Font = targetFont end
+        end
+    end
 end)
-CreateToggle(SecWindow, "Hide Window Borders", "Removes the outer window line", RyuSavedConfig.HideBorders, function(state) RyuSavedConfig.HideBorders = state; mainStroke.Enabled = not state end)
-CreateSlider(SecWindow, "Window Roundness", 0, 24, RyuSavedConfig.Roundness, function(val) RyuSavedConfig.Roundness = val; MainCorner.CornerRadius = UDim.new(0, val) end)
+
+CreateToggle(SecWindow, "Hide Window Borders", "Removes the outer window line", RyuSavedConfig.HideBorders, function(state)
+    RyuSavedConfig.HideBorders = state
+    mainStroke.Enabled = not state
+end)
+
+CreateSlider(SecWindow, "Window Roundness", 0, 24, RyuSavedConfig.Roundness, function(val)
+    RyuSavedConfig.Roundness = val
+    MainCorner.CornerRadius = UDim.new(0, val)
+end)
+
 CreateTextBox(SecWindow, "Custom Background URL (Asset ID)...", function(txt)
-    if txt and txt ~= "" then local num = txt:match("%d+"); if num then local url = "rbxthumb://type=Asset&id="..num.."&w=768&h=432"; MainBgImage.Image = url; RyuSavedConfig.BgImage = url; MainBgImage.ImageTransparency = RyuSavedConfig.BgOpacity end else MainBgImage.Image = ""; RyuSavedConfig.BgImage = ""; MainBgImage.ImageTransparency = 1 end
+    if txt and txt ~= "" then
+        local num = txt:match("%d+")
+        if num then
+            local url = "rbxthumb://type=Asset&id="..num.."&w=768&h=432"
+            MainBgImage.Image = url
+            RyuSavedConfig.BgImage = url
+            MainBgImage.ImageTransparency = RyuSavedConfig.BgOpacity
+        end
+    else
+        MainBgImage.Image = ""
+        RyuSavedConfig.BgImage = ""
+        MainBgImage.ImageTransparency = 1
+    end
 end)
-CreateSlider(SecWindow, "Background Image Opacity", 0, 100, (1 - RyuSavedConfig.BgOpacity) * 100, function(val) local op = 1 - (val / 100); RyuSavedConfig.BgOpacity = op; if MainBgImage.Image ~= "" then MainBgImage.ImageTransparency = op end end)
+
+CreateSlider(SecWindow, "Background Image Opacity", 0, 100, (1 - RyuSavedConfig.BgOpacity) * 100, function(val)
+    local op = 1 - (val / 100)
+    RyuSavedConfig.BgOpacity = op
+    if MainBgImage.Image ~= "" then
+        MainBgImage.ImageTransparency = op
+    end
+end)
+
 local SecToggleUI = CreateSection(SubTheme, "Toggle Button Personalization")
-CreateTextBox(SecToggleUI, "Custom Icon ID (e.g. 6050149849)", function(txt) if txt and txt ~= "" then local num = txt:match("%d+"); if num then local url = "rbxthumb://type=Asset&id="..num.."&w=150&h=150"; ToggleBtn.Image = url; RyuSavedConfig.ToggleIcon = url end end end)
-CreateSlider(SecToggleUI, "Toggle Button Size", 30, 80, RyuSavedConfig.ToggleSize, function(val) RyuSavedConfig.ToggleSize = val; TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, val, 0, val)}):Play() end)
-CreateSlider(SecToggleUI, "Toggle Glow Intensity", 0, 100, (1 - RyuSavedConfig.ToggleGlow) * 100, function(val) local glow = 1 - (val / 100); RyuSavedConfig.ToggleGlow = glow; btnStroke.Transparency = glow end)
+
+CreateTextBox(SecToggleUI, "Custom Icon ID (e.g. 6050149849)", function(txt)
+    if txt and txt ~= "" then
+        local num = txt:match("%d+")
+        if num then 
+            local url = "rbxthumb://type=Asset&id="..num.."&w=150&h=150"
+            ToggleBtn.Image = url
+            RyuSavedConfig.ToggleIcon = url
+        end
+    end
+end)
+
+CreateSlider(SecToggleUI, "Toggle Button Size", 30, 80, RyuSavedConfig.ToggleSize, function(val)
+    RyuSavedConfig.ToggleSize = val
+    TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {Size = UDim2.new(0, val, 0, val)}):Play()
+end)
+
+CreateSlider(SecToggleUI, "Toggle Glow Intensity", 0, 100, (1 - RyuSavedConfig.ToggleGlow) * 100, function(val)
+    local glow = 1 - (val / 100)
+    RyuSavedConfig.ToggleGlow = glow
+    btnStroke.Transparency = glow
+end)
+
 local rainbowToggle = RyuSavedConfig.RainbowMode
-CreateToggle(SecToggleUI, "RGB Rainbow Ring", "Animates the toggle button border", RyuSavedConfig.RainbowMode, function(state) rainbowToggle = state; RyuSavedConfig.RainbowMode = state; if not state then btnStroke.Color = Theme.Accent end end)
-task.spawn(function() while true do if rainbowToggle then btnStroke.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1) end; task.wait(0.1) end end)
-CreateToggle(SecToggleUI, "Floating Icon Mode", "Removes the toggle button background", RyuSavedConfig.FloatingIcon, function(state) RyuSavedConfig.FloatingIcon = state; if state then TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play() else TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play() end end)
+CreateToggle(SecToggleUI, "RGB Rainbow Ring", "Animates the toggle button border", RyuSavedConfig.RainbowMode, function(state)
+    rainbowToggle = state
+    RyuSavedConfig.RainbowMode = state
+    if not state then btnStroke.Color = Theme.Accent end
+end)
+task.spawn(function()
+    while true do
+        if rainbowToggle then
+            btnStroke.Color = Color3.fromHSV(tick() % 5 / 5, 1, 1)
+        end
+        task.wait(0.1)
+    end
+end)
+
+CreateToggle(SecToggleUI, "Floating Icon Mode", "Removes the toggle button background", RyuSavedConfig.FloatingIcon, function(state)
+    RyuSavedConfig.FloatingIcon = state
+    if state then
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 1}):Play()
+    else
+        TweenService:Create(ToggleBtn, TweenInfo.new(0.2), {BackgroundTransparency = 0}):Play()
+    end
+end)
+
 local SecSave = CreateSection(SubTheme, "Config & System")
-CreateButton(SecSave, "Save Settings To File", Color3.fromRGB(50, 150, 50), function() SaveConfig() end)
+
+CreateButton(SecSave, "Save Settings To File", Color3.fromRGB(50, 150, 50), function()
+    SaveConfig()
+end)
+
 CreateButton(SecSave, "Reset UI Settings", Theme.Warning, function()
-    if delfile and isfile and isfile(configFileName) then pcall(function() delfile(configFileName) end) end
-    RyuSavedConfig = { GlassMode = false, WorldBlur = false, AccentColor = {255, 255, 255}, BgColor = {12, 12, 14}, Font = "Gotham", HideBorders = false, Roundness = 12, BgImage = "", BgOpacity = 0.6, ToggleIcon = "rbxthumb://type=Asset&id=6050149849&w=150&h=150", ToggleSize = 50, ToggleGlow = 0.5, RainbowMode = false, FloatingIcon = false, AutoImpelDown = false, ImpelFarmDistance = 15 }
-    Theme.Background = Color3.fromRGB(12, 12, 14); Theme.Accent = Color3.fromRGB(255, 255, 255)
+    if delfile and isfile and isfile(configFileName) then
+        pcall(function() delfile(configFileName) end)
+    end
+    
+    RyuSavedConfig = {
+        GlassMode = false, WorldBlur = false, AccentColor = {255, 255, 255}, BgColor = {12, 12, 14},
+        Font = "Gotham", HideBorders = false, Roundness = 12, BgImage = "", BgOpacity = 0.6,
+        ToggleIcon = "rbxthumb://type=Asset&id=6050149849&w=150&h=150", ToggleSize = 50, ToggleGlow = 0.5,
+        RainbowMode = false, FloatingIcon = false, AutoImpelDown = false, ImpelFarmDistance = 15
+    }
+    
+    Theme.Background = Color3.fromRGB(12, 12, 14)
+    Theme.Accent = Color3.fromRGB(255, 255, 255)
     TweenService:Create(MainFrame, TweenInfo.new(0.3), {BackgroundColor3 = Theme.Background, BackgroundTransparency = 0}):Play()
-    MainBgImage.Image = ""; mainStroke.Enabled = true; UIBlur.Size = 0; _G.BlurEnabled = false; btnStroke.Color = Theme.Accent; rainbowToggle = false; MainCorner.CornerRadius = UDim.new(0, 12); ToggleBtn.Image = RyuSavedConfig.ToggleIcon; ToggleBtn.Size = UDim2.new(0, 50, 0, 50); btnStroke.Transparency = 0.5; ToggleBtn.BackgroundTransparency = 0
+    
+    MainBgImage.Image = ""
+    mainStroke.Enabled = true
+    UIBlur.Size = 0
+    _G.BlurEnabled = false
+    btnStroke.Color = Theme.Accent
+    rainbowToggle = false
+    MainCorner.CornerRadius = UDim.new(0, 12)
+    ToggleBtn.Image = RyuSavedConfig.ToggleIcon
+    ToggleBtn.Size = UDim2.new(0, 50, 0, 50)
+    btnStroke.Transparency = 0.5
+    ToggleBtn.BackgroundTransparency = 0
+    
     for _, obj in pairs(MainFrame:GetDescendants()) do
         if obj:IsA("UIStroke") and obj.Color ~= Theme.Stroke and obj.Color ~= Theme.Warning then obj.Color = Theme.Accent end
         if obj:IsA("Frame") and obj.Name == "SectionContainer" then obj.BackgroundTransparency = 0 end
         if obj:IsA("Frame") and obj.Name == "DropdownContainer" then obj.BackgroundTransparency = 0 end
         if obj:IsA("TextBox") and obj.Name == "CustomTextBox" then obj.BackgroundTransparency = 0 end
-        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then if obj.Font ~= Enum.Font.GothamBold and obj.Font ~= Enum.Font.GothamMedium then obj.Font = Enum.Font.Gotham end end
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.Font ~= Enum.Font.GothamBold and obj.Font ~= Enum.Font.GothamMedium then
+                obj.Font = Enum.Font.Gotham
+            end
+        end
     end
 end)
 
-task.spawn(function() Tabs[1].Toggle(); Tabs[1].SubTabs[1].Open() end)
+-- INITIALISIERUNG
+task.spawn(function()
+    Tabs[1].Toggle()
+    Tabs[1].SubTabs[1].Open()
+end)
 
+-- SETTINGS LADEN BEIM START
 local function ApplyLoadedSettings()
     if RyuSavedConfig.GlassMode then
-        MainFrame.BackgroundTransparency = 0.4; MainFrame.BackgroundColor3 = Color3.fromRGB(5,5,5)
+        MainFrame.BackgroundTransparency = 0.4
+        MainFrame.BackgroundColor3 = Color3.fromRGB(5,5,5)
         for _, obj in pairs(MainFrame:GetDescendants()) do
-            if obj:IsA("Frame") and (obj.Name == "SectionContainer" or obj.Name == "DropdownContainer") then obj.BackgroundTransparency = 0.5 elseif obj:IsA("TextBox") and obj.Name == "CustomTextBox" then obj.BackgroundTransparency = 0.5 end
+            if obj:IsA("Frame") and (obj.Name == "SectionContainer" or obj.Name == "DropdownContainer") then
+                obj.BackgroundTransparency = 0.5
+            elseif obj:IsA("TextBox") and obj.Name == "CustomTextBox" then
+                obj.BackgroundTransparency = 0.5
+            end
         end
     end
+
     _G.BlurEnabled = RyuSavedConfig.WorldBlur
+
     local targetFont = Enum.Font.Gotham
-    if RyuSavedConfig.Font == "Code" then targetFont = Enum.Font.Code elseif RyuSavedConfig.Font == "Arcade" then targetFont = Enum.Font.Arcade elseif RyuSavedConfig.Font == "SciFi" then targetFont = Enum.Font.Michroma elseif RyuSavedConfig.Font == "Cartoon" then targetFont = Enum.Font.Cartoon elseif RyuSavedConfig.Font == "Fantasy" then targetFont = Enum.Font.Fantasy elseif RyuSavedConfig.Font == "Oswald" then targetFont = Enum.Font.Oswald end
-    for _, obj in pairs(MainFrame:GetDescendants()) do if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then if obj.Font == Enum.Font.GothamBold then obj.Font = targetFont elseif obj.Font == Enum.Font.GothamMedium then obj.Font = targetFont else obj.Font = targetFont end end end
-    mainStroke.Enabled = not RyuSavedConfig.HideBorders; MainCorner.CornerRadius = UDim.new(0, RyuSavedConfig.Roundness)
-    if RyuSavedConfig.BgImage ~= "" then MainBgImage.Image = RyuSavedConfig.BgImage; MainBgImage.ImageTransparency = RyuSavedConfig.BgOpacity end
-    ToggleBtn.Image = RyuSavedConfig.ToggleIcon; ToggleBtn.Size = UDim2.new(0, RyuSavedConfig.ToggleSize, 0, RyuSavedConfig.ToggleSize); btnStroke.Transparency = RyuSavedConfig.ToggleGlow; if RyuSavedConfig.FloatingIcon then ToggleBtn.BackgroundTransparency = 1 end
+    if RyuSavedConfig.Font == "Code" then targetFont = Enum.Font.Code
+    elseif RyuSavedConfig.Font == "Arcade" then targetFont = Enum.Font.Arcade
+    elseif RyuSavedConfig.Font == "SciFi" then targetFont = Enum.Font.Michroma
+    elseif RyuSavedConfig.Font == "Cartoon" then targetFont = Enum.Font.Cartoon
+    elseif RyuSavedConfig.Font == "Fantasy" then targetFont = Enum.Font.Fantasy
+    elseif RyuSavedConfig.Font == "Oswald" then targetFont = Enum.Font.Oswald end
+    for _, obj in pairs(MainFrame:GetDescendants()) do
+        if obj:IsA("TextLabel") or obj:IsA("TextButton") or obj:IsA("TextBox") then
+            if obj.Font == Enum.Font.GothamBold then obj.Font = targetFont
+            elseif obj.Font == Enum.Font.GothamMedium then obj.Font = targetFont
+            else obj.Font = targetFont end
+        end
+    end
+
+    mainStroke.Enabled = not RyuSavedConfig.HideBorders
+    MainCorner.CornerRadius = UDim.new(0, RyuSavedConfig.Roundness)
+
+    if RyuSavedConfig.BgImage ~= "" then
+        MainBgImage.Image = RyuSavedConfig.BgImage
+        MainBgImage.ImageTransparency = RyuSavedConfig.BgOpacity
+    end
+
+    ToggleBtn.Image = RyuSavedConfig.ToggleIcon
+    ToggleBtn.Size = UDim2.new(0, RyuSavedConfig.ToggleSize, 0, RyuSavedConfig.ToggleSize)
+    btnStroke.Transparency = RyuSavedConfig.ToggleGlow
+    if RyuSavedConfig.FloatingIcon then ToggleBtn.BackgroundTransparency = 1 end
 end
 ApplyLoadedSettings()
 
-local FlyDock = Instance.new("Frame", RyuHub); FlyDock.Size = UDim2.new(0, 180, 0, 120); FlyDock.Position = UDim2.new(0.7, 0, 0.5, 0); FlyDock.BackgroundColor3 = Theme.Background; FlyDock.Visible = false; FlyDock.Active = true; FlyDock.Draggable = true; Instance.new("UICorner", FlyDock).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", FlyDock).Color = Theme.Accent
-local function CreateDockBtn(txt, pos, size) local btn = Instance.new("TextButton", FlyDock); btn.Size = size; btn.Position = pos; btn.BackgroundColor3 = Theme.ToggleOff; btn.Font = Enum.Font.GothamBold; btn.Text = txt; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.TextSize = 14; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4); btn.MouseButton1Click:Connect(Ryuhub) end
-CreateDockBtn("W", UDim2.new(0.3, 0, 0.08, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("S", UDim2.new(0.3, 0, 0.62, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("A", UDim2.new(0.08, 0, 0.35, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("D", UDim2.new(0.52, 0, 0.35, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("UP", UDim2.new(0.78, 0, 0.12, 0), UDim2.new(0, 30, 0, 38)); CreateDockBtn("DOWN", UDim2.new(0.78, 0, 0.52, 0), UDim2.new(0, 30, 0, 38))
-
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.6: PURE REACTIVE & ANTI-STUN FIXED)
+--// IMPEL DOWN AUTO FARM ENGINE (V2.1: 2-STUD DISTANCE OFFSET)
 --// ============================================================================
 
+-- SIDE FEATURE: AUTO STATS
 task.spawn(function()
     while true do
         task.wait(3)
@@ -688,19 +1123,22 @@ task.spawn(function()
             pcall(function()
                 local rs = game:GetService("ReplicatedStorage")
                 if rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats") then
-                    rs.Events.stats:FireServer("Strength", {[3] = 700})
-                    rs.Events.stats:FireServer("Defense", {[3] = 800})
+                    local argsStr = {"Strength", {[3] = 700}}
+                    rs.Events.stats:FireServer(unpack(argsStr))
+                    
+                    local argsDef = {"Defense", {[3] = 800}}
+                    rs.Events.stats:FireServer(unpack(argsDef))
                 end
             end)
         end
     end
 end)
 
-_G.VeraSeen = false
+_G.ImpelState = "Init"
 
 task.spawn(function()
     while true do
-        task.wait(0.05)
+        task.wait(0.1)
         if not RyuSavedConfig.AutoImpelDown then continue end
 
         local char = LocalPlayer.Character
@@ -708,233 +1146,233 @@ task.spawn(function()
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
 
-        -- 1. DIFF CHOOSER (Immer priorisieren falls offen)
+        -- SCHRITT 1: Auto Nightmare Difficulty
         local diffChooser = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("DiffChooser")
         if diffChooser and diffChooser.Enabled then
-            pcall(function() diffChooser.Replication.RemoteEvent:FireServer("Nightmare", "check!") end)
+            pcall(function()
+                diffChooser.Replication.RemoteEvent:FireServer("Nightmare", "check!")
+            end)
             task.wait(0.5)
             continue 
         end
 
-        -- 2. VERA COMBAT (Komplett reaktiv auf den Workspace)
-        local npcsFolder = Workspace:FindFirstChild("NPCs")
-        local vera = npcsFolder and npcsFolder:FindFirstChild("Vera")
-        
+        -- SCHRITT 2: Finde und Töte Vera
+        local vera = Workspace:FindFirstChild("NPCs") and Workspace.NPCs:FindFirstChild("Vera")
         if vera then
+            _G.ImpelState = "Key" 
             local vHum = vera:FindFirstChildOfClass("Humanoid")
-            local vRoot = vera:FindFirstChild("HumanoidRootPart") or vera.PrimaryPart
-            
+            local vRoot = vera:FindFirstChild("HumanoidRootPart")
             if vHum and vRoot and vHum.Health > 0 then
-                _G.VeraSeen = true
+                if CheckHPAndFailsafe(root, hum) then continue end
                 
-                -- FAILSAFE (LOW HP BLOCK SPAM)
-                if hum.Health / hum.MaxHealth < 0.8 then
-                    ToggleHover(true)
-                    local safePos = root.Position + Vector3.new(0, 15, 0)
-                    root.CFrame = CFrame.new(safePos)
-                    if root:FindFirstChild("RyuHover") then root.RyuHover.Position = safePos end
-                    
-                    pcall(function() ReplicatedStorage.Events.Block:InvokeServer(true, "Melee", true) end)
-                    continue -- Überspringt den Angriff, blockt permanent und bleibt oben!
+                local attackPos = vRoot.Position + Vector3.new(0, 7.5, 0)
+                local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
+                
+                if (root.Position - attackPos).Magnitude > 15 then
+                    SafeTween(targetCFrame, 50, false)
                 else
-                    pcall(function() ReplicatedStorage.Events.Block:InvokeServer(false, "Melee", true) end)
+                    ToggleHover(true)
+                    root.CFrame = targetCFrame
+                    root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                 end
-                
-                -- SMART HEIGHT & DIAGONAL PURSUIT
-                if not _G.VeraHoverHeight then _G.VeraHoverHeight = 6 end
-                if not _G.VeraLastHp then _G.VeraLastHp = vHum.Health end
-                
-                if vHum.Health < _G.VeraLastHp then
-                    _G.VeraLastHp = vHum.Health
-                    _G.VeraLastHitTime = tick()
-                end
-                
-                -- Wenn 2 Sekunden kein Damage gemacht wurde, wieder nah ran gehen
-                if tick() - (_G.VeraLastHitTime or tick()) > 2 then
-                    _G.VeraHoverHeight = 6
-                    _G.VeraLastHitTime = tick() 
-                end
-
-                -- ANTI-STUN (Wird hart jede Millisekunde erzwungen)
-                hum.PlatformStand = false
-                hum.Sit = false
-                
-                local attackPos = vRoot.Position + Vector3.new(3, _G.VeraHoverHeight, 3)
-                local targetCFrame = CFrame.lookAt(attackPos, vRoot.Position)
-                
-                ToggleHover(true)
-                -- HARTES CFrame Setzen gegen Stun-Glitches
-                root.CFrame = targetCFrame
-                local bp = root:FindFirstChild("RyuHover")
-                if bp then bp.Position = attackPos end
-                root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 
                 EquipTargetWeapon()
                 PerformMeleeAttack({vera})
+                task.wait(0.05)
                 continue 
             end
         end
 
-        -- 3. CUTSCENE CHECK
-        local inCutscene = false
-        pcall(function()
-            if camera.CameraType == Enum.CameraType.Scriptable then inCutscene = true end
-            local pg = LocalPlayer:FindFirstChild("PlayerGui")
-            if pg and (pg:FindFirstChild("Cutscene") or pg:FindFirstChild("Cinematic") or pg:FindFirstChild("Dialogue")) then inCutscene = true end
-        end)
-
-        if inCutscene then
-            ToggleHover(false)
-            root.Velocity = Vector3.new(0, 0, 0)
-            if hum then hum:Move(Vector3.new(0,0,0), false) end
-            continue
-        end
-
-        -- 4. KEY Suchen (NUR WENN WIR VERA SCHON GESEHEN HABEN)
-        local keyPart = nil
-        pcall(function()
-            local effects = Workspace:FindFirstChild("Effects")
-            if effects then
-                local kModel = effects:FindFirstChild("Key")
-                if kModel then
-                    if kModel:IsA("BasePart") then keyPart = kModel 
-                    elseif kModel:FindFirstChild("Key") then keyPart = kModel.Key end
+        -- SCHRITT 3: Finde und sammle den Schlüssel (mit 2-Stud Abstand)
+        if _G.ImpelState == "Key" then
+            local keyPart = nil
+            pcall(function()
+                local effects = Workspace:FindFirstChild("Effects")
+                if effects then
+                    local kModel = effects:FindFirstChild("Key")
+                    if kModel then
+                        if kModel:IsA("BasePart") then keyPart = kModel 
+                        elseif kModel:FindFirstChild("Key") then keyPart = kModel.Key end
+                    end
                 end
-            end
-            if not keyPart then
-                local islands = Workspace:FindFirstChild("Islands")
-                if islands then
-                    for _, isl in pairs(islands:GetChildren()) do
-                        if isl.Name:find("Impel Base") then
-                            local spawns = isl:FindFirstChild("KeySpawns")
-                            if spawns then
-                                for _, k in pairs(spawns:GetChildren()) do
-                                    if k.Name == "Key" and k:IsA("BasePart") and k.Transparency < 1 then keyPart = k; break end
+                
+                if not keyPart then
+                    local islands = Workspace:FindFirstChild("Islands")
+                    if islands then
+                        for _, isl in pairs(islands:GetChildren()) do
+                            if isl.Name:find("Impel Base") then
+                                local spawns = isl:FindFirstChild("KeySpawns")
+                                if spawns then
+                                    for _, k in pairs(spawns:GetChildren()) do
+                                        if k.Name == "Key" and k:IsA("BasePart") and k.Transparency < 1 then
+                                            keyPart = k
+                                            break
+                                        end
+                                    end
                                 end
                             end
                         end
                     end
                 end
-            end
-        end)
+            end)
 
-        if _G.VeraSeen and keyPart then
-            local flatDir = Vector3.new(root.Position.X - keyPart.Position.X, 0, root.Position.Z - keyPart.Position.Z)
-            if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
-            local safePos = keyPart.Position + flatDir.Unit * 2
-            local safeCFrame = CFrame.lookAt(safePos, keyPart.Position)
-
-            local dist = (root.Position - keyPart.Position).Magnitude
-            if dist > 4 then
-                ToggleHover(false)
-                SpiderLerp(safePos, 45) 
-            else
-                root.CFrame = safeCFrame
-                root.Velocity = Vector3.new(0,0,0)
-                
-                local prompt = keyPart:FindFirstChildOfClass("ProximityPrompt")
-                if prompt then
-                    if fireproximityprompt then fireproximityprompt(prompt, 1) else
-                        prompt:InputHoldBegin() task.wait(prompt.HoldDuration + 0.1) prompt:InputHoldEnd()
-                    end
-                else
-                    pcall(function()
-                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                        task.wait(0.1)
-                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                    end)
+            if keyPart then
+                if not _G.KeyWaitTriggered then
+                    _G.KeyWaitTriggered = true
+                    task.wait(4) 
                 end
-                task.wait(0.5)
+
+                pcall(function()
+                    if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint") then
+                        ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457")
+                    end
+                end)
+                
+                local flatDir = Vector3.new(root.Position.X - keyPart.Position.X, 0, root.Position.Z - keyPart.Position.Z)
+                if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
+                local safeCFrame = CFrame.lookAt(keyPart.Position + flatDir.Unit * 2, keyPart.Position)
+
+                local dist = (root.Position - keyPart.Position).Magnitude
+                if dist > 4 then
+                    ToggleHover(false)
+                    hum.WalkSpeed = 45
+                    hum:MoveTo(keyPart.Position)
+                    SafeTween(safeCFrame, 45, true) 
+                else
+                    root.CFrame = safeCFrame
+                    root.Velocity = Vector3.new(0,0,0)
+                    
+                    local prompt = keyPart:FindFirstChildOfClass("ProximityPrompt")
+                    if prompt then
+                        if fireproximityprompt then fireproximityprompt(prompt, 1) else
+                            prompt:InputHoldBegin() task.wait(prompt.HoldDuration + 0.1) prompt:InputHoldEnd()
+                        end
+                    else
+                        pcall(function()
+                            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                            task.wait(0.1)
+                            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                        end)
+                    end
+                    task.wait(0.5)
+                end
+                task.wait(0.1)
+                continue
+            elseif _G.KeyWaitTriggered then
+                _G.ImpelState = "Chests"
+                _G.KeyWaitTriggered = false
             end
+        end
+        
+        -- SCHRITT 4: 3 Kisten Looten (mit 2-Stud Abstand)
+        if _G.ImpelState == "Chests" then
+            task.wait(2)
+            
+            local chests = {}
+            pcall(function()
+                for _, v in pairs(Workspace:GetDescendants()) do
+                    if v:IsA("Model") and v:FindFirstChild("Lock") and v:FindFirstChild("Top") then
+                        if v.Name:match("-") or v.Name:find("Chest") then
+                            table.insert(chests, v)
+                        end
+                    end
+                end
+            end)
+            
+            local collected = 0
+            for _, chest in ipairs(chests) do
+                if collected >= 3 then break end
+                if not RyuSavedConfig.AutoImpelDown then break end
+                
+                local cPart = chest:FindFirstChild("Lock") or chest.PrimaryPart
+                if cPart then
+                    local targetPos = cPart:IsA("Model") and cPart:GetPivot().Position or cPart.Position
+                    local flatDir = Vector3.new(root.Position.X - targetPos.X, 0, root.Position.Z - targetPos.Z)
+                    if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
+                    local safeCFrame = CFrame.lookAt(targetPos + flatDir.Unit * 2, targetPos)
+
+                    ToggleHover(false)
+                    hum.WalkSpeed = 45
+                    hum:MoveTo(targetPos)
+                    SafeTween(safeCFrame, 45, true)
+                    
+                    root.CFrame = safeCFrame
+                    root.Velocity = Vector3.new(0,0,0)
+                    
+                    local prompt = chest:FindFirstChildOfClass("ProximityPrompt", true)
+                    if prompt then
+                        if fireproximityprompt then fireproximityprompt(prompt, 1) else
+                            prompt:InputHoldBegin() task.wait(prompt.HoldDuration + 0.1) prompt:InputHoldEnd()
+                        end
+                    else
+                        pcall(function()
+                            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+                            task.wait(0.1)
+                            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+                        end)
+                    end
+                    task.wait(3) 
+                    collected = collected + 1
+                end
+            end
+            
+            _G.ImpelState = "Waypoints"
             continue
         end
 
-        -- 5. IMPEL GUARDS
-        local guards = {}
-        if _G.VeraSeen and not keyPart and npcsFolder then
+        -- SCHRITT 5: Wegpunkte Ablaufen
+        if _G.ImpelState == "Waypoints" then
+            local wp1 = Vector3.new(2941.29, 2075.25, -13574.59)
+            local wp2 = Vector3.new(2952.60, 2075.15, -13848.57)
+            
+            SafeTween(CFrame.new(wp1), 45, true)
+            task.wait(1)
+            SafeTween(CFrame.new(wp2), 45, true)
+            
+            _G.ImpelState = "Guards"
+            continue
+        end
+
+        -- SCHRITT 6: Impel Guards farmen
+        if _G.ImpelState == "Guards" then
+            local npcsFolder = Workspace:FindFirstChild("NPCs")
+            if not npcsFolder then continue end
+            
+            local guards = {}
             for _, v in pairs(npcsFolder:GetChildren()) do
                 if v.Name:find("Impel Guard") then
                     local gHum = v:FindFirstChildOfClass("Humanoid")
-                    if gHum and gHum.Health > 0 then table.insert(guards, v) end
+                    if gHum and gHum.Health > 0 then
+                        table.insert(guards, v)
+                    end
                 end
             end
             
             if #guards > 0 then
                 local target = guards[1]
-                local tRoot = target:FindFirstChild("HumanoidRootPart") or target.PrimaryPart
-                local tHum = target:FindFirstChildOfClass("Humanoid")
-                
-                if tRoot and tHum then
-                    -- FAILSAFE (LOW HP BLOCK SPAM)
-                    if hum.Health / hum.MaxHealth < 0.8 then
-                        ToggleHover(true)
-                        local safePos = root.Position + Vector3.new(0, 15, 0)
-                        root.CFrame = CFrame.new(safePos)
-                        if root:FindFirstChild("RyuHover") then root.RyuHover.Position = safePos end
-                        pcall(function() ReplicatedStorage.Events.Block:InvokeServer(true, "Melee", true) end)
-                        continue 
+                local tRoot = target:FindFirstChild("HumanoidRootPart")
+                if tRoot then
+                    if CheckHPAndFailsafe(root, hum) then continue end
+                    
+                    local attackPos = tRoot.Position + Vector3.new(0, 7.5, 0)
+                    local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
+                    
+                    if (root.Position - attackPos).Magnitude > 15 then
+                        SafeTween(targetCFrame, 50, false)
                     else
-                        pcall(function() ReplicatedStorage.Events.Block:InvokeServer(false, "Melee", true) end)
+                        ToggleHover(true)
+                        root.CFrame = targetCFrame
+                        root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                        root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                     end
-                    
-                    if not _G.GuardHoverHeight then _G.GuardHoverHeight = 6 end
-                    if not _G.GuardLastHp then _G.GuardLastHp = tHum.Health end
-                    
-                    if tHum.Health < _G.GuardLastHp then
-                        _G.GuardLastHp = tHum.Health
-                        _G.GuardLastHitTime = tick()
-                    end
-                    
-                    if tick() - (_G.GuardLastHitTime or tick()) > 2 then
-                        _G.GuardHoverHeight = 6
-                        _G.GuardLastHitTime = tick()
-                    end
-                    
-                    -- ANTI-STUN
-                    hum.PlatformStand = false
-                    hum.Sit = false
-
-                    local attackPos = tRoot.Position + Vector3.new(3, _G.GuardHoverHeight, 3)
-                    local targetCFrame = CFrame.lookAt(attackPos, tRoot.Position)
-                    
-                    ToggleHover(true)
-                    root.CFrame = targetCFrame
-                    local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = attackPos end
-                    root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                    root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
 
                     EquipTargetWeapon()
                     PerformMeleeAttack(guards) 
+                    task.wait(0.05)
                 end
-                continue
-            end
-        end
-
-        -- 6. LABYRINTH / WAYPOINTS
-        if _G.VeraSeen and not keyPart and #guards == 0 then
-            local labyrinthTarget = Vector3.new(2664.91, 2075.15, -15491.03)
-            if (root.Position - labyrinthTarget).Magnitude > 5 then
-                ToggleHover(false)
-                local path = PathfindingService:CreatePath({AgentRadius = 2.5, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 4})
-                local success, err = pcall(function() path:ComputeAsync(root.Position, labyrinthTarget) end)
-                if success and path.Status == Enum.PathStatus.Success then
-                    local waypoints = path:GetWaypoints()
-                    for i, waypoint in ipairs(waypoints) do
-                        if not RyuSavedConfig.AutoImpelDown then break end
-                        if waypoint.Action == Enum.PathWaypointAction.Jump then hum.Jump = true end
-                        SpiderLerp(waypoint.Position, 45)
-                        if (root.Position - waypoint.Position).Magnitude > 15 then break end
-                    end
-                else
-                    task.wait(1)
-                end
-            else
-                root.Velocity = Vector3.new(0, 0, 0)
             end
             continue
         end
-
     end
 end)
