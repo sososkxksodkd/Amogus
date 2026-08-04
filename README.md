@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & LEGIT PATHFINDING)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & SPIDERLERP ENGINE)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -552,7 +552,198 @@ local function CreateDropdown(section, headerText, itemsList, callback)
 end
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM COMBAT FUNCTIONS
+--// SPIDERLERP TRANSPORT ENGINE (LEGIT PATHFINDING / WALL EVASION)
+--// ============================================================================
+
+local function ToggleHover(state)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    if state then
+        local bp = root:FindFirstChild("RyuHover")
+        if not bp then
+            bp = Instance.new("BodyPosition")
+            bp.Name = "RyuHover"
+            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bp.D = 500
+            bp.P = 50000
+            bp.Parent = root
+        end
+        bp.Position = root.Position
+    else
+        local bp = root:FindFirstChild("RyuHover")
+        if bp then bp:Destroy() end
+    end
+end
+
+local function SpiderLerp(tPos, currentSpeed)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not root or not hum then return end
+
+    local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
+    local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
+    local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
+
+    local floorOffset = (hum.HipHeight or 2) + (root.Size.Y / 2)
+    local baseMinY = 1
+
+    local rayParams = RaycastParams.new()
+    local ignoreList = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+    pcall(function()
+        if Workspace:FindFirstChild("Env") then
+            for _, v in pairs(Workspace.Env:GetDescendants()) do
+                if v.Name:lower():find("tree") or v.Name:lower():find("leaf") or v.Name:lower():find("prop") or v.Name:lower():find("fence") then
+                    table.insert(ignoreList, v)
+                end
+            end
+        end
+    end)
+    rayParams.FilterDescendantsInstances = ignoreList
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+    rayParams.IgnoreWater = true
+
+    local function GetTrueTopY(x, z)
+        local currentFilter = table.clone(ignoreList)
+        local rParams = RaycastParams.new()
+        rParams.FilterType = Enum.RaycastFilterType.Exclude
+        rParams.IgnoreWater = true
+        local origin = Vector3.new(x, 3000, z)
+        local dir = Vector3.new(0, -4000, 0)
+        for i = 1, 10 do
+            rParams.FilterDescendantsInstances = currentFilter
+            local hit = Workspace:Raycast(origin, dir, rParams)
+            if hit then
+                local name = hit.Instance.Name:lower()
+                if name:find("tree") or name:find("leaf") or name:find("grass") or name:find("stone") then
+                    table.insert(currentFilter, hit.Instance)
+                elseif hit.Instance.Transparency < 1 then
+                    return math.max(hit.Position.Y + floorOffset, baseMinY)
+                else
+                    table.insert(currentFilter, hit.Instance)
+                end
+            else
+                break
+            end
+        end
+        return baseMinY
+    end
+
+    local startPos = root.Position
+    local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
+    local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
+    local totalDist = (flatStart - flatTarget).Magnitude
+    
+    if totalDist < 5 then
+        root.CFrame = CFrame.new(tPos)
+        return true 
+    end 
+    
+    local elapsedTime = 0
+    local currentY = root.Position.Y
+    local isClimbingState = false
+
+    -- Sprint permanent aktiv
+    pcall(function() if sprintEvent then sprintEvent:FireServer("rbxassetid://15382065457") end end)
+
+    ToggleHover(true)
+
+    while elapsedTime < 100 do
+        if not RyuSavedConfig.AutoImpelDown then break end
+        local dt = RunService.Heartbeat:Wait()
+        dt = math.clamp(dt, 0.001, 0.05)
+        
+        local currentPos = root.Position
+        local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
+        local remainingDist = (flatCurrent - flatTarget).Magnitude
+        
+        if remainingDist <= 5 then break end
+        
+        local stepDist = math.min((currentSpeed or 60) * dt, remainingDist)
+        
+        local flatMoveDir = (flatTarget - flatCurrent)
+        if flatMoveDir.Magnitude > 0.1 then 
+            flatMoveDir = flatMoveDir.Unit 
+        else 
+            flatMoveDir = root.CFrame.LookVector 
+        end
+        
+        local nextX = currentPos.X + (flatMoveDir.X * stepDist)
+        local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
+        local calcPos = Vector3.new(nextX, currentY, nextZ)
+        
+        local rightOffset = Vector3.new(flatMoveDir.Z, 0, -flatMoveDir.X) * 2.5
+        local wallCenter = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams)
+        local wallLeft = Workspace:Raycast(calcPos - rightOffset, flatMoveDir * 4, rayParams)
+        local wallRight = Workspace:Raycast(calcPos + rightOffset, flatMoveDir * 4, rayParams)
+        
+        local headPart = char:FindFirstChild("Head")
+        local headHit = false
+        if headPart then
+            local headRay = Workspace:Raycast(headPart.Position, flatMoveDir * 4, rayParams)
+            if headRay and headRay.Instance and headRay.Instance.Transparency < 1 then headHit = true end
+        end
+        
+        local groundYCurrent = GetTrueTopY(nextX, nextZ)
+        local targetY = groundYCurrent
+
+        local activeHit = wallCenter or wallLeft or wallRight or headHit
+        if activeHit then
+            local hitObjPos = (typeof(activeHit) == "RaycastResult") and activeHit.Position or (calcPos + flatMoveDir * 4)
+            local obstacleTopY = GetTrueTopY(hitObjPos.X + (flatMoveDir.X * 0.8), hitObjPos.Z + (flatMoveDir.Z * 0.8))
+            targetY = math.max(targetY, obstacleTopY)
+            
+            if not isClimbingState then
+                isClimbingState = true
+                if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
+            end
+        else
+            local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
+            local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z)
+            targetY = math.max(groundYCurrent, groundYAhead)
+        end
+        
+        local advanceSpeed = 1
+        if (isClimbingState or headHit) and currentY < targetY - 0.5 then
+            advanceSpeed = 0
+        end
+
+        local maxYStep = (isClimbingState or headHit) and (75 * dt * 25) or (35 * dt * 25)
+        local yDiff = targetY - currentY
+        
+        if yDiff > 0 then currentY = math.min(currentY + maxYStep, targetY)
+        elseif yDiff < 0 then currentY = math.max(currentY - maxYStep, targetY) end
+        
+        if (isClimbingState or headHit) and math.abs(currentY - targetY) <= 0.5 then
+            isClimbingState = false
+            headHit = false
+            if footstepEvent then pcall(function() footstepEvent:FireServer("land") end) end
+            if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+        end
+        
+        currentY = math.max(currentY, baseMinY)
+        elapsedTime = elapsedTime + (dt * advanceSpeed)
+        
+        local finalPos = Vector3.new(nextX, currentY, nextZ)
+        local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
+        
+        root.CFrame = CFrame.lookAt(finalPos, lookPos)
+        if hum then hum:Move(flatMoveDir * advanceSpeed, false) end
+        root.Velocity = Vector3.new(flatMoveDir.X * (currentSpeed or 60) * advanceSpeed, 0, flatMoveDir.Z * (currentSpeed or 60) * advanceSpeed)
+        
+        local bp = root:FindFirstChild("RyuHover")
+        if bp then bp.Position = finalPos end
+    end
+    
+    if hum then hum:Move(Vector3.new(0,0,0), false) end
+    root.Velocity = Vector3.new(0, 0, 0)
+    return true
+end
+
+--// ============================================================================
+--// COMBAT FUNCTIONS
 --// ============================================================================
 
 local currentComboIndex = 1
@@ -651,109 +842,6 @@ local function PerformMeleeAttack(targets)
             end)
         end
     end)
-end
-
--- TWEEN FUNCTION WITH TP CHECK BYPASS & CLIMB ANTI-STUCK
-local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    local startPos = root.Position
-    local targetPos = targetCFrame.Position
-    local dist = (targetPos - startPos).Magnitude
-    
-    local speed = customSpeed or 50 
-    local timeToTake = dist / speed
-    
-    if timeToTake < 0.1 then 
-        root.CFrame = targetCFrame
-        return 
-    end
-
-    local startTime = tick()
-    
-    local bp = root:FindFirstChild("RyuHover")
-    if not bp then
-        bp = Instance.new("BodyPosition")
-        bp.Name = "RyuHover"
-        bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bp.D = 500
-        bp.P = 50000
-        bp.Parent = root
-    end
-
-    local lastRealPos = root.Position
-    local stuckTicks = 0
-
-    while tick() - startTime < timeToTake do
-        if not RyuSavedConfig.AutoImpelDown then break end
-        
-        -- TP CHECK BYPASS
-        if isMoveCheck and (root.Position - lastRealPos).Magnitude > 20 then
-            bp.Position = root.Position
-            task.wait(1) 
-            startPos = root.Position
-            dist = (targetPos - startPos).Magnitude
-            timeToTake = dist / speed
-            startTime = tick()
-        end
-        
-        -- ANTI-STUCK
-        if isMoveCheck then
-            if (root.Position - lastRealPos).Magnitude < 0.5 then
-                stuckTicks = stuckTicks + 1
-                if stuckTicks > 5 then
-                    pcall(function()
-                        if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb") then
-                            ReplicatedStorage.Events.climb:InvokeServer(true)
-                        end
-                    end)
-                end
-            else
-                stuckTicks = 0
-                pcall(function()
-                    if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb") then
-                        ReplicatedStorage.Events.climb:InvokeServer(false)
-                    end
-                end)
-            end
-        end
-        
-        lastRealPos = root.Position
-
-        local alpha = (tick() - startTime) / timeToTake
-        local intermediatePos = startPos:Lerp(targetPos, alpha)
-        
-        bp.Position = intermediatePos
-        root.CFrame = CFrame.new(intermediatePos) * targetCFrame.Rotation
-        RunService.Heartbeat:Wait()
-    end
-    
-    bp.Position = targetPos
-    root.CFrame = targetCFrame
-end
-
-local function ToggleHover(state)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-    
-    if state then
-        local bp = root:FindFirstChild("RyuHover")
-        if not bp then
-            bp = Instance.new("BodyPosition")
-            bp.Name = "RyuHover"
-            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-            bp.D = 500
-            bp.P = 50000
-            bp.Parent = root
-        end
-        bp.Position = root.Position
-    else
-        local bp = root:FindFirstChild("RyuHover")
-        if bp then bp:Destroy() end
-    end
 end
 
 -- HP FAILSAFE
@@ -1064,6 +1152,24 @@ task.spawn(function()
     Tabs[1].SubTabs[1].Open()
 end)
 
+-- MOBILE FLY DOCK
+local FlyDock = Instance.new("Frame", RyuHub)
+FlyDock.Size = UDim2.new(0, 180, 0, 120); FlyDock.Position = UDim2.new(0.7, 0, 0.5, 0); FlyDock.BackgroundColor3 = Theme.Background
+FlyDock.Visible = false; FlyDock.Active = true; FlyDock.Draggable = true
+Instance.new("UICorner", FlyDock).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", FlyDock).Color = Theme.Accent
+local function CreateDockBtn(txt, pos, size)
+    local btn = Instance.new("TextButton", FlyDock)
+    btn.Size = size; btn.Position = pos; btn.BackgroundColor3 = Theme.ToggleOff; btn.Font = Enum.Font.GothamBold; btn.Text = txt; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.TextSize = 14
+    Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4)
+    btn.MouseButton1Click:Connect(Ryuhub)
+end
+CreateDockBtn("W", UDim2.new(0.3, 0, 0.08, 0), UDim2.new(0, 32, 0, 32))
+CreateDockBtn("S", UDim2.new(0.3, 0, 0.62, 0), UDim2.new(0, 32, 0, 32))
+CreateDockBtn("A", UDim2.new(0.08, 0, 0.35, 0), UDim2.new(0, 32, 0, 32))
+CreateDockBtn("D", UDim2.new(0.52, 0, 0.35, 0), UDim2.new(0, 32, 0, 32))
+CreateDockBtn("UP", UDim2.new(0.78, 0, 0.12, 0), UDim2.new(0, 30, 0, 38))
+CreateDockBtn("DOWN", UDim2.new(0.78, 0, 0.52, 0), UDim2.new(0, 30, 0, 38))
+
 -- SETTINGS LADEN BEIM START
 local function ApplyLoadedSettings()
     if RyuSavedConfig.GlassMode then
@@ -1111,7 +1217,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.3: LABYRINTH ADDED, CHESTS REMOVED)
+--// IMPEL DOWN AUTO FARM ENGINE (V2.4: SPIDERLERP VERA FIX)
 --// ============================================================================
 
 -- SIDE FEATURE: AUTO STATS
@@ -1134,6 +1240,8 @@ task.spawn(function()
 end)
 
 _G.ImpelState = "Init"
+_G.VeraLastHp = nil
+_G.VeraLastHitTime = tick()
 
 task.spawn(function()
     while true do
@@ -1164,14 +1272,24 @@ task.spawn(function()
             if vHum and vRoot and vHum.Health > 0 then
                 if CheckHPAndFailsafe(root, hum) then continue end
                 
-                local attackPos = vRoot.Position + Vector3.new(0, 7.5, 0)
-                local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
+                -- Smart Re-Tween Tracking
+                if not _G.VeraLastHp then _G.VeraLastHp = vHum.Health end
+                if vHum.Health < _G.VeraLastHp then
+                    _G.VeraLastHp = vHum.Health
+                    _G.VeraLastHitTime = tick()
+                end
                 
-                if (root.Position - attackPos).Magnitude > 15 then
-                    SafeTween(targetCFrame, 50, false)
+                local timeSinceLastHit = tick() - _G.VeraLastHitTime
+                
+                local attackPos = vRoot.Position + Vector3.new(0, 6, 0)
+                local targetCFrame = CFrame.lookAt(attackPos, vRoot.Position)
+                
+                if (root.Position - attackPos).Magnitude > 15 or timeSinceLastHit > 2 then
+                    SpiderLerp(attackPos, 50)
+                    _G.VeraLastHitTime = tick() 
                 else
                     ToggleHover(true)
-                    root.CFrame = targetCFrame
+                    root.CFrame = root.CFrame:Lerp(targetCFrame, 0.5)
                     root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                     root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                 end
@@ -1222,22 +1340,15 @@ task.spawn(function()
                     task.wait(4) 
                 end
 
-                pcall(function()
-                    if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint") then
-                        ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457")
-                    end
-                end)
-                
                 local flatDir = Vector3.new(root.Position.X - keyPart.Position.X, 0, root.Position.Z - keyPart.Position.Z)
                 if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
-                local safeCFrame = CFrame.lookAt(keyPart.Position + flatDir.Unit * 2, keyPart.Position)
+                local safePos = keyPart.Position + flatDir.Unit * 2
+                local safeCFrame = CFrame.lookAt(safePos, keyPart.Position)
 
                 local dist = (root.Position - keyPart.Position).Magnitude
                 if dist > 4 then
                     ToggleHover(false)
-                    hum.WalkSpeed = 45
-                    hum:MoveTo(keyPart.Position)
-                    SafeTween(safeCFrame, 45, true) 
+                    SpiderLerp(safePos, 45) 
                 else
                     root.CFrame = safeCFrame
                     root.Velocity = Vector3.new(0,0,0)
@@ -1269,9 +1380,9 @@ task.spawn(function()
             local wp1 = Vector3.new(2941.29, 2075.25, -13574.59)
             local wp2 = Vector3.new(2952.60, 2075.15, -13848.57)
             
-            SafeTween(CFrame.new(wp1), 45, true)
+            SpiderLerp(wp1, 45)
             task.wait(1)
-            SafeTween(CFrame.new(wp2), 45, true)
+            SpiderLerp(wp2, 45)
             
             _G.ImpelState = "Guards"
             continue
@@ -1295,17 +1406,27 @@ task.spawn(function()
             if #guards > 0 then
                 local target = guards[1]
                 local tRoot = target:FindFirstChild("HumanoidRootPart")
-                if tRoot then
+                local tHum = target:FindFirstChildOfClass("Humanoid")
+                if tRoot and tHum then
                     if CheckHPAndFailsafe(root, hum) then continue end
                     
-                    local attackPos = tRoot.Position + Vector3.new(0, 7.5, 0)
-                    local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
+                    if not _G.GuardLastHp then _G.GuardLastHp = tHum.Health end
+                    if tHum.Health < _G.GuardLastHp then
+                        _G.GuardLastHp = tHum.Health
+                        _G.GuardLastHitTime = tick()
+                    end
                     
-                    if (root.Position - attackPos).Magnitude > 15 then
-                        SafeTween(targetCFrame, 50, false)
+                    local timeSinceLastHit = tick() - (_G.GuardLastHitTime or tick())
+                    
+                    local attackPos = tRoot.Position + Vector3.new(0, 6, 0)
+                    local targetCFrame = CFrame.lookAt(attackPos, tRoot.Position)
+                    
+                    if (root.Position - attackPos).Magnitude > 15 or timeSinceLastHit > 2 then
+                        SpiderLerp(attackPos, 50)
+                        _G.GuardLastHitTime = tick()
                     else
                         ToggleHover(true)
-                        root.CFrame = targetCFrame
+                        root.CFrame = root.CFrame:Lerp(targetCFrame, 0.5)
                         root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                         root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                     end
@@ -1328,7 +1449,6 @@ task.spawn(function()
             if (root.Position - labyrinthTarget).Magnitude > 5 then
                 ToggleHover(false)
                 
-                -- Berechne echten, physischen Weg
                 local path = PathfindingService:CreatePath({
                     AgentRadius = 2.5,
                     AgentHeight = 5,
@@ -1345,28 +1465,17 @@ task.spawn(function()
                     for i, waypoint in ipairs(waypoints) do
                         if not RyuSavedConfig.AutoImpelDown then break end
                         
-                        -- Permanent Sprint spamming
-                        pcall(function()
-                            if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint") then
-                                ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457")
-                            end
-                        end)
-                        
                         if waypoint.Action == Enum.PathWaypointAction.Jump then
                             hum.Jump = true
                         end
                         
-                        hum.WalkSpeed = 45
-                        hum:MoveTo(waypoint.Position)
-                        SafeTween(CFrame.new(waypoint.Position), 45, true)
+                        SpiderLerp(waypoint.Position, 45)
                         
-                        -- Wenn wir hängen bleiben oder TP Check uns zurückzieht, brich die for-Schleife ab und berechne Pfad neu
                         if (root.Position - waypoint.Position).Magnitude > 15 then
                             break
                         end
                     end
                 else
-                    -- Fallback, falls der Pfad nicht berechnet werden kann
                     task.wait(1)
                 end
             else
