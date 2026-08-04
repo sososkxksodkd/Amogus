@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & VERA ANTI-FREEZE)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & VERA COMBAT FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -928,20 +928,21 @@ local function ToggleHover(state)
     end
 end
 
--- HP FAILSAFE
+-- HP FAILSAFE (DAUERHAFT BLOCKEN)
 local function CheckHPAndFailsafe(root, hum)
     if hum.Health / hum.MaxHealth < 0.8 then
         ToggleHover(true)
         root.CFrame = root.CFrame + Vector3.new(0, 14, 0)
         
-        pcall(function()
-            if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Block") then
-                ReplicatedStorage.Events.Block:InvokeServer(true, "Melee", true)
-            end
-        end)
-        
         while hum.Health / hum.MaxHealth < 0.8 do
-            task.wait(0.5)
+            if not RyuSavedConfig.AutoImpelDown then break end
+            pcall(function()
+                if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Block") then
+                    ReplicatedStorage.Events.Block:InvokeServer(true, "Melee", true)
+                end
+            end)
+            root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+            task.wait(0.2)
         end
         
         pcall(function()
@@ -1301,7 +1302,7 @@ CreateDockBtn("UP", UDim2.new(0.78, 0, 0.12, 0), UDim2.new(0, 30, 0, 38))
 CreateDockBtn("DOWN", UDim2.new(0.78, 0, 0.52, 0), UDim2.new(0, 30, 0, 38))
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.5: VERA DIAGONAL LOCK & SMART RETWEEN)
+--// IMPEL DOWN AUTO FARM ENGINE (V2.5: SMART HOVER COMBAT)
 --// ============================================================================
 
 -- SIDE FEATURE: AUTO STATS
@@ -1329,7 +1330,7 @@ _G.CutsceneStarted = false
 
 task.spawn(function()
     while true do
-        task.wait(0.1)
+        task.wait(0.05)
         if not RyuSavedConfig.AutoImpelDown then continue end
 
         local char = LocalPlayer.Character
@@ -1347,7 +1348,7 @@ task.spawn(function()
             continue 
         end
 
-        -- SCHRITT 2: Finde und Töte Vera
+        -- SCHRITT 2: Finde und Töte Vera (Smart Hover Combat)
         if _G.ImpelState == "Init" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             local vera = npcsFolder and npcsFolder:FindFirstChild("Vera")
@@ -1356,10 +1357,20 @@ task.spawn(function()
                 local vHum = vera:FindFirstChildOfClass("Humanoid")
                 local vRoot = vera:FindFirstChild("HumanoidRootPart")
                 
-                if vHum and vRoot and vHum.Health > 0 then
+                if vHum and vRoot and (vHum.Health > 0 or vHum.MaxHealth > 0) then
                     _G.VeraSpawnedAndRegistered = true
                     if CheckHPAndFailsafe(root, hum) then continue end
                     
+                    if not _G.VeraHoverHeight then _G.VeraHoverHeight = 6 end
+                    if not _G.PlayerLastHp then _G.PlayerLastHp = hum.Health end
+
+                    -- Spieler verliert Leben = Geh höher
+                    if hum.Health < _G.PlayerLastHp then
+                        _G.VeraHoverHeight = math.min(12, _G.VeraHoverHeight + 1)
+                    end
+                    _G.PlayerLastHp = hum.Health
+                    
+                    -- Vera verliert Leben = Merken
                     if not _G.VeraLastHp then _G.VeraLastHp = vHum.Health end
                     if vHum.Health < _G.VeraLastHp then
                         _G.VeraLastHp = vHum.Health
@@ -1367,43 +1378,33 @@ task.spawn(function()
                     end
                     
                     local timeSinceLastHit = tick() - (_G.VeraLastHitTime or tick())
-                    local playerPos = root.Position
-                    local mobPos = vRoot.Position
-
-                    local flatDir = Vector3.new(playerPos.X - mobPos.X, 0, playerPos.Z - mobPos.Z)
-                    if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
-
-                    local distToMob = (playerPos - mobPos).Magnitude
                     
-                    -- Ausweichmanöver: Wenn Vera uns berührt (< 5 Studs), gehen wir 1 Stud höher (7 statt 6)
-                    local heightOffset = 6
-                    if distToMob < 5 then
-                        heightOffset = 7
+                    -- 2 Sekunden kein Damage gemacht = Geh näher ran
+                    if timeSinceLastHit > 2 then
+                        _G.VeraHoverHeight = math.max(4, _G.VeraHoverHeight - 1)
+                        _G.VeraLastHitTime = tick() 
                     end
-
-                    -- Diagonal hinter sie: -LookVector für hinten
-                    local attackPos = mobPos - (vRoot.CFrame.LookVector * 4) + Vector3.new(0, heightOffset, 0)
-                    local targetRot = CFrame.lookAt(playerPos, mobPos)
-
-                    if distToMob > 15 or timeSinceLastHit > 2 then
+                    
+                    -- Diagonale Position über ihr (2 Studs X/Z Offset) und sie anschauen
+                    local attackPos = vRoot.Position + Vector3.new(2, _G.VeraHoverHeight, 2)
+                    local targetCFrame = CFrame.lookAt(attackPos, vRoot.Position)
+                    
+                    local dist = (root.Position - attackPos).Magnitude
+                    if dist > 25 then 
                         ToggleHover(false)
-                        SafeTween(CFrame.new(attackPos) * targetRot.Rotation, 50, false)
-                        _G.VeraLastHitTime = tick()
+                        SafeTween(targetCFrame, 50, false)
                     else
                         ToggleHover(true)
+                        -- CFrame hart setzen verhindert Stun-Bug
+                        root.CFrame = targetCFrame 
                         local bp = root:FindFirstChild("RyuHover")
                         if bp then bp.Position = attackPos end
-                        
-                        -- Nur rotieren, Positions-Zwang (Lerp) entfernt gegen Freeze
-                        root.CFrame = CFrame.new(root.Position) * targetRot.Rotation
-                        
                         root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                         root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                     end
 
                     EquipTargetWeapon()
                     PerformMeleeAttack({vera})
-                    task.wait(0.05)
                     continue 
                 else
                     ToggleHover(false)
@@ -1415,7 +1416,6 @@ task.spawn(function()
                     _G.ImpelState = "WaitForCutscene"
                 end
             end
-            task.wait(0.05)
             continue
         end
 
@@ -1531,7 +1531,7 @@ task.spawn(function()
             continue
         end
 
-        -- SCHRITT 5: Impel Guards farmen
+        -- SCHRITT 5: Impel Guards farmen (Mit gleicher Smart Hover Logic)
         if _G.ImpelState == "Guards" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
@@ -1553,22 +1553,37 @@ task.spawn(function()
                 if tRoot and tHum then
                     if CheckHPAndFailsafe(root, hum) then continue end
                     
-                    local playerPos = root.Position
-                    local mobPos = tRoot.Position
+                    if not _G.GuardHoverHeight then _G.GuardHoverHeight = 6 end
+                    if not _G.PlayerLastHpGuards then _G.PlayerLastHpGuards = hum.Health end
 
-                    local flatDir = Vector3.new(playerPos.X - mobPos.X, 0, playerPos.Z - mobPos.Z)
-                    if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
-
-                    local attackPos = mobPos + (flatDir.Unit * 3) + Vector3.new(0, 6, 0)
-                    local targetCFrame = CFrame.lookAt(attackPos, Vector3.new(mobPos.X, attackPos.Y, mobPos.Z))
+                    if hum.Health < _G.PlayerLastHpGuards then
+                        _G.GuardHoverHeight = math.min(12, _G.GuardHoverHeight + 1)
+                    end
+                    _G.PlayerLastHpGuards = hum.Health
                     
-                    local dist = (playerPos - attackPos).Magnitude
-                    if dist > 15 then
+                    if not _G.GuardLastHp then _G.GuardLastHp = tHum.Health end
+                    if tHum.Health < _G.GuardLastHp then
+                        _G.GuardLastHp = tHum.Health
+                        _G.GuardLastHitTime = tick()
+                    end
+                    
+                    local timeSinceLastHit = tick() - (_G.GuardLastHitTime or tick())
+                    
+                    if timeSinceLastHit > 2 then
+                        _G.GuardHoverHeight = math.max(4, _G.GuardHoverHeight - 1)
+                        _G.GuardLastHitTime = tick()
+                    end
+                    
+                    local attackPos = tRoot.Position + Vector3.new(2, _G.GuardHoverHeight, 2)
+                    local targetCFrame = CFrame.lookAt(attackPos, tRoot.Position)
+                    
+                    local dist = (root.Position - attackPos).Magnitude
+                    if dist > 25 then
                         ToggleHover(false)
                         SafeTween(targetCFrame, 50, false)
                     else
                         ToggleHover(true)
-                        root.CFrame = root.CFrame:Lerp(targetCFrame, 0.35)
+                        root.CFrame = targetCFrame
                         local bp = root:FindFirstChild("RyuHover")
                         if bp then bp.Position = attackPos end
                         root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
@@ -1577,7 +1592,6 @@ task.spawn(function()
 
                     EquipTargetWeapon()
                     PerformMeleeAttack(guards) 
-                    task.wait(0.05)
                 end
                 continue
             else
