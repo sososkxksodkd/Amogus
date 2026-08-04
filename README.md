@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH STATE MACHINE & FULL THEME SAVES)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH CLIMB BYPASS & VERA FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -55,7 +55,7 @@ local function SaveConfig()
     end
 end
 
---// PREMIUM MONOCHROME THEME (Angepasst an Save-Data)
+--// PREMIUM MONOCHROME THEME
 local Theme = {
     Background = Color3.fromRGB(RyuSavedConfig.BgColor[1], RyuSavedConfig.BgColor[2], RyuSavedConfig.BgColor[3]),
     Sidebar = Color3.fromRGB(18, 18, 20),
@@ -915,6 +915,7 @@ local function ToggleHover(state)
     end
 end
 
+-- TWEEN FUNCTION WITH FENCE CLIMB BYPASS & TP CHECK BYPASS
 local function SafeTween(targetCFrame, customSpeed, isKeyMove)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -945,10 +946,15 @@ local function SafeTween(targetCFrame, customSpeed, isKeyMove)
     end
 
     local lastRealPos = root.Position
+    local isClimbing = false
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
     while tick() - startTime < timeToTake do
         if not RyuSavedConfig.AutoImpelDown then break end
         
+        -- TP CHECK BYPASS
         if isKeyMove and (root.Position - lastRealPos).Magnitude > 20 then
             bp.Position = root.Position
             task.wait(1) 
@@ -962,9 +968,31 @@ local function SafeTween(targetCFrame, customSpeed, isKeyMove)
         local alpha = (tick() - startTime) / timeToTake
         local intermediatePos = startPos:Lerp(targetPos, alpha)
         
+        -- FENCE / OBSTACLE CLIMB CHECK
+        local moveDir = (targetPos - root.Position).Unit
+        if moveDir.Magnitude > 0 then
+            local hit = Workspace:Raycast(root.Position, moveDir * 5, rayParams)
+            if hit then
+                if not isClimbing then
+                    isClimbing = true
+                    pcall(function() ReplicatedStorage.Events.climb:InvokeServer(true) end)
+                end
+                intermediatePos = root.Position + Vector3.new(0, 15, 0) -- Klettere nach oben über den Zaun
+            else
+                if isClimbing then
+                    isClimbing = false
+                    pcall(function() ReplicatedStorage.Events.climb:InvokeServer(false) end)
+                end
+            end
+        end
+        
         bp.Position = intermediatePos
         root.CFrame = CFrame.new(intermediatePos) * targetCFrame.Rotation
         RunService.Heartbeat:Wait()
+    end
+    
+    if isClimbing then
+        pcall(function() ReplicatedStorage.Events.climb:InvokeServer(false) end)
     end
     
     bp.Position = targetPos
@@ -1017,7 +1045,10 @@ task.spawn(function()
         if _G.ImpelState == "Select" then
             local diffChooser = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("DiffChooser")
             if diffChooser and diffChooser.Enabled then
-                pcall(function() diffChooser.Replication.RemoteEvent:FireServer("Nightmare", "check!") end)
+                pcall(function() 
+                    local args = { "Nightmare", "check!" }
+                    diffChooser.Replication.RemoteEvent:FireServer(unpack(args)) 
+                end)
                 task.wait(0.5)
                 continue 
             end
@@ -1030,8 +1061,8 @@ task.spawn(function()
                 local vHum = vera:FindFirstChildOfClass("Humanoid")
                 local vRoot = vera:FindFirstChild("HumanoidRootPart")
                 if vHum and vRoot and vHum.Health > 0 then
-                    local attackPos = vRoot.Position + Vector3.new(0, 7.5, 0)
-                    local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
+                    local attackPos = vRoot.Position + Vector3.new(0, 6, 0)
+                    local targetCFrame = CFrame.new(attackPos, vRoot.Position)
                     
                     if (root.Position - attackPos).Magnitude > 15 then
                         SafeTween(targetCFrame, 50, false)
@@ -1201,8 +1232,8 @@ task.spawn(function()
                 if #guards > 0 then
                     local firstGuardRoot = guards[1]:FindFirstChild("HumanoidRootPart")
                     if firstGuardRoot then
-                        local attackPos = firstGuardRoot.Position + Vector3.new(0, 7.5, 0)
-                        local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
+                        local attackPos = firstGuardRoot.Position + Vector3.new(0, 6, 0)
+                        local targetCFrame = CFrame.new(attackPos, firstGuardRoot.Position)
                         
                         if (root.Position - attackPos).Magnitude > 15 then
                             SafeTween(targetCFrame, 50, false)
