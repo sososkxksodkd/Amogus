@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH ENGINE V3)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & LEGIT PATHFINDING)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -12,6 +12,7 @@ local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local PathfindingService = game:GetService("PathfindingService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -1110,7 +1111,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3: VERA LOCK, AUTO STATS & HAKI, GUARDS)
+--// IMPEL DOWN AUTO FARM ENGINE (V2.3: LABYRINTH ADDED, CHESTS REMOVED)
 --// ============================================================================
 
 -- SIDE FEATURE: AUTO STATS
@@ -1121,10 +1122,10 @@ task.spawn(function()
             pcall(function()
                 local rs = game:GetService("ReplicatedStorage")
                 if rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats") then
-                    local argsStr = {"Strength", {[3] = 100}}
+                    local argsStr = {"Strength", {[3] = 700}}
                     rs.Events.stats:FireServer(unpack(argsStr))
                     
-                    local argsDef = {"Defense", {[3] = 100}}
+                    local argsDef = {"Defense", {[3] = 800}}
                     rs.Events.stats:FireServer(unpack(argsDef))
                 end
             end)
@@ -1154,7 +1155,7 @@ task.spawn(function()
             continue 
         end
 
-        -- SCHRITT 2: Finde und Töte Vera (Flüssiges Tracking & Strikt 90 Grad Lock)
+        -- SCHRITT 2: Finde und Töte Vera
         local vera = Workspace:FindFirstChild("NPCs") and Workspace.NPCs:FindFirstChild("Vera")
         if vera then
             _G.ImpelState = "Key" 
@@ -1170,7 +1171,7 @@ task.spawn(function()
                     SafeTween(targetCFrame, 50, false)
                 else
                     ToggleHover(true)
-                    root.CFrame = root.CFrame:Lerp(targetCFrame, 0.5)
+                    root.CFrame = targetCFrame
                     root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                     root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                 end
@@ -1182,7 +1183,7 @@ task.spawn(function()
             end
         end
 
-        -- SCHRITT 3: Finde und sammle den Schlüssel
+        -- SCHRITT 3: Finde und sammle den Schlüssel (mit 2-Stud Abstand)
         if _G.ImpelState == "Key" then
             local keyPart = nil
             pcall(function()
@@ -1258,40 +1259,12 @@ task.spawn(function()
                 task.wait(0.1)
                 continue
             elseif _G.KeyWaitTriggered then
-                _G.ImpelState = "Haki"
+                _G.ImpelState = "Waypoints"
                 _G.KeyWaitTriggered = false
             end
         end
 
-        -- SCHRITT 4: Auto Haki (Spirit Essence)
-        if _G.ImpelState == "Haki" then
-            local essence = LocalPlayer.Backpack:FindFirstChild("Spirit Essence") or char:FindFirstChild("Spirit Essence")
-            if essence then
-                hum:EquipTool(essence)
-                task.wait(0.5)
-                essence:Activate()
-                
-                pcall(function()
-                    local function getNil(name,class) 
-                        for _,v in next, getnilinstances() do 
-                            if v.ClassName==class and v.Name==name then return v;end 
-                        end 
-                    end
-                    local args = {true}
-                    local busoRemote = getNil("Buso", "RemoteEvent")
-                    if busoRemote then 
-                        busoRemote:FireServer(unpack(args)) 
-                    else
-                        Instance.new("RemoteEvent", nil):FireServer(unpack(args))
-                    end
-                end)
-                task.wait(1)
-            end
-            _G.ImpelState = "Waypoints"
-            continue
-        end
-
-        -- SCHRITT 5: Wegpunkte Ablaufen
+        -- SCHRITT 4: Wegpunkte Ablaufen
         if _G.ImpelState == "Waypoints" then
             local wp1 = Vector3.new(2941.29, 2075.25, -13574.59)
             local wp2 = Vector3.new(2952.60, 2075.15, -13848.57)
@@ -1304,30 +1277,24 @@ task.spawn(function()
             continue
         end
 
-        -- SCHRITT 6: Impel Guards farmen (Single-Target 1v1)
+        -- SCHRITT 5: Impel Guards farmen
         if _G.ImpelState == "Guards" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
             
-            local targetGuard = nil
-            local closestDist = math.huge
-            
+            local guards = {}
             for _, v in pairs(npcsFolder:GetChildren()) do
                 if v.Name:find("Impel Guard") then
                     local gHum = v:FindFirstChildOfClass("Humanoid")
-                    local gRoot = v:FindFirstChild("HumanoidRootPart")
-                    if gHum and gRoot and gHum.Health > 0 then
-                        local d = (root.Position - gRoot.Position).Magnitude
-                        if d < closestDist then
-                            closestDist = d
-                            targetGuard = v
-                        end
+                    if gHum and gHum.Health > 0 then
+                        table.insert(guards, v)
                     end
                 end
             end
             
-            if targetGuard then
-                local tRoot = targetGuard:FindFirstChild("HumanoidRootPart")
+            if #guards > 0 then
+                local target = guards[1]
+                local tRoot = target:FindFirstChild("HumanoidRootPart")
                 if tRoot then
                     if CheckHPAndFailsafe(root, hum) then continue end
                     
@@ -1335,21 +1302,78 @@ task.spawn(function()
                     local targetCFrame = CFrame.new(attackPos, attackPos + Vector3.new(0, -1, 0))
                     
                     if (root.Position - attackPos).Magnitude > 15 then
-                        SafeTween(targetCFrame, 40, false)
+                        SafeTween(targetCFrame, 50, false)
                     else
                         ToggleHover(true)
-                        root.CFrame = root.CFrame:Lerp(targetCFrame, 0.5)
+                        root.CFrame = targetCFrame
                         root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
                         root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
                     end
 
                     EquipTargetWeapon()
-                    PerformMeleeAttack({targetGuard})
+                    PerformMeleeAttack(guards) 
                     task.wait(0.05)
                 end
+                continue
             else
-                _G.ImpelState = "Finished" 
+                _G.ImpelState = "Labyrinth"
+                continue
             end
+        end
+
+        -- SCHRITT 6: Das Labyrinth durchqueren (Legit Pathfinding)
+        if _G.ImpelState == "Labyrinth" then
+            local labyrinthTarget = Vector3.new(2664.91, 2075.15, -15491.03)
+            
+            if (root.Position - labyrinthTarget).Magnitude > 5 then
+                ToggleHover(false)
+                
+                -- Berechne echten, physischen Weg
+                local path = PathfindingService:CreatePath({
+                    AgentRadius = 2.5,
+                    AgentHeight = 5,
+                    AgentCanJump = true,
+                    WaypointSpacing = 4
+                })
+                
+                local success, err = pcall(function()
+                    path:ComputeAsync(root.Position, labyrinthTarget)
+                end)
+                
+                if success and path.Status == Enum.PathStatus.Success then
+                    local waypoints = path:GetWaypoints()
+                    for i, waypoint in ipairs(waypoints) do
+                        if not RyuSavedConfig.AutoImpelDown then break end
+                        
+                        -- Permanent Sprint spamming
+                        pcall(function()
+                            if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint") then
+                                ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457")
+                            end
+                        end)
+                        
+                        if waypoint.Action == Enum.PathWaypointAction.Jump then
+                            hum.Jump = true
+                        end
+                        
+                        hum.WalkSpeed = 45
+                        hum:MoveTo(waypoint.Position)
+                        SafeTween(CFrame.new(waypoint.Position), 45, true)
+                        
+                        -- Wenn wir hängen bleiben oder TP Check uns zurückzieht, brich die for-Schleife ab und berechne Pfad neu
+                        if (root.Position - waypoint.Position).Magnitude > 15 then
+                            break
+                        end
+                    end
+                else
+                    -- Fallback, falls der Pfad nicht berechnet werden kann
+                    task.wait(1)
+                end
+            else
+                root.Velocity = Vector3.new(0, 0, 0)
+                _G.ImpelState = "NextStage"
+            end
+            task.wait(0.1)
             continue
         end
 
