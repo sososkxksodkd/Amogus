@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & VERA COMBAT FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & VERA AFK FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -928,7 +928,7 @@ local function ToggleHover(state)
     end
 end
 
--- HP FAILSAFE (DAUERHAFT BLOCKEN)
+-- HP FAILSAFE
 local function CheckHPAndFailsafe(root, hum)
     if hum.Health / hum.MaxHealth < 0.8 then
         ToggleHover(true)
@@ -1357,20 +1357,25 @@ task.spawn(function()
                 local vHum = vera:FindFirstChildOfClass("Humanoid")
                 local vRoot = vera:FindFirstChild("HumanoidRootPart")
                 
-                if vHum and vRoot and (vHum.Health > 0 or vHum.MaxHealth > 0) then
+                -- WICHTIG: Wenn Vera da ist, aber die Parts (wie UpperTorso/HumanoidRootPart) noch laden, 
+                -- warte einfach ab und überspringe nicht die Phase!
+                if not vHum or not vRoot then
+                    task.wait(0.1)
+                    continue
+                end
+                
+                if vHum.Health > 0 then
                     _G.VeraSpawnedAndRegistered = true
                     if CheckHPAndFailsafe(root, hum) then continue end
                     
                     if not _G.VeraHoverHeight then _G.VeraHoverHeight = 6 end
                     if not _G.PlayerLastHp then _G.PlayerLastHp = hum.Health end
 
-                    -- Spieler verliert Leben = Geh höher
                     if hum.Health < _G.PlayerLastHp then
                         _G.VeraHoverHeight = math.min(12, _G.VeraHoverHeight + 1)
                     end
                     _G.PlayerLastHp = hum.Health
                     
-                    -- Vera verliert Leben = Merken
                     if not _G.VeraLastHp then _G.VeraLastHp = vHum.Health end
                     if vHum.Health < _G.VeraLastHp then
                         _G.VeraLastHp = vHum.Health
@@ -1379,14 +1384,12 @@ task.spawn(function()
                     
                     local timeSinceLastHit = tick() - (_G.VeraLastHitTime or tick())
                     
-                    -- 2 Sekunden kein Damage gemacht = Geh näher ran
                     if timeSinceLastHit > 2 then
                         _G.VeraHoverHeight = math.max(4, _G.VeraHoverHeight - 1)
                         _G.VeraLastHitTime = tick() 
                     end
                     
-                    -- Diagonale Position über ihr (2 Studs X/Z Offset) und sie anschauen
-                    local attackPos = vRoot.Position + Vector3.new(2, _G.VeraHoverHeight, 2)
+                    local attackPos = vRoot.Position + Vector3.new(3, _G.VeraHoverHeight, 3)
                     local targetCFrame = CFrame.lookAt(attackPos, vRoot.Position)
                     
                     local dist = (root.Position - attackPos).Magnitude
@@ -1395,8 +1398,11 @@ task.spawn(function()
                         SafeTween(targetCFrame, 50, false)
                     else
                         ToggleHover(true)
-                        -- CFrame hart setzen verhindert Stun-Bug
+                        -- ANTI-STUN LOCK
+                        hum.PlatformStand = false
+                        hum.AutoRotate = false
                         root.CFrame = targetCFrame 
+                        
                         local bp = root:FindFirstChild("RyuHover")
                         if bp then bp.Position = attackPos end
                         root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
@@ -1550,6 +1556,12 @@ task.spawn(function()
                 local target = guards[1]
                 local tRoot = target:FindFirstChild("HumanoidRootPart")
                 local tHum = target:FindFirstChildOfClass("Humanoid")
+                
+                if not tRoot or not tHum then
+                    task.wait(0.1)
+                    continue
+                end
+                
                 if tRoot and tHum then
                     if CheckHPAndFailsafe(root, hum) then continue end
                     
@@ -1574,7 +1586,7 @@ task.spawn(function()
                         _G.GuardLastHitTime = tick()
                     end
                     
-                    local attackPos = tRoot.Position + Vector3.new(2, _G.GuardHoverHeight, 2)
+                    local attackPos = tRoot.Position + Vector3.new(3, _G.GuardHoverHeight, 3)
                     local targetCFrame = CFrame.lookAt(attackPos, tRoot.Position)
                     
                     local dist = (root.Position - attackPos).Magnitude
@@ -1583,6 +1595,8 @@ task.spawn(function()
                         SafeTween(targetCFrame, 50, false)
                     else
                         ToggleHover(true)
+                        hum.PlatformStand = false
+                        hum.AutoRotate = false
                         root.CFrame = targetCFrame
                         local bp = root:FindFirstChild("RyuHover")
                         if bp then bp.Position = attackPos end
