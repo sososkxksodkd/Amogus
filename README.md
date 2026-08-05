@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH LAG-BYPASS & ESSENCE FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH MAZE-SOLVER & STATS FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -12,8 +12,6 @@ local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local PathfindingService = game:GetService("PathfindingService")
-local TeleportService = game:GetService("TeleportService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -424,28 +422,18 @@ local function ToggleHover(state)
     end
 end
 
--- SMART TRANSPORT WITH TIMEOUT & CLIMB DETECTION
+-- SMART TRANSPORT WITH TIMEOUT
 local function SmartTransport(targetPos, speed, timeout)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return false end
 
-    local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
     ToggleHover(true)
-
-    local rayParams = RaycastParams.new()
-    rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-
-    local wasClimbing = false
     local startTime = tick()
     local timeoutLimit = timeout or 99999
 
     while RyuSavedConfig.AutoImpelDown do
-        if tick() - startTime > timeoutLimit then 
-            if wasClimbing then pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end) end
-            return false -- Timeout
-        end
+        if tick() - startTime > timeoutLimit then return false end
 
         local dist = (root.Position - targetPos).Magnitude
         if dist < 4 then break end
@@ -455,67 +443,100 @@ local function SmartTransport(targetPos, speed, timeout)
         local flatDir = Vector3.new(dir.X, 0, dir.Z).Unit
         if flatDir.Magnitude ~= flatDir.Magnitude then flatDir = Vector3.new(1,0,0) end
 
-        local hit = Workspace:Raycast(root.Position, flatDir * 5, rayParams)
-        local shouldClimb = hit and hit.Instance and hit.Instance.CanCollide and hit.Instance.Transparency < 1
-
-        if shouldClimb and not wasClimbing then
-            wasClimbing = true
-            pcall(function() if climbEvent then climbEvent:InvokeServer(true) end end)
-        elseif not shouldClimb and wasClimbing then
-            wasClimbing = false
-            pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
-        end
-
-        local nextPos = root.Position
-        if shouldClimb then
-            nextPos = root.Position + Vector3.new(0, speed * dt, 0)
-        else
-            nextPos = root.Position + (dir * speed * dt)
-        end
-
+        local nextPos = root.Position + (dir * speed * dt)
         root.CFrame = CFrame.lookAt(nextPos, nextPos + flatDir)
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = nextPos end
         root.Velocity = Vector3.new(0,0,0)
         root.RotVelocity = Vector3.new(0,0,0)
     end
-    
-    if wasClimbing then
-        pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
+    return true
+end
+
+-- DYNAMIC MAZE SOLVER (Raycast Wall Avoidance)
+local function MazeNavigate(targetPos)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+
+    ToggleHover(true)
+    local bp = root:FindFirstChild("RyuHover")
+    if not bp then return false end
+
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+    local speed = 40
+    local startTime = tick()
+
+    while RyuSavedConfig.AutoImpelDown do
+        if tick() - startTime > 45 then return false end -- 45 seconds timeout for Labyrinth
+        
+        local dist = (root.Position - targetPos).Magnitude
+        if dist < 5 then break end
+
+        local dt = RunService.Heartbeat:Wait()
+        local dirToTarget = (targetPos - root.Position).Unit
+        local flatDir = Vector3.new(dirToTarget.X, 0, dirToTarget.Z).Unit
+        if flatDir.Magnitude ~= flatDir.Magnitude then flatDir = Vector3.new(1,0,0) end
+
+        -- Check in front
+        local hitFwd = Workspace:Raycast(root.Position, flatDir * 7, rayParams)
+        local moveDir = flatDir
+
+        if hitFwd and hitFwd.Instance and hitFwd.Instance.CanCollide and hitFwd.Instance.Transparency < 1 then
+            -- Find alternative route (Right-hand/Left-hand sweep)
+            local angles = {45, -45, 80, -80, 120, -120}
+            local found = false
+            for _, ang in ipairs(angles) do
+                local rotDir = CFrame.Angles(0, math.rad(ang), 0) * flatDir
+                local hitTest = Workspace:Raycast(root.Position, rotDir * 9, rayParams)
+                if not hitTest or not hitTest.Instance.CanCollide or hitTest.Instance.Transparency >= 1 then
+                    moveDir = rotDir
+                    found = true
+                    break
+                end
+            end
+            if not found then moveDir = -flatDir end -- Backup if stuck
+        end
+
+        local nextPos = root.Position + (moveDir * speed * dt)
+        nextPos = Vector3.new(nextPos.X, targetPos.Y, nextPos.Z) -- Strict height lock
+        
+        root.CFrame = CFrame.lookAt(nextPos, nextPos + moveDir)
+        bp.Position = nextPos
+        root.Velocity = Vector3.new(0,0,0)
     end
     return true
 end
 
-local function HoldInteract(duration)
-    local t = tick()
-    while tick() - t < duration do
-        if not RyuSavedConfig.AutoImpelDown then break end
-        
-        -- Virtuell Taste "E" drücken
-        pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game) end)
-        
-        -- Simulierte Klicks in die Mitte des Bildschirms zum Items aufheben
-        pcall(function()
-            local center = camera.ViewportSize / 2
-            VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, true, game, 1)
-            task.wait(0.05)
-            VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, false, game, 1)
-        end)
-        
-        for _, v in pairs(Workspace:GetDescendants()) do
-            if v:IsA("ProximityPrompt") and (LocalPlayer.Character.HumanoidRootPart.Position - v.Parent.Position).Magnitude <= v.MaxActivationDistance + 5 then
+-- HOLD INTERACT (NO SPAM CLICK)
+local function HoldInteract()
+    if not RyuSavedConfig.AutoImpelDown then return end
+    
+    pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game) end)
+    
+    local promptFound = false
+    for _, v in pairs(Workspace:GetDescendants()) do
+        if v:IsA("ProximityPrompt") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+            if (LocalPlayer.Character.HumanoidRootPart.Position - v.Parent.Position).Magnitude <= v.MaxActivationDistance + 5 then
+                promptFound = true
                 if fireproximityprompt then 
                     fireproximityprompt(v, 1) 
                 else
                     v:InputHoldBegin()
-                    task.wait(0.1)
+                    task.wait(0.6)
                     v:InputHoldEnd()
                 end
             end
         end
-        
-        task.wait(0.1)
     end
+    
+    if not promptFound then
+        task.wait(0.6)
+    end
+    
     pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game) end)
 end
 
@@ -677,20 +698,22 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.9: STAT SPAM, CHEST HOLD FIX, LAG CLIMB)
+--// IMPEL DOWN AUTO FARM ENGINE (V4.0: MAZE RUNNER & EXACT STAT SPAM)
 --// ============================================================================
 
--- PASSIVE STATS ALLOCATOR
+-- PASSIVE STATS ALLOCATOR (Unpack Fix)
 task.spawn(function()
     while true do
         task.wait()
         if RyuSavedConfig.AutoImpelDown then
             pcall(function()
-                local args1 = {"Strength", {[3] = 1}}
-                game:GetService("ReplicatedStorage").Events.stats:FireServer(unpack(args1))
+                local argsStr = {"Strength"}
+                argsStr[3] = 1
+                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("stats"):FireServer(unpack(argsStr))
                 
-                local args2 = {"Defense", {[3] = 1}}
-                game:GetService("ReplicatedStorage").Events.stats:FireServer(unpack(args2))
+                local argsDef = {"Defense"}
+                argsDef[3] = 1
+                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("stats"):FireServer(unpack(argsDef))
             end)
         end
     end
@@ -717,7 +740,6 @@ task.spawn(function()
             pcall(function() hum:EquipTool(essence) end)
             task.wait(0.5)
             
-            -- Tool aktivieren via VIM Center Click
             pcall(function()
                 local center = camera.ViewportSize / 2
                 VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, true, game, 1)
@@ -726,7 +748,6 @@ task.spawn(function()
             end)
             task.wait(1.5)
             
-            -- Accept Button Click via VIM
             pcall(function()
                 local pg = LocalPlayer:FindFirstChild("PlayerGui")
                 if pg then
@@ -755,7 +776,7 @@ task.spawn(function()
             task.wait(1)
             pcall(function()
                 local args = {"Buso"}
-                game:GetService("ReplicatedStorage").Events.Haki:FireServer(unpack(args))
+                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Haki"):FireServer(unpack(args))
             end)
             
             _G.SpiritEssenceUsed = true
@@ -775,12 +796,6 @@ task.spawn(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
-
-        -- CAMERA NORMALIZATION (Always follow player)
-        pcall(function()
-            camera.CameraType = Enum.CameraType.Custom
-            camera.CameraSubject = hum
-        end)
 
         -- 1. DIFF CHOOSER
         local diffChooser = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("DiffChooser")
@@ -895,7 +910,6 @@ task.spawn(function()
 
         -- 3. KEY PHASE
         if _G.ImpelState == "Key" then
-            -- Pre-Key Wait 5 Seconds
             if not _G.PreKeyStatsDone then
                 ToggleHover(true)
                 root.Velocity = Vector3.new(0,0,0)
@@ -936,7 +950,7 @@ task.spawn(function()
             if keyPart then
                 local reached = SmartTransport(keyPart.Position, 44, 20)
                 if reached then
-                    HoldInteract(2)
+                    HoldInteract()
                 end
                 _G.ImpelState = "ChestRoute"
             else
@@ -950,13 +964,13 @@ task.spawn(function()
             task.wait(2)
             local points = {
                 {pos = Vector3.new(2952.66, 2075.45, -13461.08), action = "wait", time = 1},
-                {pos = Vector3.new(3010.94, 2076.70, -13535.94), action = "chest", time = 5},
-                {pos = Vector3.new(2991.08, 2076.70, -13583.22), action = "chest", time = 5},
-                {pos = Vector3.new(2886.56, 2077.70, -13581.59), action = "chest", time = 5},
-                {pos = Vector3.new(2860.68, 2084.70, -13604.73), action = "chest", time = 5},
-                {pos = Vector3.new(3036.38, 2082.95, -13540.35), action = "chest", time = 5},
-                {pos = Vector3.new(3090.27, 2080.05, -13512.88), action = "chest", time = 5},
-                {pos = Vector3.new(3079.41, 2080.45, -13473.72), action = "chest", time = 5}
+                {pos = Vector3.new(3010.94, 2076.70, -13535.94), action = "chest"},
+                {pos = Vector3.new(2991.08, 2076.70, -13583.22), action = "chest"},
+                {pos = Vector3.new(2886.56, 2077.70, -13581.59), action = "chest"},
+                {pos = Vector3.new(2860.68, 2084.70, -13604.73), action = "chest"},
+                {pos = Vector3.new(3036.38, 2082.95, -13540.35), action = "chest"},
+                {pos = Vector3.new(3090.27, 2080.05, -13512.88), action = "chest"},
+                {pos = Vector3.new(3079.41, 2080.45, -13473.72), action = "chest"}
             }
 
             for _, pt in ipairs(points) do
@@ -966,7 +980,8 @@ task.spawn(function()
                     if pt.action == "wait" then
                         task.wait(pt.time)
                     elseif pt.action == "chest" then
-                        HoldInteract(pt.time)
+                        HoldInteract()
+                        task.wait(4.4) 
                     end
                 end
             end
@@ -1065,30 +1080,13 @@ task.spawn(function()
             end
         end
 
-        -- 7. LABYRINTH BYPASS (Lag Teleport Bypass)
+        -- 7. LABYRINTH BYPASS (RAYCAST MAZE SOLVER)
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
             SmartTransport(pos1, 44, 20)
             
-            -- LAG CLIMB BYPASS
-            local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
-            ToggleHover(false)
-            
-            pcall(function() if climbEvent then climbEvent:InvokeServer(true) end end)
-            
-            local highY = root.Position.Y + 250
-            root.CFrame = CFrame.new(root.Position.X, highY, root.Position.Z)
-            root.Velocity = Vector3.new(0,0,0)
-            task.wait(0.8) 
-            
-            local targetLabyrinth = Vector3.new(2660.54, highY, -15403.33)
-            root.CFrame = CFrame.new(targetLabyrinth)
-            root.Velocity = Vector3.new(0,0,0)
-            task.wait(0.8) 
-            
-            pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
-            local targetFloor = Vector3.new(2660.54, 2075.45, -15403.33)
-            root.CFrame = CFrame.new(targetFloor)
+            local pos2 = Vector3.new(2660.54, 2075.45, -15403.33)
+            MazeNavigate(pos2)
             
             local pos3 = Vector3.new(2663.73, 2075.45, -15501.86)
             SmartTransport(pos3, 44, 20)
