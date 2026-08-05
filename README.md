@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & SMART CHEST ROUTE)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & CUTSCENE FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -648,7 +648,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.0: SMART CHEST ROUTE & CLIMBING)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.1: CUTSCENE FAILSAFE FIX)
 --// ============================================================================
 
 task.spawn(function()
@@ -702,7 +702,12 @@ task.spawn(function()
                 
                 if vHum.Health > 0 then
                     local distToVera = (root.Position - vRoot.Position).Magnitude
-                    if _G.VeraSeen and distToVera > 150 then ToggleHover(false) _G.ImpelState = "WaitForCutscene" continue end
+                    if _G.VeraSeen and distToVera > 150 then 
+                        ToggleHover(false) 
+                        if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
+                        _G.ImpelState = "WaitForCutscene" 
+                        continue 
+                    end
                     if not _G.VeraSeen and distToVera > 50 then continue end
 
                     _G.VeraSeen = true
@@ -726,16 +731,23 @@ task.spawn(function()
                     continue 
                 else
                     ToggleHover(false)
+                    if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
                     _G.ImpelState = "WaitForCutscene"
                 end
             else
-                if _G.VeraSeen then ToggleHover(false) _G.ImpelState = "WaitForCutscene" end
+                if _G.VeraSeen then 
+                    ToggleHover(false) 
+                    if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
+                    _G.ImpelState = "WaitForCutscene" 
+                end
             end
             continue
         end
 
-        -- 2.5 CUTSCENE WAIT
+        -- 2.5 CUTSCENE WAIT (Failsafe Timeout Logic Added)
         if _G.ImpelState == "WaitForCutscene" then
+            if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
+            
             local inCutscene = false
             pcall(function()
                 if camera.CameraType == Enum.CameraType.Scriptable then inCutscene = true end
@@ -745,14 +757,24 @@ task.spawn(function()
 
             if inCutscene then
                 _G.CutsceneStarted = true
+                _G.VeraDeadTime = tick() -- Reset timeout timer during cutscene
                 ToggleHover(false)
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
                 root.Velocity = Vector3.new(0, 0, 0)
                 task.wait(0.5)
                 continue
             else
-                if _G.CutsceneStarted then _G.CutsceneStarted = false _G.ImpelState = "Key"
-                else task.wait(0.5) end
+                -- If cutscene is completely done OR 4 seconds passed and it never triggered
+                if _G.CutsceneStarted or (tick() - _G.VeraDeadTime > 4) then
+                    ToggleHover(false)
+                    if hum then hum:Move(Vector3.new(0,0,0), false) end
+                    root.Velocity = Vector3.new(0, 0, 0)
+                    
+                    _G.CutsceneStarted = false
+                    _G.ImpelState = "Key"
+                else
+                    task.wait(0.5)
+                end
             end
             continue
         end
