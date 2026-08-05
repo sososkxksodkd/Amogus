@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH FLOOR 2 & ESSENCE FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH PHASE 5 APPROACH FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -425,74 +425,7 @@ local function ToggleHover(state)
     end
 end
 
--- SMART TRANSPORT WITH TIMEOUT & CLIMB DETECTION
-local function SmartTransport(targetPos, speed, timeout)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return false end
-
-    local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
-    ToggleHover(true)
-
-    local rayParams = RaycastParams.new()
-    rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-
-    local wasClimbing = false
-    local startTime = tick()
-    local timeoutLimit = timeout or 99999
-
-    while RyuSavedConfig.AutoImpelDown do
-        if tick() - startTime > timeoutLimit then 
-            if wasClimbing then pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end) end
-            return false 
-        end
-
-        local dist = (root.Position - targetPos).Magnitude
-        if dist < 4 then break end
-
-        local dt = RunService.Heartbeat:Wait()
-        local dir = (targetPos - root.Position).Unit
-        local flatDir = Vector3.new(dir.X, 0, dir.Z).Unit
-        if flatDir.Magnitude ~= flatDir.Magnitude then flatDir = Vector3.new(1,0,0) end
-
-        local hit = Workspace:Raycast(root.Position, flatDir * 5, rayParams)
-        local shouldClimb = hit and hit.Instance and hit.Instance.CanCollide and hit.Instance.Transparency < 1
-
-        if shouldClimb and not wasClimbing then
-            wasClimbing = true
-            pcall(function() if climbEvent then climbEvent:InvokeServer(true) end end)
-        elseif not shouldClimb and wasClimbing then
-            wasClimbing = false
-            pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
-        end
-
-        local nextPos = root.Position
-        if shouldClimb then
-            nextPos = root.Position + Vector3.new(0, speed * dt, 0)
-        else
-            nextPos = root.Position + (dir * speed * dt)
-        end
-
-        root.CFrame = CFrame.lookAt(nextPos, nextPos + flatDir)
-        local bp = root:FindFirstChild("RyuHover")
-        if bp then bp.Position = nextPos end
-        root.Velocity = Vector3.new(0,0,0)
-        root.RotVelocity = Vector3.new(0,0,0)
-        
-        pcall(function()
-            local camPos = root.Position - (flatDir * 15) + Vector3.new(0, 7, 0)
-            camera.CFrame = CFrame.lookAt(camPos, root.Position)
-        end)
-    end
-    
-    if wasClimbing then
-        pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
-    end
-    return true
-end
-
--- PATH TRANSPORT (SELF-HEALING ROUTE RUNNER)
+-- PATH TRANSPORT (SELF-HEALING ROUTE RUNNER FOR PHASE 5 AND OTHERS)
 local function PathTransport(targetPos, speed, timeout)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -512,10 +445,10 @@ local function PathTransport(targetPos, speed, timeout)
 
         local dt = RunService.Heartbeat:Wait()
         
-        -- STUCK DETECTION (Self-Healing)
+        -- STUCK DETECTION (Self-Healing Maze Loop)
         if (root.Position - lastPos).Magnitude < (speed * dt * 0.2) then
             stuckTimer = stuckTimer + dt
-            if stuckTimer > 0.5 then return false end -- Abbruch erzwingt direkte Neuberechnung
+            if stuckTimer > 0.5 then return false end -- Abbruch erzwingt direkte Neuberechnung im Caller
         else
             stuckTimer = 0
         end
@@ -533,6 +466,7 @@ local function PathTransport(targetPos, speed, timeout)
         root.Velocity = Vector3.new(0,0,0)
         root.RotVelocity = Vector3.new(0,0,0)
         
+        -- STRICT BACK CAMERA TRACKING
         pcall(function()
             local camPos = root.Position - (flatDir * 15) + Vector3.new(0, 7, 0)
             camera.CFrame = CFrame.lookAt(camPos, root.Position)
@@ -730,7 +664,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V5.0: FLOOR 2 INTEGRATION & MAZE SOLVER)
+--// IMPEL DOWN AUTO FARM ENGINE (V5.1: PATHFINDING MAZE & FIXED STATS)
 --// ============================================================================
 
 -- PASSIVE STATS ALLOCATOR
@@ -839,6 +773,7 @@ task.spawn(function()
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
 
+        -- CAMERA NORMALIZATION 
         pcall(function()
             camera.CameraType = Enum.CameraType.Custom
             camera.CameraSubject = hum
@@ -918,7 +853,7 @@ task.spawn(function()
             continue
         end
 
-        -- 2.5 CUTSCENE WAIT
+        -- 2.5 CUTSCENE / MESSAGE WAIT
         if _G.ImpelState == "WaitForCutscene" then
             if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
             
@@ -988,7 +923,7 @@ task.spawn(function()
             end)
 
             if keyPart then
-                local reached = SmartTransport(keyPart.Position, 43, 20)
+                local reached = PathTransport(keyPart.Position, 43, 20)
                 if reached then
                     HoldInteract(2)
                 end
@@ -1015,7 +950,7 @@ task.spawn(function()
 
             for _, pt in ipairs(points) do
                 if not RyuSavedConfig.AutoImpelDown then break end
-                local reached = SmartTransport(pt.pos, 43, 20)
+                local reached = PathTransport(pt.pos, 43, 20)
                 if reached then
                     if pt.action == "wait" then
                         task.wait(pt.time)
@@ -1031,8 +966,8 @@ task.spawn(function()
 
         -- 5. WAYPOINTS TO GUARDS
         if _G.ImpelState == "Waypoints" then
-            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 30, 20)
-            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 30, 20)
+            PathTransport(Vector3.new(2945.63, 2075.55, -13578.02), 30, 20)
+            PathTransport(Vector3.new(2946.49, 2075.45, -13908.61), 30, 20)
             _G.ImpelState = "Guards"
             continue
         end
@@ -1067,7 +1002,7 @@ task.spawn(function()
                     local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
                     
                     if distToGuard > 15 then 
-                        SmartTransport(attackPos, 30, 20)
+                        PathTransport(attackPos, 30, 20)
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
@@ -1119,10 +1054,10 @@ task.spawn(function()
             end
         end
 
-        -- 7. LABYRINTH BYPASS (PATHFINDING NO-CLIMB NAVIGATOR)
+        -- 7. LABYRINTH BYPASS (PATHFINDING MAZE SOLVER)
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
-            SmartTransport(pos1, 43, 20)
+            PathTransport(pos1, 43, 20)
             
             local labyrinthTarget = Vector3.new(2660.54, 2075.45, -15403.33)
             
@@ -1145,6 +1080,7 @@ task.spawn(function()
                         if waypoint.Action == Enum.PathWaypointAction.Jump then
                             hum.Jump = true
                         end
+                        -- PathTransport returns false if stuck -> forces immediate re-computation!
                         local reached = PathTransport(waypoint.Position, 43, 3) 
                         if not reached then
                             break
