@@ -201,11 +201,22 @@ local function CreateMainTab(name)
     local tabObj = { Btn = nil, Arrow = nil, SubContainer = nil, SubLayout = nil, IsOpen = false, SubTabs = {}, Toggle = nil }
     sidebarOrderCounter = sidebarOrderCounter + 1
     local tabBtn = Instance.new("TextButton", Sidebar); tabBtn.LayoutOrder = sidebarOrderCounter; tabBtn.Size = UDim2.new(1, 0, 0, 36); tabBtn.BackgroundColor3 = Theme.Sidebar; tabBtn.Text = "  " .. string.upper(name); tabBtn.TextColor3 = Theme.SubText; tabBtn.Font = Enum.Font.GothamBlack; tabBtn.TextSize = 13; tabBtn.TextXAlignment = Enum.TextXAlignment.Left; tabBtn.ZIndex = 2
-    Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8); tabObj.Btn = tabBtn
-    local arrow = Instance.new("TextLabel", tabBtn); arrow.Size = UDim2.new(0, 20, 1, 0); arrow.Position = UDim2.new(1, -25, 0, 0); arrow.BackgroundTransparency = 1; arrow.Text = "v"; arrow.TextColor3 = Theme.SubText; arrow.Font = Enum.Font.GothamBold; arrow.TextSize = 12; arrow.ZIndex = 2; tabObj.Arrow = arrow
+    Instance.new("UICorner", tabBtn).CornerRadius = UDim.new(0, 8)
+    tabObj.Btn = tabBtn
+
+    local arrow = Instance.new("TextLabel", tabBtn)
+    arrow.Size = UDim2.new(0, 20, 1, 0); arrow.Position = UDim2.new(1, -25, 0, 0); arrow.BackgroundTransparency = 1
+    arrow.Text = "v"; arrow.TextColor3 = Theme.SubText; arrow.Font = Enum.Font.GothamBold; arrow.TextSize = 12; arrow.ZIndex = 2
+    tabObj.Arrow = arrow
+
     sidebarOrderCounter = sidebarOrderCounter + 1
-    local subContainer = Instance.new("Frame", Sidebar); subContainer.LayoutOrder = sidebarOrderCounter; subContainer.Size = UDim2.new(1, 0, 0, 0); subContainer.BackgroundTransparency = 1; subContainer.ClipsDescendants = true; subContainer.ZIndex = 2; tabObj.SubContainer = subContainer
-    local subLayout = Instance.new("UIListLayout", subContainer); subLayout.Padding = UDim.new(0, 2); subLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left; subLayout.SortOrder = Enum.SortOrder.LayoutOrder; tabObj.SubLayout = subLayout
+    local subContainer = Instance.new("Frame", Sidebar); subContainer.LayoutOrder = sidebarOrderCounter; subContainer.Size = UDim2.new(1, 0, 0, 0); subContainer.BackgroundTransparency = 1; subContainer.ClipsDescendants = true; subContainer.ZIndex = 2
+    tabObj.SubContainer = subContainer
+
+    local subLayout = Instance.new("UIListLayout", subContainer)
+    subLayout.Padding = UDim.new(0, 2); subLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left; subLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    tabObj.SubLayout = subLayout
+
     local function toggleTab()
         tabObj.IsOpen = not tabObj.IsOpen
         local targetSize = tabObj.IsOpen and UDim2.new(1, 0, 0, subLayout.AbsoluteContentSize.Y) or UDim2.new(1, 0, 0, 0)
@@ -390,142 +401,63 @@ local function PerformMeleeAttack(targets)
     end)
 end
 
--- SPIDERLERP TRANSPORT ENGINE (NUR FÜR TRANSPORT)
-local function SpiderLerp(tPos, currentSpeed)
+-- TWEEN FUNCTION WITH TP CHECK BYPASS
+local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    local hum = char and char:FindFirstChildOfClass("Humanoid")
-    if not root or not hum then return end
-
-    local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
-    local sprintEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("sprint")
-    local footstepEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("footstep")
-
-    local floorOffset = (hum.HipHeight or 2) + (root.Size.Y / 2)
-    local baseMinY = 1
-    local rayParams = RaycastParams.new()
-    local ignoreList = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
-    pcall(function()
-        if Workspace:FindFirstChild("Env") then
-            for _, v in pairs(Workspace.Env:GetDescendants()) do
-                if v.Name:lower():find("tree") or v.Name:lower():find("leaf") or v.Name:lower():find("prop") or v.Name:lower():find("fence") then
-                    table.insert(ignoreList, v)
-                end
-            end
-        end
-    end)
-    rayParams.FilterDescendantsInstances = ignoreList
-    rayParams.FilterType = Enum.RaycastFilterType.Exclude
-    rayParams.IgnoreWater = true
-
-    local function GetTrueTopY(x, z)
-        local currentFilter = table.clone(ignoreList)
-        local rParams = RaycastParams.new(); rParams.FilterType = Enum.RaycastFilterType.Exclude; rParams.IgnoreWater = true
-        local origin = Vector3.new(x, 3000, z)
-        local dir = Vector3.new(0, -4000, 0)
-        for i = 1, 10 do
-            rParams.FilterDescendantsInstances = currentFilter
-            local hit = Workspace:Raycast(origin, dir, rParams)
-            if hit then
-                local name = hit.Instance.Name:lower()
-                if name:find("tree") or name:find("leaf") or name:find("grass") or name:find("stone") then table.insert(currentFilter, hit.Instance)
-                elseif hit.Instance.Transparency < 1 then return math.max(hit.Position.Y + floorOffset, baseMinY)
-                else table.insert(currentFilter, hit.Instance) end
-            else break end
-        end
-        return baseMinY
-    end
+    if not root then return end
 
     local startPos = root.Position
-    local flatStart = Vector3.new(startPos.X, 0, startPos.Z)
-    local flatTarget = Vector3.new(tPos.X, 0, tPos.Z)
-    local totalDist = (flatStart - flatTarget).Magnitude
+    local targetPos = targetCFrame.Position
+    local dist = (targetPos - startPos).Magnitude
     
-    if totalDist < 5 then root.CFrame = CFrame.new(tPos); return true end 
+    local speed = customSpeed or 50 
+    local timeToTake = dist / speed
     
-    local elapsedTime = 0
-    local currentY = root.Position.Y
-    local isClimbingState = false
+    if timeToTake < 0.1 then 
+        root.CFrame = targetCFrame
+        return 
+    end
 
-    pcall(function() if sprintEvent then sprintEvent:FireServer("rbxassetid://15382065457") end end)
-
+    local startTime = tick()
+    
     local bp = root:FindFirstChild("RyuHover")
-    if not bp then bp = Instance.new("BodyPosition"); bp.Name = "RyuHover"; bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge); bp.D = 500; bp.P = 50000; bp.Parent = root end
+    if not bp then
+        bp = Instance.new("BodyPosition")
+        bp.Name = "RyuHover"
+        bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bp.D = 500
+        bp.P = 50000
+        bp.Parent = root
+    end
 
-    while elapsedTime < 100 do
+    local lastRealPos = root.Position
+
+    while tick() - startTime < timeToTake do
         if not RyuSavedConfig.AutoImpelDown then break end
-        local dt = RunService.Heartbeat:Wait()
-        dt = math.clamp(dt, 0.001, 0.05)
         
-        local currentPos = root.Position
-        local flatCurrent = Vector3.new(currentPos.X, 0, currentPos.Z)
-        local remainingDist = (flatCurrent - flatTarget).Magnitude
-        
-        if remainingDist <= 5 then break end
-        
-        local stepDist = math.min((currentSpeed or 45) * dt, remainingDist)
-        local flatMoveDir = (flatTarget - flatCurrent)
-        if flatMoveDir.Magnitude > 0.1 then flatMoveDir = flatMoveDir.Unit else flatMoveDir = root.CFrame.LookVector end
-        
-        local nextX = currentPos.X + (flatMoveDir.X * stepDist)
-        local nextZ = currentPos.Z + (flatMoveDir.Z * stepDist)
-        local calcPos = Vector3.new(nextX, currentY, nextZ)
-        
-        local rightOffset = Vector3.new(flatMoveDir.Z, 0, -flatMoveDir.X) * 2.5
-        local wallCenter = Workspace:Raycast(calcPos, flatMoveDir * 4, rayParams)
-        local wallLeft = Workspace:Raycast(calcPos - rightOffset, flatMoveDir * 4, rayParams)
-        local wallRight = Workspace:Raycast(calcPos + rightOffset, flatMoveDir * 4, rayParams)
-        
-        local headPart = char:FindFirstChild("Head")
-        local headHit = false
-        if headPart then
-            local headRay = Workspace:Raycast(headPart.Position, flatMoveDir * 4, rayParams)
-            if headRay and headRay.Instance and headRay.Instance.Transparency < 1 then headHit = true end
+        -- TP CHECK BYPASS
+        if isMoveCheck and (root.Position - lastRealPos).Magnitude > 20 then
+            bp.Position = root.Position
+            task.wait(1) 
+            startPos = root.Position
+            dist = (targetPos - startPos).Magnitude
+            timeToTake = dist / speed
+            startTime = tick()
         end
         
-        local groundYCurrent = GetTrueTopY(nextX, nextZ)
-        local targetY = groundYCurrent
+        lastRealPos = root.Position
 
-        local activeHit = wallCenter or wallLeft or wallRight or headHit
-        if activeHit then
-            local hitObjPos = (typeof(activeHit) == "RaycastResult") and activeHit.Position or (calcPos + flatMoveDir * 4)
-            local obstacleTopY = GetTrueTopY(hitObjPos.X + (flatMoveDir.X * 0.8), hitObjPos.Z + (flatMoveDir.Z * 0.8))
-            targetY = math.max(targetY, obstacleTopY)
-            if not isClimbingState then isClimbingState = true; if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end end
-        else
-            local checkPosAhead = Vector3.new(nextX, 0, nextZ) + (flatMoveDir * 4)
-            local groundYAhead = GetTrueTopY(checkPosAhead.X, checkPosAhead.Z)
-            targetY = math.max(groundYCurrent, groundYAhead)
-        end
+        local alpha = (tick() - startTime) / timeToTake
+        local intermediatePos = startPos:Lerp(targetPos, alpha)
         
-        local advanceSpeed = 1
-        if (isClimbingState or headHit) and currentY < targetY - 0.5 then advanceSpeed = 0 end
-        local maxYStep = (isClimbingState or headHit) and (75 * dt * 25) or (35 * dt * 25)
-        local yDiff = targetY - currentY
-        
-        if yDiff > 0 then currentY = math.min(currentY + maxYStep, targetY) elseif yDiff < 0 then currentY = math.max(currentY - maxYStep, targetY) end
-        
-        if (isClimbingState or headHit) and math.abs(currentY - targetY) <= 0.5 then
-            isClimbingState = false; headHit = false
-            if footstepEvent then pcall(function() footstepEvent:FireServer("land") end) end
-            if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
-        end
-        
-        currentY = math.max(currentY, baseMinY)
-        elapsedTime = elapsedTime + (dt * advanceSpeed)
-        
-        local finalPos = Vector3.new(nextX, currentY, nextZ)
-        local lookPos = Vector3.new(tPos.X, currentY, tPos.Z)
-        
-        root.CFrame = CFrame.lookAt(finalPos, lookPos)
-        if hum then hum:Move(flatMoveDir * advanceSpeed, false) end
-        root.Velocity = Vector3.new(flatMoveDir.X * (currentSpeed or 45) * advanceSpeed, 0, flatMoveDir.Z * (currentSpeed or 45) * advanceSpeed)
-        if bp then bp.Position = finalPos end
+        bp.Position = intermediatePos
+        root.CFrame = CFrame.new(intermediatePos) * targetCFrame.Rotation
+        RunService.Heartbeat:Wait()
     end
     
-    if hum then hum:Move(Vector3.new(0,0,0), false) end
-    root.Velocity = Vector3.new(0, 0, 0)
-    return true
+    bp.Position = targetPos
+    root.CFrame = targetCFrame
 end
 
 local function ToggleHover(state)
@@ -678,10 +610,9 @@ local function CreateDockBtn(txt, pos, size) local btn = Instance.new("TextButto
 CreateDockBtn("W", UDim2.new(0.3, 0, 0.08, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("S", UDim2.new(0.3, 0, 0.62, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("A", UDim2.new(0.08, 0, 0.35, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("D", UDim2.new(0.52, 0, 0.35, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("UP", UDim2.new(0.78, 0, 0.12, 0), UDim2.new(0, 30, 0, 38)); CreateDockBtn("DOWN", UDim2.new(0.78, 0, 0.52, 0), UDim2.new(0, 30, 0, 38))
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.7: FINAL VERA STUN & HEIGHT FIX)
+--// IMPEL DOWN AUTO FARM ENGINE (V2.8: STRICT VERTICAL FIX & KEY TWEEN)
 --// ============================================================================
 
--- SIDE FEATURE: AUTO STATS
 task.spawn(function()
     while true do
         task.wait(3)
@@ -726,6 +657,11 @@ task.spawn(function()
             local vRoot = vera:FindFirstChild("HumanoidRootPart") or vera.PrimaryPart
             
             if vHum and vRoot and vHum.Health > 0 then
+                -- 50 STUDS RANGE LIMIT
+                if (root.Position - vRoot.Position).Magnitude > 50 then
+                    continue
+                end
+
                 _G.VeraSeen = true
                 
                 -- FAILSAFE (LOW HP BLOCK SPAM)
@@ -759,13 +695,13 @@ task.spawn(function()
                 hum.PlatformStand = false
                 hum.Sit = false
                 
-                -- DIREKT ÜBER IHR FLIEGEN
+                -- DIREKT ÜBER IHR FLIEGEN & STRIKT VERTIKAL ERZWINGEN (90 GRAD NACH UNTEN)
                 local attackPos = vRoot.Position + Vector3.new(0, _G.VeraHoverHeight, 0)
-                local targetCFrame = CFrame.lookAt(attackPos, vRoot.Position)
+                local nextPos = root.Position:Lerp(attackPos, 0.4)
+                local targetCFrame = CFrame.new(nextPos, nextPos + Vector3.new(0, -1, 0))
                 
                 ToggleHover(true)
-                -- FLÜSSIGES TWEENEN
-                root.CFrame = root.CFrame:Lerp(targetCFrame, 0.4)
+                root.CFrame = targetCFrame
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = attackPos end
                 root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
@@ -829,7 +765,7 @@ task.spawn(function()
             local dist = (root.Position - keyPart.Position).Magnitude
             if dist > 4 then
                 ToggleHover(false)
-                SpiderLerp(safePos, 45) 
+                SafeTween(safeCFrame, 45, false) 
             else
                 root.CFrame = safeCFrame
                 root.Velocity = Vector3.new(0,0,0)
@@ -897,10 +833,11 @@ task.spawn(function()
                     hum.Sit = false
 
                     local attackPos = tRoot.Position + Vector3.new(0, _G.GuardHoverHeight, 0)
-                    local targetCFrame = CFrame.lookAt(attackPos, tRoot.Position)
+                    local nextPos = root.Position:Lerp(attackPos, 0.4)
+                    local targetCFrame = CFrame.new(nextPos, nextPos + Vector3.new(0, -1, 0))
                     
                     ToggleHover(true)
-                    root.CFrame = root.CFrame:Lerp(targetCFrame, 0.4)
+                    root.CFrame = targetCFrame
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = attackPos end
                     root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
@@ -925,7 +862,7 @@ task.spawn(function()
                     for i, waypoint in ipairs(waypoints) do
                         if not RyuSavedConfig.AutoImpelDown then break end
                         if waypoint.Action == Enum.PathWaypointAction.Jump then hum.Jump = true end
-                        SpiderLerp(waypoint.Position, 45)
+                        SafeTween(CFrame.new(waypoint.Position), 45, false) 
                         if (root.Position - waypoint.Position).Magnitude > 15 then break end
                     end
                 else
