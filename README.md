@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & CUTSCENE FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & SMART DODGE ENGINE)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -12,6 +12,7 @@ local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local PathfindingService = game:GetService("PathfindingService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -491,12 +492,12 @@ local function SpamInteract(duration)
 end
 
 local function CheckHPAndFailsafe(root, hum, safePos)
-    if hum.Health / hum.MaxHealth < 0.8 then
+    if hum.Health / hum.MaxHealth < 0.3 then
         ToggleHover(true)
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = safePos end
         
-        while hum.Health / hum.MaxHealth < 0.8 do
+        while hum.Health / hum.MaxHealth < 0.4 do
             if not RyuSavedConfig.AutoImpelDown then break end
             pcall(function()
                 if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Block") then
@@ -648,7 +649,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.1: CUTSCENE FAILSAFE FIX)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.2: SMART DODGE & CUTSCENE DETECT)
 --// ============================================================================
 
 task.spawn(function()
@@ -668,8 +669,6 @@ end)
 
 _G.ImpelState = "Init"
 _G.VeraSeen = false
-_G.CutsceneStarted = false
-_G.KeyWaitTriggered = false
 
 task.spawn(function()
     while true do
@@ -689,7 +688,7 @@ task.spawn(function()
             continue 
         end
 
-        -- 2. VERA COMBAT (Phase 2 remains exactly as requested)
+        -- 2. VERA COMBAT
         if _G.ImpelState == "Init" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             local vera = npcsFolder and npcsFolder:FindFirstChild("Vera")
@@ -702,12 +701,7 @@ task.spawn(function()
                 
                 if vHum.Health > 0 then
                     local distToVera = (root.Position - vRoot.Position).Magnitude
-                    if _G.VeraSeen and distToVera > 150 then 
-                        ToggleHover(false) 
-                        if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
-                        _G.ImpelState = "WaitForCutscene" 
-                        continue 
-                    end
+                    if _G.VeraSeen and distToVera > 150 then ToggleHover(false) _G.ImpelState = "WaitForCutscene" continue end
                     if not _G.VeraSeen and distToVera > 50 then continue end
 
                     _G.VeraSeen = true
@@ -715,8 +709,32 @@ task.spawn(function()
                     if vRoot.Size.X < 15 then vRoot.Size = Vector3.new(15, 15, 15) vRoot.CanCollide = false end
                     if CheckHPAndFailsafe(root, hum, vRoot.Position + Vector3.new(0, 13, 0)) then continue end
                     
+                    -- SMART DODGE ENGINE
+                    if not _G.SmartHoverHeight then _G.SmartHoverHeight = 6.5 end
+                    
+                    -- Damage Reaction (Dodge)
+                    if not _G.PlayerLastHpVera then _G.PlayerLastHpVera = hum.Health end
+                    if hum.Health < _G.PlayerLastHpVera then
+                        _G.DodgeEndTime = tick() + 0.8
+                    end
+                    _G.PlayerLastHpVera = hum.Health
+                    
+                    -- Passive Height Adjust
+                    if not _G.VeraLastHp then _G.VeraLastHp = vHum.Health end
+                    if vHum.Health < _G.VeraLastHp then
+                        _G.VeraLastHp = vHum.Health
+                        _G.VeraLastHitTime = tick()
+                    end
+                    if tick() - (_G.VeraLastHitTime or tick()) > 1.5 then
+                        _G.SmartHoverHeight = math.max(4.0, _G.SmartHoverHeight - 0.1)
+                        _G.VeraLastHitTime = tick() 
+                    end
+
+                    local currentDodgeOffset = (tick() < (_G.DodgeEndTime or 0)) and 2 or 0
+                    local actualHeight = _G.SmartHoverHeight + currentDodgeOffset
+
                     local lookDir = vRoot.CFrame.LookVector
-                    local attackPos = vRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
+                    local attackPos = vRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
                     local flatTarget = Vector3.new(vRoot.Position.X, attackPos.Y, vRoot.Position.Z)
                     local targetRot = CFrame.lookAt(attackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
                     
@@ -731,64 +749,52 @@ task.spawn(function()
                     continue 
                 else
                     ToggleHover(false)
-                    if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
                     _G.ImpelState = "WaitForCutscene"
                 end
             else
-                if _G.VeraSeen then 
-                    ToggleHover(false) 
-                    if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
-                    _G.ImpelState = "WaitForCutscene" 
-                end
+                if _G.VeraSeen then ToggleHover(false) _G.ImpelState = "WaitForCutscene" end
             end
             continue
         end
 
-        -- 2.5 CUTSCENE WAIT (Failsafe Timeout Logic Added)
+        -- 2.5 CUTSCENE / MESSAGE WAIT
         if _G.ImpelState == "WaitForCutscene" then
             if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
             
-            local inCutscene = false
+            local messageFound = false
             pcall(function()
-                if camera.CameraType == Enum.CameraType.Scriptable then inCutscene = true end
                 local pg = LocalPlayer:FindFirstChild("PlayerGui")
-                if pg and (pg:FindFirstChild("Cutscene") or pg:FindFirstChild("Cinematic") or pg:FindFirstChild("Dialogue")) then inCutscene = true end
+                if pg then
+                    for _, v in pairs(pg:GetDescendants()) do
+                        if v:IsA("TextLabel") and v.Visible and v.TextTransparency < 1 then
+                            local txt = string.lower(v.Text)
+                            if string.find(txt, "floor 1") or string.find(txt, "stage 1") or string.find(txt, "grounded") then
+                                messageFound = true
+                                break
+                            end
+                        end
+                    end
+                end
             end)
 
-            if inCutscene then
-                _G.CutsceneStarted = true
-                _G.VeraDeadTime = tick() -- Reset timeout timer during cutscene
+            if messageFound or (tick() - _G.VeraDeadTime > 12) then
                 ToggleHover(false)
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
                 root.Velocity = Vector3.new(0, 0, 0)
-                task.wait(0.5)
-                continue
+                
+                task.wait(5)
+                _G.ImpelState = "Key"
             else
-                -- If cutscene is completely done OR 4 seconds passed and it never triggered
-                if _G.CutsceneStarted or (tick() - _G.VeraDeadTime > 4) then
-                    ToggleHover(false)
-                    if hum then hum:Move(Vector3.new(0,0,0), false) end
-                    root.Velocity = Vector3.new(0, 0, 0)
-                    
-                    _G.CutsceneStarted = false
-                    _G.ImpelState = "Key"
-                else
-                    task.wait(0.5)
-                end
+                task.wait(0.2)
             end
             continue
         end
 
-        -- 3. KEY PHASE (Wait 4s, SmartTransport)
+        -- 3. KEY PHASE
         if _G.ImpelState == "Key" then
-            if not _G.KeyWaitTriggered then
-                _G.KeyWaitTriggered = true
-                ToggleHover(true)
-                root.Velocity = Vector3.new(0,0,0)
-                task.wait(4)
-            end
-
+            if not _G.KeySearchTimeout then _G.KeySearchTimeout = tick() end
             local keyPart = nil
+            
             pcall(function()
                 local effects = Workspace:FindFirstChild("Effects")
                 if effects then
@@ -802,11 +808,14 @@ task.spawn(function()
                     local islands = Workspace:FindFirstChild("Islands")
                     if islands then
                         for _, isl in pairs(islands:GetChildren()) do
-                            if isl.Name:find("Impel Base") then
+                            if string.find(string.lower(isl.Name), "impel base") then
                                 local spawns = isl:FindFirstChild("KeySpawns")
                                 if spawns then
                                     for _, k in pairs(spawns:GetChildren()) do
-                                        if k.Name == "Key" and k:IsA("BasePart") and k.Transparency < 1 then keyPart = k; break end
+                                        if k.Name == "Key" and k:IsA("BasePart") and k.Transparency < 1 then 
+                                            keyPart = k
+                                            break 
+                                        end
                                     end
                                 end
                             end
@@ -818,12 +827,15 @@ task.spawn(function()
             if keyPart then
                 SmartTransport(keyPart.Position, 40)
                 SpamInteract(2)
+                _G.KeySearchTimeout = nil
                 _G.ImpelState = "ChestRoute"
-                continue
             else
-                _G.ImpelState = "ChestRoute"
-                continue
+                if tick() - _G.KeySearchTimeout > 10 then
+                    _G.KeySearchTimeout = nil
+                    _G.ImpelState = "ChestRoute"
+                end
             end
+            continue
         end
 
         -- 4. CHEST ROUTE
@@ -889,8 +901,31 @@ task.spawn(function()
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
                     if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
                     
+                    -- SMART DODGE ENGINE FOR GUARDS
+                    if not _G.GuardHoverHeight then _G.GuardHoverHeight = 6.5 end
+                    
+                    if not _G.PlayerLastHpGuard then _G.PlayerLastHpGuard = hum.Health end
+                    if hum.Health < _G.PlayerLastHpGuard then
+                        _G.GuardDodgeEndTime = tick() + 0.8
+                    end
+                    _G.PlayerLastHpGuard = hum.Health
+                    
+                    if not _G.GuardLastHp then _G.GuardLastHp = tHum.Health end
+                    if tHum.Health < _G.GuardLastHp then
+                        _G.GuardLastHp = tHum.Health
+                        _G.GuardLastHitTime = tick()
+                    end
+                    
+                    if tick() - (_G.GuardLastHitTime or tick()) > 1.5 then
+                        _G.GuardHoverHeight = math.max(4.0, _G.GuardHoverHeight - 0.1)
+                        _G.GuardLastHitTime = tick()
+                    end
+
+                    local currentDodgeOffset = (tick() < (_G.GuardDodgeEndTime or 0)) and 2 or 0
+                    local actualHeight = _G.GuardHoverHeight + currentDodgeOffset
+
                     local lookDir = tRoot.CFrame.LookVector
-                    local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
+                    local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
                     local flatTarget = Vector3.new(tRoot.Position.X, attackPos.Y, tRoot.Position.Z)
                     local targetRot = CFrame.lookAt(attackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
                     
