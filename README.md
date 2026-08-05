@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH LABYRINTH BYPASS & PASSIVE FIXES)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH SMART CHEST/GUARDS & SPAM STATS)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -666,20 +666,21 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.5: PASSIVES, CHESTS, GUARDS & LABYRINTH BYPASS)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.6: FAST STATS, CAMERA RESET & NO REJOIN)
 --// ============================================================================
 
 -- PASSIVE STATS ALLOCATOR
 task.spawn(function()
+    local rs = game:GetService("ReplicatedStorage")
+    local events = rs:WaitForChild("Events", 5)
+    local statsEvent = events and events:WaitForChild("stats", 5)
+    
     while true do
-        task.wait(0.2)
-        if RyuSavedConfig.AutoImpelDown then
+        task.wait() 
+        if RyuSavedConfig.AutoImpelDown and statsEvent then
             pcall(function()
-                local rs = game:GetService("ReplicatedStorage")
-                if rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats") then
-                    rs.Events.stats:FireServer("Strength", {[3] = 1})
-                    rs.Events.stats:FireServer("Defense", {[3] = 1})
-                end
+                statsEvent:FireServer("Strength", {[3] = 1})
+                statsEvent:FireServer("Defense", {[3] = 1})
             end)
         end
     end
@@ -709,7 +710,6 @@ task.spawn(function()
             pcall(function() essence:Activate() end)
             task.wait(1.5)
             
-            -- Click Accept in GUI
             pcall(function()
                 local pg = LocalPlayer:FindFirstChild("PlayerGui")
                 if pg then
@@ -722,14 +722,12 @@ task.spawn(function()
                 end
             end)
             
-            -- Remote Fallback
             pcall(function()
                 local args = {true}
                 Instance.new("RemoteEvent", nil):FireServer(unpack(args))
             end)
             
             task.wait(1)
-            -- Fire Haki
             pcall(function()
                 game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Haki"):FireServer("Buso")
             end)
@@ -908,11 +906,6 @@ task.spawn(function()
 
         -- 4. CHEST ROUTE
         if _G.ImpelState == "ChestRoute" then
-            pcall(function()
-                LocalPlayer.CameraMinZoomDistance = 40
-                LocalPlayer.CameraMaxZoomDistance = 40
-            end)
-            
             task.wait(2)
             local points = {
                 {pos = Vector3.new(2952.66, 2075.45, -13461.08), action = "wait", time = 1},
@@ -941,11 +934,6 @@ task.spawn(function()
 
         -- 5. WAYPOINTS TO GUARDS
         if _G.ImpelState == "Waypoints" then
-            pcall(function()
-                LocalPlayer.CameraMinZoomDistance = 0.5
-                LocalPlayer.CameraMaxZoomDistance = 128
-            end)
-            
             SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 44)
             SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 44)
             _G.ImpelState = "Guards"
@@ -954,14 +942,6 @@ task.spawn(function()
 
         -- 6. IMPEL GUARDS
         if _G.ImpelState == "Guards" then
-            if not _G.SpiritEssenceUsed then
-                local hasEssence = LocalPlayer.Backpack:FindFirstChild("Spirit Essence") or (char and char:FindFirstChild("Spirit Essence"))
-                if not hasEssence then
-                    pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
-                    task.wait(9e9) 
-                end
-            end
-
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
             
@@ -1040,7 +1020,6 @@ task.spawn(function()
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
             SmartTransport(pos1, 44)
             
-            -- High Altitude Bypass (150 studs hoch) um die Wände/Decken zu ignorieren
             local highPos1 = pos1 + Vector3.new(0, 150, 0)
             local pos2 = Vector3.new(2660.54, 2075.45, -15403.33)
             local highPos2 = pos2 + Vector3.new(0, 150, 0)
