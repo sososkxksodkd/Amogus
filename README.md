@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH SMART CHEST/GUARDS & SPAM STATS)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH LAG-CLIMB & PASSIVE FIXES)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -13,7 +13,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local PathfindingService = game:GetService("PathfindingService")
-local TeleportService = game:GetService("TeleportService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -478,6 +477,35 @@ local function SmartTransport(targetPos, speed)
     end
 end
 
+-- LAG TRANSPORT FOR LABYRINTH
+local function LagTransport(targetPos)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+    
+    local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
+    
+    ToggleHover(true)
+    local bp = root:FindFirstChild("RyuHover")
+    
+    while RyuSavedConfig.AutoImpelDown and root do
+        local dist = (root.Position - targetPos).Magnitude
+        if dist < 5 then break end
+        
+        local dir = (targetPos - root.Position).Unit
+        local nextPos = root.Position + dir * math.min(10, dist)
+        
+        pcall(function() if climbEvent then climbEvent:InvokeServer(true) end end)
+        
+        root.CFrame = CFrame.lookAt(nextPos, nextPos + dir)
+        if bp then bp.Position = nextPos end
+        root.Velocity = Vector3.new(0,0,0)
+        
+        task.wait(0.05)
+        pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
+    end
+end
+
 local function HoldInteract(duration)
     local t = tick()
     while tick() - t < duration do
@@ -666,21 +694,24 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.6: FAST STATS, CAMERA RESET & NO REJOIN)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.7: STATS FIX, CAMERA NORMAL, LAG CLIMB)
 --// ============================================================================
 
 -- PASSIVE STATS ALLOCATOR
 task.spawn(function()
-    local rs = game:GetService("ReplicatedStorage")
-    local events = rs:WaitForChild("Events", 5)
-    local statsEvent = events and events:WaitForChild("stats", 5)
-    
     while true do
-        task.wait() 
-        if RyuSavedConfig.AutoImpelDown and statsEvent then
+        task.wait(0.1)
+        if RyuSavedConfig.AutoImpelDown then
             pcall(function()
-                statsEvent:FireServer("Strength", {[3] = 1})
-                statsEvent:FireServer("Defense", {[3] = 1})
+                local rs = game:GetService("ReplicatedStorage")
+                local statsEvent = rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats")
+                if statsEvent then
+                    local args1 = {"Strength", {[3] = 1}}
+                    statsEvent:FireServer(unpack(args1))
+                    
+                    local args2 = {"Defense", {[3] = 1}}
+                    statsEvent:FireServer(unpack(args2))
+                end
             end)
         end
     end
@@ -707,16 +738,25 @@ task.spawn(function()
             pcall(function() hum:EquipTool(essence) end)
             task.wait(0.5)
             
-            pcall(function() essence:Activate() end)
-            task.wait(1.5)
+            local holdTime = tick()
+            while tick() - holdTime < 3 do
+                pcall(function() essence:Activate() end)
+                task.wait(0.1)
+            end
+            
+            task.wait(1)
             
             pcall(function()
                 local pg = LocalPlayer:FindFirstChild("PlayerGui")
                 if pg then
                     for _, v in pairs(pg:GetDescendants()) do
-                        if v:IsA("TextButton") and (string.find(string.lower(v.Text), "accept") or string.find(string.lower(v.Name), "accept")) then
-                            pcall(function() getsenv(v).Click() end)
-                            pcall(function() v.MouseButton1Click:Fire() end)
+                        if v:IsA("TextButton") then
+                            local txt = string.lower(v.Text)
+                            local isGreen = (v.BackgroundColor3.G > v.BackgroundColor3.R and v.BackgroundColor3.G > v.BackgroundColor3.B)
+                            if string.find(txt, "accept") or string.find(txt, "akzeptieren") or isGreen then
+                                pcall(function() getsenv(v).Click() end)
+                                pcall(function() v.MouseButton1Click:Fire() end)
+                            end
                         end
                     end
                 end
@@ -729,7 +769,8 @@ task.spawn(function()
             
             task.wait(1)
             pcall(function()
-                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Haki"):FireServer("Buso")
+                local args = {"Buso"}
+                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Haki"):FireServer(unpack(args))
             end)
             
             _G.SpiritEssenceUsed = true
@@ -749,6 +790,12 @@ task.spawn(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
+
+        -- CAMERA NORMALIZATION
+        pcall(function()
+            camera.CameraType = Enum.CameraType.Custom
+            camera.CameraSubject = hum
+        end)
 
         -- 1. DIFF CHOOSER
         local diffChooser = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("DiffChooser")
@@ -965,6 +1012,14 @@ task.spawn(function()
                 local tHum = target:FindFirstChildOfClass("Humanoid")
                 
                 if tRoot and tHum then
+                    local distToGuard = (root.Position - tRoot.Position).Magnitude
+                    local lookDir = tRoot.CFrame.LookVector
+                    local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
+                    
+                    if distToGuard > 15 then 
+                        SmartTransport(attackPos, 44)
+                    end
+                    
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
                     if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
                     
@@ -990,14 +1045,13 @@ task.spawn(function()
                     local currentDodgeOffset = (tick() < (_G.GuardDodgeEndTime or 0)) and 2 or 0
                     local actualHeight = _G.GuardHoverHeight + currentDodgeOffset
 
-                    local lookDir = tRoot.CFrame.LookVector
-                    local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
-                    local flatTarget = Vector3.new(tRoot.Position.X, attackPos.Y, tRoot.Position.Z)
-                    local targetRot = CFrame.lookAt(attackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
+                    local finalAttackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
+                    local flatTarget = Vector3.new(tRoot.Position.X, finalAttackPos.Y, tRoot.Position.Z)
+                    local targetRot = CFrame.lookAt(finalAttackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
                     
                     ToggleHover(true)
                     local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = attackPos end
+                    if bp then bp.Position = finalAttackPos end
                     local bg = root:FindFirstChild("RyuGyroVera")
                     if bg then bg.CFrame = targetRot end
 
@@ -1018,18 +1072,13 @@ task.spawn(function()
         -- 7. LABYRINTH BYPASS
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
-            SmartTransport(pos1, 44)
+            LagTransport(pos1)
             
-            local highPos1 = pos1 + Vector3.new(0, 150, 0)
             local pos2 = Vector3.new(2660.54, 2075.45, -15403.33)
-            local highPos2 = pos2 + Vector3.new(0, 150, 0)
-            
-            SmartTransport(highPos1, 50)
-            SmartTransport(highPos2, 50)
-            SmartTransport(pos2, 44)
+            LagTransport(pos2)
             
             local pos3 = Vector3.new(2663.73, 2075.45, -15501.86)
-            SmartTransport(pos3, 44)
+            LagTransport(pos3)
             
             _G.LabGuardLastCombat = tick()
             _G.ImpelState = "LabyrinthGuards"
