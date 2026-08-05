@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & STRICT VERTICAL FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & SMART HOVER ENGINE)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -586,13 +586,8 @@ CreateButton(SecSave, "Reset UI Settings", Theme.Warning, function()
     end
 end)
 
--- INITIALISIERUNG
-task.spawn(function()
-    Tabs[1].Toggle()
-    Tabs[1].SubTabs[1].Open()
-end)
+task.spawn(function() Tabs[1].Toggle(); Tabs[1].SubTabs[1].Open() end)
 
--- SETTINGS LADEN BEIM START
 local function ApplyLoadedSettings()
     if RyuSavedConfig.GlassMode then
         MainFrame.BackgroundTransparency = 0.4; MainFrame.BackgroundColor3 = Color3.fromRGB(5,5,5)
@@ -610,13 +605,8 @@ local function ApplyLoadedSettings()
 end
 ApplyLoadedSettings()
 
--- MOBILE FLY DOCK
-local FlyDock = Instance.new("Frame", RyuHub); FlyDock.Size = UDim2.new(0, 180, 0, 120); FlyDock.Position = UDim2.new(0.7, 0, 0.5, 0); FlyDock.BackgroundColor3 = Theme.Background; FlyDock.Visible = false; FlyDock.Active = true; FlyDock.Draggable = true; Instance.new("UICorner", FlyDock).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", FlyDock).Color = Theme.Accent
-local function CreateDockBtn(txt, pos, size) local btn = Instance.new("TextButton", FlyDock); btn.Size = size; btn.Position = pos; btn.BackgroundColor3 = Theme.ToggleOff; btn.Font = Enum.Font.GothamBold; btn.Text = txt; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.TextSize = 14; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4); btn.MouseButton1Click:Connect(Ryuhub) end
-CreateDockBtn("W", UDim2.new(0.3, 0, 0.08, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("S", UDim2.new(0.3, 0, 0.62, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("A", UDim2.new(0.08, 0, 0.35, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("D", UDim2.new(0.52, 0, 0.35, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("UP", UDim2.new(0.78, 0, 0.12, 0), UDim2.new(0, 30, 0, 38)); CreateDockBtn("DOWN", UDim2.new(0.78, 0, 0.52, 0), UDim2.new(0, 30, 0, 38))
-
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE
+--// IMPEL DOWN AUTO FARM ENGINE (V2.9: SMART HEIGHT & CLEAN REACTIVE)
 --// ============================================================================
 
 task.spawn(function()
@@ -684,7 +674,7 @@ task.spawn(function()
                 end
                 
                 -- SMART HEIGHT TRACKING
-                if not _G.VeraHoverHeight then _G.VeraHoverHeight = 7 end
+                if not _G.SmartHoverHeight then _G.SmartHoverHeight = 6.5 end
                 if not _G.VeraLastHp then _G.VeraLastHp = vHum.Health end
                 
                 if vHum.Health < _G.VeraLastHp then
@@ -692,23 +682,29 @@ task.spawn(function()
                     _G.VeraLastHitTime = tick()
                 end
                 
-                if tick() - (_G.VeraLastHitTime or tick()) > 2 then
-                    _G.VeraHoverHeight = 6
+                -- Wenn wir 1.5 Sekunden keinen Damage machen, gehen wir minimal runter
+                if tick() - (_G.VeraLastHitTime or tick()) > 1.5 then
+                    _G.SmartHoverHeight = math.max(4.0, _G.SmartHoverHeight - 0.1)
                     _G.VeraLastHitTime = tick() 
                 end
+
+                -- Wenn wir Schaden nehmen, gehen wir hoch
+                if not _G.PlayerLastHpVera then _G.PlayerLastHpVera = hum.Health end
+                if hum.Health < _G.PlayerLastHpVera then
+                    _G.SmartHoverHeight = math.min(13, _G.SmartHoverHeight + 0.5)
+                end
+                _G.PlayerLastHpVera = hum.Health
 
                 -- ANTI-STUN
                 hum.PlatformStand = false
                 hum.Sit = false
                 
-                -- DIREKT ÜBER IHR FLIEGEN & STRIKT VERTIKAL ERZWINGEN (90 GRAD NACH UNTEN)
-                local attackPos = vRoot.Position + Vector3.new(0, _G.VeraHoverHeight, 0)
+                -- DIREKT ÜBER IHR FLIEGEN (NORMAL LOOKAT)
+                local attackPos = vRoot.Position + Vector3.new(0, _G.SmartHoverHeight, 0)
                 local nextPos = root.Position:Lerp(attackPos, 0.4)
                 
                 ToggleHover(true)
-                -- CFrame.Angles für absolut starren Look nach unten
-                root.CFrame = CFrame.new(nextPos) * CFrame.Angles(math.rad(-90), 0, 0)
-                
+                root.CFrame = CFrame.lookAt(nextPos, vRoot.Position)
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = attackPos end
                 root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
@@ -735,75 +731,9 @@ task.spawn(function()
             continue
         end
 
-        -- 4. KEY Suchen
-        local keyPart = nil
-        pcall(function()
-            local effects = Workspace:FindFirstChild("Effects")
-            if effects then
-                local kModel = effects:FindFirstChild("Key")
-                if kModel then
-                    if kModel:IsA("BasePart") then keyPart = kModel 
-                    elseif kModel:FindFirstChild("Key") then keyPart = kModel.Key end
-                end
-            end
-            if not keyPart then
-                local islands = Workspace:FindFirstChild("Islands")
-                if islands then
-                    for _, isl in pairs(islands:GetChildren()) do
-                        if isl.Name:find("Impel Base") then
-                            local spawns = isl:FindFirstChild("KeySpawns")
-                            if spawns then
-                                for _, k in pairs(spawns:GetChildren()) do
-                                    if k.Name == "Key" and k:IsA("BasePart") and k.Transparency < 1 then keyPart = k; break end
-                                end
-                            end
-                        end
-                    end
-                end
-            end
-        end)
-
-        if _G.VeraSeen and keyPart then
-            if not _G.KeyWaitTriggered then
-                _G.KeyWaitTriggered = true
-                ToggleHover(true)
-                root.Velocity = Vector3.new(0,0,0)
-                task.wait(4)
-            end
-
-            local flatDir = Vector3.new(root.Position.X - keyPart.Position.X, 0, root.Position.Z - keyPart.Position.Z)
-            if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
-            local safePos = keyPart.Position + flatDir.Unit * 2
-            local safeCFrame = CFrame.lookAt(safePos, keyPart.Position)
-
-            local dist = (root.Position - keyPart.Position).Magnitude
-            if dist > 4 then
-                ToggleHover(false)
-                SafeTween(safeCFrame, 45, false) 
-            else
-                root.CFrame = safeCFrame
-                root.Velocity = Vector3.new(0,0,0)
-                
-                local prompt = keyPart:FindFirstChildOfClass("ProximityPrompt")
-                if prompt then
-                    if fireproximityprompt then fireproximityprompt(prompt, 1) else
-                        prompt:InputHoldBegin() task.wait(prompt.HoldDuration + 0.1) prompt:InputHoldEnd()
-                    end
-                else
-                    pcall(function()
-                        VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-                        task.wait(0.1)
-                        VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
-                    end)
-                end
-                task.wait(0.5)
-            end
-            continue
-        end
-
-        -- 5. IMPEL GUARDS
+        -- 4. IMPEL GUARDS
         local guards = {}
-        if _G.VeraSeen and not keyPart and npcsFolder then
+        if _G.VeraSeen and npcsFolder then
             for _, v in pairs(npcsFolder:GetChildren()) do
                 if v.Name:find("Impel Guard") then
                     local gHum = v:FindFirstChildOfClass("Humanoid")
@@ -817,6 +747,11 @@ task.spawn(function()
                 local tHum = target:FindFirstChildOfClass("Humanoid")
                 
                 if tRoot and tHum then
+                    -- 50 STUDS RANGE LIMIT
+                    if (root.Position - tRoot.Position).Magnitude > 50 then
+                        continue
+                    end
+
                     -- FAILSAFE (LOW HP BLOCK SPAM)
                     if hum.Health / hum.MaxHealth < 0.8 then
                         ToggleHover(true)
@@ -829,7 +764,8 @@ task.spawn(function()
                         pcall(function() ReplicatedStorage.Events.Block:InvokeServer(false, "Melee", true) end)
                     end
                     
-                    if not _G.GuardHoverHeight then _G.GuardHoverHeight = 7 end
+                    -- SMART HEIGHT TRACKING FÜR GUARDS
+                    if not _G.SmartHoverHeight then _G.SmartHoverHeight = 6.5 end
                     if not _G.GuardLastHp then _G.GuardLastHp = tHum.Health end
                     
                     if tHum.Health < _G.GuardLastHp then
@@ -837,21 +773,26 @@ task.spawn(function()
                         _G.GuardLastHitTime = tick()
                     end
                     
-                    if tick() - (_G.GuardLastHitTime or tick()) > 2 then
-                        _G.GuardHoverHeight = 6
+                    if tick() - (_G.GuardLastHitTime or tick()) > 1.5 then
+                        _G.SmartHoverHeight = math.max(4.0, _G.SmartHoverHeight - 0.1)
                         _G.GuardLastHitTime = tick()
                     end
+
+                    if not _G.PlayerLastHpGuard then _G.PlayerLastHpGuard = hum.Health end
+                    if hum.Health < _G.PlayerLastHpGuard then
+                        _G.SmartHoverHeight = math.min(13, _G.SmartHoverHeight + 0.5)
+                    end
+                    _G.PlayerLastHpGuard = hum.Health
                     
                     -- ANTI-STUN
                     hum.PlatformStand = false
                     hum.Sit = false
 
-                    local attackPos = tRoot.Position + Vector3.new(0, _G.GuardHoverHeight, 0)
+                    local attackPos = tRoot.Position + Vector3.new(0, _G.SmartHoverHeight, 0)
                     local nextPos = root.Position:Lerp(attackPos, 0.4)
-                    local targetCFrame = CFrame.new(nextPos) * CFrame.Angles(math.rad(-90), 0, 0)
                     
                     ToggleHover(true)
-                    root.CFrame = targetCFrame
+                    root.CFrame = CFrame.lookAt(nextPos, tRoot.Position)
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = attackPos end
                     root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
@@ -864,8 +805,8 @@ task.spawn(function()
             end
         end
 
-        -- 6. LABYRINTH / WAYPOINTS
-        if _G.VeraSeen and not keyPart and #guards == 0 then
+        -- 5. LABYRINTH / WAYPOINTS
+        if _G.VeraSeen and #guards == 0 then
             local labyrinthTarget = Vector3.new(2664.91, 2075.15, -15491.03)
             if (root.Position - labyrinthTarget).Magnitude > 5 then
                 ToggleHover(false)
