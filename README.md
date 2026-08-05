@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH MAZE-LOOP & ESSENCE FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH FLOOR 2 & ESSENCE FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -445,7 +445,7 @@ local function SmartTransport(targetPos, speed, timeout)
     while RyuSavedConfig.AutoImpelDown do
         if tick() - startTime > timeoutLimit then 
             if wasClimbing then pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end) end
-            return false -- Timeout
+            return false 
         end
 
         local dist = (root.Position - targetPos).Magnitude
@@ -480,7 +480,6 @@ local function SmartTransport(targetPos, speed, timeout)
         root.Velocity = Vector3.new(0,0,0)
         root.RotVelocity = Vector3.new(0,0,0)
         
-        -- CAMERA TRACKING
         pcall(function()
             local camPos = root.Position - (flatDir * 15) + Vector3.new(0, 7, 0)
             camera.CFrame = CFrame.lookAt(camPos, root.Position)
@@ -493,7 +492,7 @@ local function SmartTransport(targetPos, speed, timeout)
     return true
 end
 
--- PATH TRANSPORT (NO CLIMBING OR RAYCASTS - PURE NAVIGATION WITH SELF-HEALING)
+-- PATH TRANSPORT (SELF-HEALING ROUTE RUNNER)
 local function PathTransport(targetPos, speed, timeout)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -513,7 +512,7 @@ local function PathTransport(targetPos, speed, timeout)
 
         local dt = RunService.Heartbeat:Wait()
         
-        -- STUCK DETECTION (Self-Healing Maze Loop)
+        -- STUCK DETECTION (Self-Healing)
         if (root.Position - lastPos).Magnitude < (speed * dt * 0.2) then
             stuckTimer = stuckTimer + dt
             if stuckTimer > 0.5 then return false end -- Abbruch erzwingt direkte Neuberechnung
@@ -534,7 +533,6 @@ local function PathTransport(targetPos, speed, timeout)
         root.Velocity = Vector3.new(0,0,0)
         root.RotVelocity = Vector3.new(0,0,0)
         
-        -- CAMERA TRACKING
         pcall(function()
             local camPos = root.Position - (flatDir * 15) + Vector3.new(0, 7, 0)
             camera.CFrame = CFrame.lookAt(camPos, root.Position)
@@ -732,10 +730,10 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V4.3: STAT FIX, CAMERA FIX, LABYRINTH LOOP FIX)
+--// IMPEL DOWN AUTO FARM ENGINE (V5.0: FLOOR 2 INTEGRATION & MAZE SOLVER)
 --// ============================================================================
 
--- PASSIVE STATS ALLOCATOR (100% Fix with unpack(args, 1, 3))
+-- PASSIVE STATS ALLOCATOR
 task.spawn(function()
     while true do
         task.wait()
@@ -786,23 +784,31 @@ task.spawn(function()
                 local guiInset = GuiService:GetGuiInset()
                 if pg then
                     for _, v in pairs(pg:GetDescendants()) do
-                        if v:IsA("TextButton") then
-                            local txt = string.lower(v.Text)
+                        if v:IsA("TextButton") or v:IsA("ImageButton") then
+                            local txt = ""
+                            if v:IsA("TextButton") then txt = string.lower(v.Text) end
                             local name = string.lower(v.Name)
                             
-                            if (string.find(txt, "accept") or string.find(name, "accept") or string.find(txt, "yes") or string.find(name, "yes") or string.find(txt, "akzeptieren")) and not string.find(txt, "no") and not string.find(txt, "decline") and not string.find(txt, "ablehnen") then
-                                local absPos = v.AbsolutePosition
-                                local absSize = v.AbsoluteSize
-                                local centerX = absPos.X + (absSize.X / 2)
-                                local centerY = absPos.Y + (absSize.Y / 2) + guiInset.Y
-                                
-                                VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
-                                task.wait(0.1)
-                                VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
-                                
-                                pcall(function() v.Activated:Fire() end)
-                                pcall(function() getsenv(v).Click() end)
-                                pcall(function() v.MouseButton1Click:Fire() end)
+                            local isGreen = false
+                            if v.BackgroundColor3 then
+                                isGreen = (v.BackgroundColor3.G > v.BackgroundColor3.R + 0.1 and v.BackgroundColor3.G > v.BackgroundColor3.B + 0.1)
+                            end
+                            
+                            if (string.find(txt, "accept") or string.find(name, "accept") or string.find(txt, "yes") or string.find(name, "yes") or string.find(txt, "akzeptieren") or isGreen) then
+                                if not string.find(txt, "no") and not string.find(txt, "decline") and not string.find(name, "no") and not string.find(name, "decline") and not string.find(txt, "ablehnen") then
+                                    local absPos = v.AbsolutePosition
+                                    local absSize = v.AbsoluteSize
+                                    local centerX = absPos.X + (absSize.X / 2)
+                                    local centerY = absPos.Y + (absSize.Y / 2) + guiInset.Y
+                                    
+                                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
+                                    task.wait(0.05)
+                                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
+                                    
+                                    pcall(function() v.Activated:Fire() end)
+                                    pcall(function() getsenv(v).Click() end)
+                                    pcall(function() v.MouseButton1Click:Fire() end)
+                                end
                             end
                         end
                     end
@@ -833,7 +839,6 @@ task.spawn(function()
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
 
-        -- CAMERA NORMALIZATION 
         pcall(function()
             camera.CameraType = Enum.CameraType.Custom
             camera.CameraSubject = hum
@@ -913,7 +918,7 @@ task.spawn(function()
             continue
         end
 
-        -- 2.5 CUTSCENE / MESSAGE WAIT
+        -- 2.5 CUTSCENE WAIT
         if _G.ImpelState == "WaitForCutscene" then
             if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
             
@@ -1026,8 +1031,8 @@ task.spawn(function()
 
         -- 5. WAYPOINTS TO GUARDS
         if _G.ImpelState == "Waypoints" then
-            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 43, 20)
-            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 43, 20)
+            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 30, 20)
+            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 30, 20)
             _G.ImpelState = "Guards"
             continue
         end
@@ -1114,7 +1119,7 @@ task.spawn(function()
             end
         end
 
-        -- 7. LABYRINTH BYPASS (Self-Healing Loop)
+        -- 7. LABYRINTH BYPASS (PATHFINDING NO-CLIMB NAVIGATOR)
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
             SmartTransport(pos1, 43, 20)
@@ -1140,7 +1145,6 @@ task.spawn(function()
                         if waypoint.Action == Enum.PathWaypointAction.Jump then
                             hum.Jump = true
                         end
-                        -- PathTransport returns false if stuck -> forces immediate re-computation!
                         local reached = PathTransport(waypoint.Position, 43, 3) 
                         if not reached then
                             break
@@ -1234,8 +1238,139 @@ task.spawn(function()
             continue
         end
 
-        -- 9. IDLE WAIT
+        -- 9. WAITING FOR NEXT ROOM (Floor 2 Detection)
         if _G.ImpelState == "WaitingForNext" then
+            local floor2Found = false
+            pcall(function()
+                local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                if pg then
+                    for _, v in pairs(pg:GetDescendants()) do
+                        if v:IsA("TextLabel") and v.Visible and v.TextTransparency < 1 then
+                            if string.find(string.lower(v.Text), "floor 2") then
+                                floor2Found = true
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+
+            if floor2Found then
+                _G.ImpelState = "Floor2Waypoints"
+            end
+            task.wait(0.5)
+            continue
+        end
+
+        -- 10. FLOOR 2 WAYPOINTS
+        if _G.ImpelState == "Floor2Waypoints" then
+            local pts = {
+                Vector3.new(3200.23, 2405.38, -20190.65),
+                Vector3.new(3265.69, 2405.38, -20199.22),
+                Vector3.new(3261.70, 2405.38, -20193.35)
+            }
+            
+            for _, pt in ipairs(pts) do
+                if not RyuSavedConfig.AutoImpelDown then break end
+                PathTransport(pt, 43, 15)
+                task.wait(0.1)
+            end
+            
+            _G.ImpelState = "Floor2Combat"
+            continue
+        end
+
+        -- 11. FLOOR 2 COMBAT
+        if _G.ImpelState == "Floor2Combat" then
+            local roomCleared = false
+            pcall(function()
+                local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                if pg then
+                    for _, v in pairs(pg:GetDescendants()) do
+                        if v:IsA("TextLabel") and v.Visible and v.TextTransparency < 1 then
+                            if string.find(string.lower(v.Text), "room cleared") then
+                                roomCleared = true
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+
+            if roomCleared then
+                ToggleHover(false)
+                _G.ImpelState = "Floor2Done"
+                continue
+            end
+
+            local npcsFolder = Workspace:FindFirstChild("NPCs")
+            local enemies = {}
+            if npcsFolder then
+                for _, v in pairs(npcsFolder:GetChildren()) do
+                    if v:FindFirstChildOfClass("Humanoid") and v.Name ~= LocalPlayer.Name and v.Name ~= "Vera" then
+                        local eHum = v:FindFirstChildOfClass("Humanoid")
+                        local eRoot = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart
+                        if eHum and eHum.Health > 0 and eRoot then
+                            if (root.Position - eRoot.Position).Magnitude <= 150 then
+                                table.insert(enemies, v)
+                            end
+                        end
+                    end
+                end
+            end
+
+            if #enemies > 0 then
+                local target = enemies[1]
+                local tRoot = target:FindFirstChild("HumanoidRootPart") or target.PrimaryPart
+                local tHum = target:FindFirstChildOfClass("Humanoid")
+                
+                if tRoot and tHum then
+                    if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
+                    if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
+                    
+                    if not _G.F2HoverHeight then _G.F2HoverHeight = 6.5 end
+                    
+                    if not _G.PlayerLastHpF2 then _G.PlayerLastHpF2 = hum.Health end
+                    if hum.Health < _G.PlayerLastHpF2 then
+                        _G.F2DodgeEndTime = tick() + 0.8
+                    end
+                    _G.PlayerLastHpF2 = hum.Health
+                    
+                    if not _G.F2LastHp then _G.F2LastHp = tHum.Health end
+                    if tHum.Health < _G.F2LastHp then
+                        _G.F2LastHp = tHum.Health
+                        _G.F2LastHitTime = tick()
+                    end
+                    
+                    if tick() - (_G.F2LastHitTime or tick()) > 1.5 then
+                        _G.F2HoverHeight = math.max(4.0, _G.F2HoverHeight - 0.1)
+                        _G.F2LastHitTime = tick()
+                    end
+
+                    local currentDodgeOffset = (tick() < (_G.F2DodgeEndTime or 0)) and 2 or 0
+                    local actualHeight = _G.F2HoverHeight + currentDodgeOffset
+
+                    local lookDir = tRoot.CFrame.LookVector
+                    local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
+                    local flatTarget = Vector3.new(tRoot.Position.X, attackPos.Y, tRoot.Position.Z)
+                    local targetRot = CFrame.lookAt(attackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
+                    
+                    ToggleHover(true)
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = attackPos end
+                    local bg = root:FindFirstChild("RyuGyroVera")
+                    if bg then bg.CFrame = targetRot end
+
+                    EquipTargetWeapon()
+                    PerformMeleeAttack(enemies) 
+                end
+            else
+                task.wait(0.1)
+            end
+            continue
+        end
+
+        if _G.ImpelState == "Floor2Done" then
             task.wait(1)
             continue
         end
