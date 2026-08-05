@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH EXACT STATS FIX & LABYRINTH PATHFINDING)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH CAMERA TRACKING & PATH-TRANSPORT)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -14,6 +14,7 @@ local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local PathfindingService = game:GetService("PathfindingService")
 local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -424,7 +425,7 @@ local function ToggleHover(state)
     end
 end
 
--- SMART TRANSPORT WITH TIMEOUT
+-- SMART TRANSPORT WITH TIMEOUT & CLIMB DETECTION
 local function SmartTransport(targetPos, speed, timeout)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -444,7 +445,7 @@ local function SmartTransport(targetPos, speed, timeout)
     while RyuSavedConfig.AutoImpelDown do
         if tick() - startTime > timeoutLimit then 
             if wasClimbing then pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end) end
-            return false 
+            return false -- Timeout
         end
 
         local dist = (root.Position - targetPos).Magnitude
@@ -478,6 +479,12 @@ local function SmartTransport(targetPos, speed, timeout)
         if bp then bp.Position = nextPos end
         root.Velocity = Vector3.new(0,0,0)
         root.RotVelocity = Vector3.new(0,0,0)
+        
+        -- CAMERA TRACKING
+        pcall(function()
+            local camPos = root.Position - (flatDir * 15) + Vector3.new(0, 7, 0)
+            camera.CFrame = CFrame.lookAt(camPos, root.Position)
+        end)
     end
     
     if wasClimbing then
@@ -486,18 +493,50 @@ local function SmartTransport(targetPos, speed, timeout)
     return true
 end
 
--- CHEST HOLD INTERACT (0.5s intervals)
+-- PATH TRANSPORT (NO CLIMBING OR RAYCASTS - PURE NAVIGATION)
+local function PathTransport(targetPos, speed, timeout)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+
+    ToggleHover(true)
+    local startTime = tick()
+    local timeoutLimit = timeout or 99999
+
+    while RyuSavedConfig.AutoImpelDown do
+        if tick() - startTime > timeoutLimit then return false end
+
+        local dist = (root.Position - targetPos).Magnitude
+        if dist < 4 then break end
+
+        local dt = RunService.Heartbeat:Wait()
+        local dir = (targetPos - root.Position).Unit
+        local flatDir = Vector3.new(dir.X, 0, dir.Z).Unit
+        if flatDir.Magnitude ~= flatDir.Magnitude then flatDir = Vector3.new(1,0,0) end
+
+        local nextPos = root.Position + (dir * speed * dt)
+        
+        root.CFrame = CFrame.lookAt(nextPos, nextPos + flatDir)
+        local bp = root:FindFirstChild("RyuHover")
+        if bp then bp.Position = nextPos end
+        root.Velocity = Vector3.new(0,0,0)
+        root.RotVelocity = Vector3.new(0,0,0)
+        
+        -- CAMERA TRACKING
+        pcall(function()
+            local camPos = root.Position - (flatDir * 15) + Vector3.new(0, 7, 0)
+            camera.CFrame = CFrame.lookAt(camPos, root.Position)
+        end)
+    end
+    return true
+end
+
 local function HoldInteract(duration)
     local t = tick()
     while tick() - t < duration do
         if not RyuSavedConfig.AutoImpelDown then break end
         
-        -- Press E and click screen for 0.5s
         pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game) end)
-        pcall(function()
-            local center = camera.ViewportSize / 2
-            VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, true, game, 1)
-        end)
         
         for _, v in pairs(Workspace:GetDescendants()) do
             if v:IsA("ProximityPrompt") and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
@@ -513,12 +552,7 @@ local function HoldInteract(duration)
         
         task.wait(0.5)
         
-        -- Release E and click
         pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game) end)
-        pcall(function()
-            local center = camera.ViewportSize / 2
-            VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, false, game, 1)
-        end)
         for _, v in pairs(Workspace:GetDescendants()) do
             if v:IsA("ProximityPrompt") then pcall(function() v:InputHoldEnd() end) end
         end
@@ -685,19 +719,19 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V4.1: STATS FIX, CAMERA FIX, PATHFINDING LABYRINTH)
+--// IMPEL DOWN AUTO FARM ENGINE (V4.2: EXACT STAT UNPACK & PERFECT MAZE SOLVER)
 --// ============================================================================
 
--- PASSIVE STATS ALLOCATOR
+-- PASSIVE STATS ALLOCATOR (100% Fix with unpack(args, 1, 3))
 task.spawn(function()
     while true do
-        task.wait(0.1)
+        task.wait()
         if RyuSavedConfig.AutoImpelDown then
             pcall(function()
-                local argsStr = {"Strength", [3] = 1}
+                local argsStr = {"Strength", nil, 1}
                 game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("stats"):FireServer(unpack(argsStr, 1, 3))
                 
-                local argsDef = {"Defense", [3] = 1}
+                local argsDef = {"Defense", nil, 1}
                 game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("stats"):FireServer(unpack(argsDef, 1, 3))
             end)
         end
@@ -707,6 +741,7 @@ end)
 -- PASSIVE SPIRIT ESSENCE HANDLER
 _G.SpiritEssenceUsed = false
 task.spawn(function()
+    local GuiService = game:GetService("GuiService")
     while true do
         task.wait(1)
         if not RyuSavedConfig.AutoImpelDown then continue end
@@ -725,16 +760,14 @@ task.spawn(function()
             pcall(function() hum:EquipTool(essence) end)
             task.wait(0.5)
             
-            pcall(function()
-                local center = camera.ViewportSize / 2
-                VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, true, game, 1)
-                task.wait(0.1)
-                VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, false, game, 1)
-            end)
+            -- Tool aktivieren
+            pcall(function() essence:Activate() end)
             task.wait(1.5)
             
+            -- Accept Button Click via VIM mit GuiInset Fix
             pcall(function()
                 local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                local guiInset = GuiService:GetGuiInset()
                 if pg then
                     for _, v in pairs(pg:GetDescendants()) do
                         if v:IsA("TextButton") then
@@ -744,12 +777,13 @@ task.spawn(function()
                                 local absPos = v.AbsolutePosition
                                 local absSize = v.AbsoluteSize
                                 local centerX = absPos.X + (absSize.X / 2)
-                                local centerY = absPos.Y + (absSize.Y / 2) + 36
+                                local centerY = absPos.Y + (absSize.Y / 2) + guiInset.Y
                                 
                                 VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
                                 task.wait(0.1)
                                 VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
                                 
+                                pcall(function() v.Activated:Fire() end)
                                 pcall(function() getsenv(v).Click() end)
                                 pcall(function() v.MouseButton1Click:Fire() end)
                             end
@@ -782,7 +816,7 @@ task.spawn(function()
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
 
-        -- CAMERA NORMALIZATION (Always follow player)
+        -- CAMERA NORMALIZATION 
         pcall(function()
             camera.CameraType = Enum.CameraType.Custom
             camera.CameraSubject = hum
@@ -1070,7 +1104,7 @@ task.spawn(function()
             end
         end
 
-        -- 7. LABYRINTH BYPASS (Pathfinding Route)
+        -- 7. LABYRINTH BYPASS (PATHFINDING NO-CLIMB NAVIGATOR)
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
             SmartTransport(pos1, 44, 20)
@@ -1095,15 +1129,15 @@ task.spawn(function()
                     if waypoint.Action == Enum.PathWaypointAction.Jump then
                         hum.Jump = true
                     end
-                    SmartTransport(waypoint.Position, 44, 5)
+                    -- Pure flying to bypass wall detection
+                    PathTransport(waypoint.Position, 44, 5) 
                 end
             else
-                -- Fallback wenn Pathfinding blockiert ist
-                SmartTransport(labyrinthTarget, 44, 20)
+                PathTransport(labyrinthTarget, 44, 20)
             end
             
             local pos3 = Vector3.new(2663.73, 2075.45, -15501.86)
-            SmartTransport(pos3, 44, 20)
+            PathTransport(pos3, 44, 20)
             
             _G.LabGuardLastCombat = tick()
             _G.ImpelState = "LabyrinthGuards"
