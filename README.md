@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & SMART DODGE ENGINE)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & SMART CHEST/GUARDS FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -423,7 +423,7 @@ local function ToggleHover(state)
     end
 end
 
--- SMART TRANSPORT WITH CLIMB DETECTION
+-- SMART TRANSPORT WITH CLIMB DETECTION (FIXED SPAM)
 local function SmartTransport(targetPos, speed)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -436,6 +436,8 @@ local function SmartTransport(targetPos, speed)
     rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
+    local wasClimbing = false
+
     while RyuSavedConfig.AutoImpelDown do
         local dist = (root.Position - targetPos).Magnitude
         if dist < 4 then break end
@@ -445,21 +447,22 @@ local function SmartTransport(targetPos, speed)
         local flatDir = Vector3.new(dir.X, 0, dir.Z).Unit
         if flatDir.Magnitude ~= flatDir.Magnitude then flatDir = Vector3.new(1,0,0) end
 
-        local isClimbing = false
         local hit = Workspace:Raycast(root.Position, flatDir * 5, rayParams)
-        if hit and hit.Instance and hit.Instance.CanCollide and hit.Instance.Transparency < 1 then
-            isClimbing = true
+        local shouldClimb = hit and hit.Instance and hit.Instance.CanCollide and hit.Instance.Transparency < 1
+
+        if shouldClimb and not wasClimbing then
+            wasClimbing = true
             pcall(function() if climbEvent then climbEvent:InvokeServer(true) end end)
-        else
+        elseif not shouldClimb and wasClimbing then
+            wasClimbing = false
             pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
         end
 
-        local moveSpeed = speed
         local nextPos = root.Position
-        if isClimbing then
-            nextPos = root.Position + Vector3.new(0, 30 * dt, 0)
+        if shouldClimb then
+            nextPos = root.Position + Vector3.new(0, speed * dt, 0)
         else
-            nextPos = root.Position + (dir * moveSpeed * dt)
+            nextPos = root.Position + (dir * speed * dt)
         end
 
         root.CFrame = CFrame.lookAt(nextPos, nextPos + flatDir)
@@ -468,25 +471,38 @@ local function SmartTransport(targetPos, speed)
         root.Velocity = Vector3.new(0,0,0)
         root.RotVelocity = Vector3.new(0,0,0)
     end
-    pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
+    
+    if wasClimbing then
+        pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
+    end
 end
 
-local function SpamInteract(duration)
+local function HoldInteract(duration)
     local t = tick()
     while tick() - t < duration do
         if not RyuSavedConfig.AutoImpelDown then break end
+        
         pcall(function()
             VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
-            task.wait(0.05)
-            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
         end)
+        
         for _, v in pairs(Workspace:GetDescendants()) do
             if v:IsA("ProximityPrompt") and (LocalPlayer.Character.HumanoidRootPart.Position - v.Parent.Position).Magnitude <= v.MaxActivationDistance + 5 then
-                if fireproximityprompt then fireproximityprompt(v, 1) else
-                    v:InputHoldBegin() task.wait(0.05) v:InputHoldEnd()
+                if fireproximityprompt then 
+                    fireproximityprompt(v, 1) 
+                else
+                    v:InputHoldBegin()
+                    task.wait(0.5)
+                    v:InputHoldEnd()
                 end
             end
         end
+        
+        task.wait(0.5)
+        
+        pcall(function()
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+        end)
         task.wait(0.1)
     end
 end
@@ -649,7 +665,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.2: SMART DODGE & CUTSCENE DETECT)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.3: CHEST HOLD FIX & CUTSCENE DETECT)
 --// ============================================================================
 
 task.spawn(function()
@@ -709,17 +725,14 @@ task.spawn(function()
                     if vRoot.Size.X < 15 then vRoot.Size = Vector3.new(15, 15, 15) vRoot.CanCollide = false end
                     if CheckHPAndFailsafe(root, hum, vRoot.Position + Vector3.new(0, 13, 0)) then continue end
                     
-                    -- SMART DODGE ENGINE
                     if not _G.SmartHoverHeight then _G.SmartHoverHeight = 6.5 end
                     
-                    -- Damage Reaction (Dodge)
                     if not _G.PlayerLastHpVera then _G.PlayerLastHpVera = hum.Health end
                     if hum.Health < _G.PlayerLastHpVera then
                         _G.DodgeEndTime = tick() + 0.8
                     end
                     _G.PlayerLastHpVera = hum.Health
                     
-                    -- Passive Height Adjust
                     if not _G.VeraLastHp then _G.VeraLastHp = vHum.Health end
                     if vHum.Health < _G.VeraLastHp then
                         _G.VeraLastHp = vHum.Health
@@ -768,7 +781,7 @@ task.spawn(function()
                     for _, v in pairs(pg:GetDescendants()) do
                         if v:IsA("TextLabel") and v.Visible and v.TextTransparency < 1 then
                             local txt = string.lower(v.Text)
-                            if string.find(txt, "floor 1") or string.find(txt, "stage 1") or string.find(txt, "grounded") then
+                            if string.find(txt, "floor 1") or string.find(txt, "stage 1") or string.find(txt, "your skill points have been reseted") then
                                 messageFound = true
                                 break
                             end
@@ -777,7 +790,7 @@ task.spawn(function()
                 end
             end)
 
-            if messageFound or (tick() - _G.VeraDeadTime > 12) then
+            if messageFound then
                 ToggleHover(false)
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
                 root.Velocity = Vector3.new(0, 0, 0)
@@ -792,7 +805,6 @@ task.spawn(function()
 
         -- 3. KEY PHASE
         if _G.ImpelState == "Key" then
-            if not _G.KeySearchTimeout then _G.KeySearchTimeout = tick() end
             local keyPart = nil
             
             pcall(function()
@@ -826,14 +838,10 @@ task.spawn(function()
 
             if keyPart then
                 SmartTransport(keyPart.Position, 40)
-                SpamInteract(2)
-                _G.KeySearchTimeout = nil
+                HoldInteract(2)
                 _G.ImpelState = "ChestRoute"
             else
-                if tick() - _G.KeySearchTimeout > 10 then
-                    _G.KeySearchTimeout = nil
-                    _G.ImpelState = "ChestRoute"
-                end
+                task.wait(0.5)
             end
             continue
         end
@@ -858,7 +866,7 @@ task.spawn(function()
                 if pt.action == "wait" then
                     task.wait(pt.time)
                 elseif pt.action == "chest" then
-                    SpamInteract(pt.time)
+                    HoldInteract(pt.time)
                 end
             end
 
@@ -881,7 +889,7 @@ task.spawn(function()
             
             local guards = {}
             for _, v in pairs(npcsFolder:GetChildren()) do
-                if v.Name:find("Impel Guard") then
+                if string.find(string.lower(v.Name), "guard") then
                     local gHum = v:FindFirstChildOfClass("Humanoid")
                     if gHum and gHum.Health > 0 then table.insert(guards, v) end
                 end
