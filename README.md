@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH SMART ESSENCE & GUARD TRACKING)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH SMART CAMERA & FAST STATS)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -310,7 +310,7 @@ end
 local function CreateDropdown(section, headerText, itemsList, callback)
     itemOrderCounter = itemOrderCounter + 1
     local frame = Instance.new("Frame", section); frame.LayoutOrder = itemOrderCounter; frame.Size = UDim2.new(0.92, 0, 0, 160); frame.BackgroundTransparency = 1; frame.ZIndex = 2
-    local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(itemsList[1]); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left; header.ZIndex = 2
+    local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(itemsList[1]); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left; header.ZIndex = 2
     local scroll = Instance.new("ScrollingFrame", frame); scroll.Name = "DropdownContainer"; scroll.Size = UDim2.new(1, 0, 0, 130); scroll.Position = UDim2.new(0, 0, 0, 25); scroll.BackgroundColor3 = Theme.Background; scroll.ScrollBarThickness = 4; scroll.ZIndex = 2; Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
     local listLayout = Instance.new("UIListLayout", scroll); listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
     for _, itemName in ipairs(itemsList) do
@@ -424,7 +424,7 @@ local function ToggleHover(state)
     end
 end
 
--- SMART TRANSPORT WITH CLIMB DETECTION
+-- SMART TRANSPORT WITH CAMERA TRACKING
 local function SmartTransport(targetPos, speed)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -471,6 +471,13 @@ local function SmartTransport(targetPos, speed)
         if bp then bp.Position = nextPos end
         root.Velocity = Vector3.new(0,0,0)
         root.RotVelocity = Vector3.new(0,0,0)
+
+        pcall(function()
+            local cam = Workspace.CurrentCamera
+            if cam then
+                cam.CFrame = CFrame.new(cam.CFrame.Position, cam.CFrame.Position + flatDir)
+            end
+        end)
     end
     
     if wasClimbing then
@@ -666,22 +673,19 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.4: SMART ESSENCE, REJOIN & GUARDS FIX)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.5: FAST STAT SPAM, CAMERA TRACKING, GUARD FIX)
 --// ============================================================================
 
--- PASSIVE STATS ALLOCATOR
+-- FAST PASSIVE STATS ALLOCATOR
 task.spawn(function()
     while true do
-        task.wait(3)
+        task.wait(0.2)
         if RyuSavedConfig.AutoImpelDown then
             pcall(function()
                 local rs = game:GetService("ReplicatedStorage")
                 if rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats") then
-                    local argsStr = {"Strength"} argsStr[3] = 700
-                    rs.Events.stats:FireServer(unpack(argsStr))
-                    
-                    local argsDef = {"Defense"} argsDef[3] = 800
-                    rs.Events.stats:FireServer(unpack(argsDef))
+                    rs.Events.stats:FireServer(unpack({"Strength", [3] = 700}))
+                    rs.Events.stats:FireServer(unpack({"Defense", [3] = 800}))
                 end
             end)
         end
@@ -928,6 +932,7 @@ task.spawn(function()
                 end
             end
 
+            _G.LastGuardSeenTime = tick()
             _G.ImpelState = "Waypoints"
             continue
         end
@@ -936,31 +941,23 @@ task.spawn(function()
         if _G.ImpelState == "Waypoints" then
             SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 44)
             SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 44)
+            _G.LastGuardSeenTime = tick()
             _G.ImpelState = "Guards"
             continue
         end
 
         -- 6. IMPEL GUARDS
         if _G.ImpelState == "Guards" then
-            -- REJOIN CHECK WENN KEINE ESSENCE GEFUNDEN WURDE
-            if not _G.SpiritEssenceUsed then
-                local hasEssence = LocalPlayer.Backpack:FindFirstChild("Spirit Essence") or (char and char:FindFirstChild("Spirit Essence"))
-                if not hasEssence then
-                    pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
-                    task.wait(9e9) 
-                end
-            end
-
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
             
             local guards = {}
             for _, v in pairs(npcsFolder:GetChildren()) do
-                if string.find(string.lower(v.Name), "guard") then
+                if string.find(string.lower(v.Name), "guard") or string.find(string.lower(v.Name), "impel") then
                     local gHum = v:FindFirstChildOfClass("Humanoid")
                     local gRoot = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart
                     if gHum and gHum.Health > 0 and gRoot then
-                        if (root.Position - gRoot.Position).Magnitude <= 100 then
+                        if (root.Position - gRoot.Position).Magnitude <= 150 then
                             table.insert(guards, v)
                         end
                     end
