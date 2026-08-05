@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH LAG-CLIMB & PASSIVE FIXES)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH SMART CLIMB, TIMEOUTS & ESSENCE FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local PathfindingService = game:GetService("PathfindingService")
+local TeleportService = game:GetService("TeleportService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -423,11 +424,11 @@ local function ToggleHover(state)
     end
 end
 
--- SMART TRANSPORT WITH CLIMB DETECTION
-local function SmartTransport(targetPos, speed)
+-- SMART TRANSPORT WITH TIMEOUT & CLIMB DETECTION
+local function SmartTransport(targetPos, speed, timeout)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+    if not root then return false end
 
     local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
     ToggleHover(true)
@@ -437,8 +438,15 @@ local function SmartTransport(targetPos, speed)
     rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
     local wasClimbing = false
+    local startTime = tick()
+    local timeoutLimit = timeout or 99999
 
     while RyuSavedConfig.AutoImpelDown do
+        if tick() - startTime > timeoutLimit then 
+            if wasClimbing then pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end) end
+            return false -- Timeout
+        end
+
         local dist = (root.Position - targetPos).Magnitude
         if dist < 4 then break end
 
@@ -475,34 +483,68 @@ local function SmartTransport(targetPos, speed)
     if wasClimbing then
         pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
     end
+    return true
 end
 
--- LAG TRANSPORT FOR LABYRINTH
-local function LagTransport(targetPos)
+-- LABYRINTH TRANSPORT (BLOCK & FAST CLIMB)
+local function LabyrinthTransport(targetPos, speed, timeout)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
-    
+
     local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
-    
+    local blockEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Block")
     ToggleHover(true)
-    local bp = root:FindFirstChild("RyuHover")
-    
-    while RyuSavedConfig.AutoImpelDown and root do
+
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+    local wasClimbing = false
+    local startTime = tick()
+    local timeoutLimit = timeout or 99999
+
+    while RyuSavedConfig.AutoImpelDown do
+        if tick() - startTime > timeoutLimit then break end
+
         local dist = (root.Position - targetPos).Magnitude
-        if dist < 5 then break end
-        
+        if dist < 4 then break end
+
+        local dt = RunService.Heartbeat:Wait()
         local dir = (targetPos - root.Position).Unit
-        local nextPos = root.Position + dir * math.min(10, dist)
-        
-        pcall(function() if climbEvent then climbEvent:InvokeServer(true) end end)
-        
-        root.CFrame = CFrame.lookAt(nextPos, nextPos + dir)
+        local flatDir = Vector3.new(dir.X, 0, dir.Z).Unit
+        if flatDir.Magnitude ~= flatDir.Magnitude then flatDir = Vector3.new(1,0,0) end
+
+        local hit = Workspace:Raycast(root.Position, flatDir * 5, rayParams)
+        local shouldClimb = hit and hit.Instance and hit.Instance.CanCollide and hit.Instance.Transparency < 1
+
+        if shouldClimb and not wasClimbing then
+            wasClimbing = true
+            pcall(function() if climbEvent then climbEvent:InvokeServer(true) end end)
+            pcall(function() if blockEvent then blockEvent:InvokeServer(true, "Melee", true) end end)
+        elseif not shouldClimb and wasClimbing then
+            wasClimbing = false
+            pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
+            pcall(function() if blockEvent then blockEvent:InvokeServer(false, "Melee", true) end end)
+        end
+
+        local nextPos = root.Position
+        if shouldClimb then
+            nextPos = root.Position + Vector3.new(0, 100 * dt, 0) -- Super fast climb
+        else
+            nextPos = root.Position + (dir * speed * dt)
+        end
+
+        root.CFrame = CFrame.lookAt(nextPos, nextPos + flatDir)
+        local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = nextPos end
         root.Velocity = Vector3.new(0,0,0)
-        
-        task.wait(0.05)
+        root.RotVelocity = Vector3.new(0,0,0)
+    end
+    
+    if wasClimbing then
         pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
+        pcall(function() if blockEvent then blockEvent:InvokeServer(false, "Melee", true) end end)
     end
 end
 
@@ -694,23 +736,20 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.7: STATS FIX, CAMERA NORMAL, LAG CLIMB)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.8: FULL FIXES & TIMEOUTS)
 --// ============================================================================
 
 -- PASSIVE STATS ALLOCATOR
 task.spawn(function()
     while true do
-        task.wait(0.1)
+        task.wait()
         if RyuSavedConfig.AutoImpelDown then
             pcall(function()
                 local rs = game:GetService("ReplicatedStorage")
                 local statsEvent = rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats")
                 if statsEvent then
-                    local args1 = {"Strength", {[3] = 1}}
-                    statsEvent:FireServer(unpack(args1))
-                    
-                    local args2 = {"Defense", {[3] = 1}}
-                    statsEvent:FireServer(unpack(args2))
+                    statsEvent:FireServer("Strength", {[3] = 1})
+                    statsEvent:FireServer("Defense", {[3] = 1})
                 end
             end)
         end
@@ -738,13 +777,13 @@ task.spawn(function()
             pcall(function() hum:EquipTool(essence) end)
             task.wait(0.5)
             
-            local holdTime = tick()
-            while tick() - holdTime < 3 do
-                pcall(function() essence:Activate() end)
+            -- Simulate mouse click to activate
+            pcall(function()
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, true, game, 1)
                 task.wait(0.1)
-            end
-            
-            task.wait(1)
+                VirtualInputManager:SendMouseButtonEvent(0, 0, 0, false, game, 1)
+            end)
+            task.wait(1.5)
             
             pcall(function()
                 local pg = LocalPlayer:FindFirstChild("PlayerGui")
@@ -910,8 +949,24 @@ task.spawn(function()
 
         -- 3. KEY PHASE
         if _G.ImpelState == "Key" then
+            -- Pre-Key Stats Dump for 5 seconds
+            if not _G.PreKeyStatsDone then
+                local t = tick()
+                while tick() - t < 5 do
+                    pcall(function()
+                        local rs = game:GetService("ReplicatedStorage")
+                        local statsEvent = rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats")
+                        if statsEvent then
+                            statsEvent:FireServer("Strength", {[3] = 1})
+                            statsEvent:FireServer("Defense", {[3] = 1})
+                        end
+                    end)
+                    task.wait()
+                end
+                _G.PreKeyStatsDone = true
+            end
+
             local keyPart = nil
-            
             pcall(function()
                 local effects = Workspace:FindFirstChild("Effects")
                 if effects then
@@ -942,8 +997,10 @@ task.spawn(function()
             end)
 
             if keyPart then
-                SmartTransport(keyPart.Position, 44)
-                HoldInteract(2)
+                local reached = SmartTransport(keyPart.Position, 44, 20)
+                if reached then
+                    HoldInteract(2)
+                end
                 _G.ImpelState = "ChestRoute"
             else
                 task.wait(0.5)
@@ -956,22 +1013,25 @@ task.spawn(function()
             task.wait(2)
             local points = {
                 {pos = Vector3.new(2952.66, 2075.45, -13461.08), action = "wait", time = 1},
-                {pos = Vector3.new(3010.94, 2076.70, -13535.94), action = "chest", time = 3},
-                {pos = Vector3.new(2991.08, 2076.70, -13583.22), action = "chest", time = 3},
-                {pos = Vector3.new(2886.56, 2077.70, -13581.59), action = "chest", time = 3},
-                {pos = Vector3.new(2860.68, 2084.70, -13604.73), action = "chest", time = 3},
-                {pos = Vector3.new(3036.38, 2082.95, -13540.35), action = "chest", time = 3},
-                {pos = Vector3.new(3090.27, 2080.05, -13512.88), action = "chest", time = 3},
-                {pos = Vector3.new(3079.41, 2080.45, -13473.72), action = "chest", time = 3}
+                {pos = Vector3.new(3010.94, 2076.70, -13535.94), action = "chest", time = 5},
+                {pos = Vector3.new(2991.08, 2076.70, -13583.22), action = "chest", time = 5},
+                {pos = Vector3.new(2886.56, 2077.70, -13581.59), action = "chest", time = 5},
+                {pos = Vector3.new(2860.68, 2084.70, -13604.73), action = "chest", time = 5},
+                {pos = Vector3.new(3036.38, 2082.95, -13540.35), action = "chest", time = 5},
+                {pos = Vector3.new(3090.27, 2080.05, -13512.88), action = "chest", time = 5},
+                {pos = Vector3.new(3079.41, 2080.45, -13473.72), action = "chest", time = 5}
             }
 
             for _, pt in ipairs(points) do
                 if not RyuSavedConfig.AutoImpelDown then break end
-                SmartTransport(pt.pos, 44)
-                if pt.action == "wait" then
-                    task.wait(pt.time)
-                elseif pt.action == "chest" then
-                    HoldInteract(pt.time)
+                local reached = SmartTransport(pt.pos, 44, 20)
+                if reached then
+                    if pt.action == "wait" then
+                        task.wait(pt.time)
+                    elseif pt.action == "chest" then
+                        HoldInteract(2) -- Open chest
+                        task.wait(3) -- Wait for items (total 5s)
+                    end
                 end
             end
 
@@ -981,8 +1041,8 @@ task.spawn(function()
 
         -- 5. WAYPOINTS TO GUARDS
         if _G.ImpelState == "Waypoints" then
-            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 44)
-            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 44)
+            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 44, 20)
+            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 44, 20)
             _G.ImpelState = "Guards"
             continue
         end
@@ -1017,7 +1077,7 @@ task.spawn(function()
                     local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
                     
                     if distToGuard > 15 then 
-                        SmartTransport(attackPos, 44)
+                        SmartTransport(attackPos, 30, 20)
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
@@ -1072,13 +1132,13 @@ task.spawn(function()
         -- 7. LABYRINTH BYPASS
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
-            LagTransport(pos1)
+            SmartTransport(pos1, 44, 20)
             
             local pos2 = Vector3.new(2660.54, 2075.45, -15403.33)
-            LagTransport(pos2)
+            LabyrinthTransport(pos2, 44, 30)
             
             local pos3 = Vector3.new(2663.73, 2075.45, -15501.86)
-            LagTransport(pos3)
+            SmartTransport(pos3, 44, 20)
             
             _G.LabGuardLastCombat = tick()
             _G.ImpelState = "LabyrinthGuards"
