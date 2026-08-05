@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH CAMERA TRACKING & PATH-TRANSPORT)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH SELF-HEALING MAZE SOLVER)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -14,7 +14,6 @@ local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local PathfindingService = game:GetService("PathfindingService")
 local TeleportService = game:GetService("TeleportService")
-local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -502,6 +501,8 @@ local function PathTransport(targetPos, speed, timeout)
     ToggleHover(true)
     local startTime = tick()
     local timeoutLimit = timeout or 99999
+    local lastPos = root.Position
+    local stuckTimer = 0
 
     while RyuSavedConfig.AutoImpelDown do
         if tick() - startTime > timeoutLimit then return false end
@@ -510,6 +511,16 @@ local function PathTransport(targetPos, speed, timeout)
         if dist < 4 then break end
 
         local dt = RunService.Heartbeat:Wait()
+        
+        -- STUCK DETECTION (Anti-Wall Clip)
+        if (root.Position - lastPos).Magnitude < (speed * dt * 0.2) then
+            stuckTimer = stuckTimer + dt
+            if stuckTimer > 0.5 then return false end -- Festgesteckt -> Abbruch für Neuberechnung
+        else
+            stuckTimer = 0
+        end
+        lastPos = root.Position
+
         local dir = (targetPos - root.Position).Unit
         local flatDir = Vector3.new(dir.X, 0, dir.Z).Unit
         if flatDir.Magnitude ~= flatDir.Magnitude then flatDir = Vector3.new(1,0,0) end
@@ -531,6 +542,7 @@ local function PathTransport(targetPos, speed, timeout)
     return true
 end
 
+-- HOLD INTERACT (NO SPAM CLICK)
 local function HoldInteract(duration)
     local t = tick()
     while tick() - t < duration do
@@ -760,11 +772,14 @@ task.spawn(function()
             pcall(function() hum:EquipTool(essence) end)
             task.wait(0.5)
             
-            -- Tool aktivieren
-            pcall(function() essence:Activate() end)
+            pcall(function()
+                local center = camera.ViewportSize / 2
+                VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, true, game, 1)
+                task.wait(0.1)
+                VirtualInputManager:SendMouseButtonEvent(center.X, center.Y, 0, false, game, 1)
+            end)
             task.wait(1.5)
             
-            -- Accept Button Click via VIM mit GuiInset Fix
             pcall(function()
                 local pg = LocalPlayer:FindFirstChild("PlayerGui")
                 local guiInset = GuiService:GetGuiInset()
@@ -973,7 +988,7 @@ task.spawn(function()
             end)
 
             if keyPart then
-                local reached = SmartTransport(keyPart.Position, 44, 20)
+                local reached = SmartTransport(keyPart.Position, 43, 20)
                 if reached then
                     HoldInteract(2)
                 end
@@ -1000,7 +1015,7 @@ task.spawn(function()
 
             for _, pt in ipairs(points) do
                 if not RyuSavedConfig.AutoImpelDown then break end
-                local reached = SmartTransport(pt.pos, 44, 20)
+                local reached = SmartTransport(pt.pos, 43, 20)
                 if reached then
                     if pt.action == "wait" then
                         task.wait(pt.time)
@@ -1016,8 +1031,8 @@ task.spawn(function()
 
         -- 5. WAYPOINTS TO GUARDS
         if _G.ImpelState == "Waypoints" then
-            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 30, 20)
-            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 30, 20)
+            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 43, 20)
+            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 43, 20)
             _G.ImpelState = "Guards"
             continue
         end
@@ -1107,12 +1122,12 @@ task.spawn(function()
         -- 7. LABYRINTH BYPASS (PATHFINDING NO-CLIMB NAVIGATOR)
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
-            SmartTransport(pos1, 44, 20)
+            SmartTransport(pos1, 43, 20)
             
             local labyrinthTarget = Vector3.new(2660.54, 2075.45, -15403.33)
             
             local path = PathfindingService:CreatePath({
-                AgentRadius = 3,
+                AgentRadius = 4.5,
                 AgentHeight = 6,
                 AgentCanJump = true,
                 WaypointSpacing = 4
@@ -1129,18 +1144,22 @@ task.spawn(function()
                     if waypoint.Action == Enum.PathWaypointAction.Jump then
                         hum.Jump = true
                     end
-                    -- Pure flying to bypass wall detection
-                    PathTransport(waypoint.Position, 44, 5) 
+                    local reached = PathTransport(waypoint.Position, 43, 3) 
+                    if not reached then
+                        break
+                    end
                 end
             else
-                PathTransport(labyrinthTarget, 44, 20)
+                PathTransport(labyrinthTarget, 43, 2)
             end
             
-            local pos3 = Vector3.new(2663.73, 2075.45, -15501.86)
-            PathTransport(pos3, 44, 20)
-            
-            _G.LabGuardLastCombat = tick()
-            _G.ImpelState = "LabyrinthGuards"
+            if (root.Position - labyrinthTarget).Magnitude < 15 then
+                local pos3 = Vector3.new(2663.73, 2075.45, -15501.86)
+                PathTransport(pos3, 43, 10)
+                
+                _G.LabGuardLastCombat = tick()
+                _G.ImpelState = "LabyrinthGuards"
+            end
             continue
         end
 
