@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & 60-DEGREE HITBOX ENGINE)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & SMART CHEST ROUTE)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -12,7 +12,6 @@ local HttpService = game:GetService("HttpService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
-local PathfindingService = game:GetService("PathfindingService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -401,64 +400,6 @@ local function PerformMeleeAttack(targets)
     end)
 end
 
--- TWEEN FUNCTION WITH TP CHECK BYPASS
-local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
-    local char = LocalPlayer.Character
-    local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
-
-    local startPos = root.Position
-    local targetPos = targetCFrame.Position
-    local dist = (targetPos - startPos).Magnitude
-    
-    local speed = customSpeed or 50 
-    local timeToTake = dist / speed
-    
-    if timeToTake < 0.1 then 
-        root.CFrame = targetCFrame
-        return 
-    end
-
-    local startTime = tick()
-    
-    local bp = root:FindFirstChild("RyuHover")
-    if not bp then
-        bp = Instance.new("BodyPosition")
-        bp.Name = "RyuHover"
-        bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bp.D = 500
-        bp.P = 50000
-        bp.Parent = root
-    end
-
-    local lastRealPos = root.Position
-
-    while tick() - startTime < timeToTake do
-        if not RyuSavedConfig.AutoImpelDown then break end
-        
-        if isMoveCheck and (root.Position - lastRealPos).Magnitude > 20 then
-            bp.Position = root.Position
-            task.wait(1) 
-            startPos = root.Position
-            dist = (targetPos - startPos).Magnitude
-            timeToTake = dist / speed
-            startTime = tick()
-        end
-        
-        lastRealPos = root.Position
-
-        local alpha = (tick() - startTime) / timeToTake
-        local intermediatePos = startPos:Lerp(targetPos, alpha)
-        
-        bp.Position = intermediatePos
-        root.CFrame = CFrame.new(intermediatePos) * targetCFrame.Rotation
-        RunService.Heartbeat:Wait()
-    end
-    
-    bp.Position = targetPos
-    root.CFrame = targetCFrame
-end
-
 local function ToggleHover(state)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -466,33 +407,89 @@ local function ToggleHover(state)
     
     if state then
         local bp = root:FindFirstChild("RyuHover")
-        if not bp then bp = Instance.new("BodyPosition"); bp.Name = "RyuHover"; bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge); bp.D = 500; bp.P = 50000; bp.Parent = root end
-        bp.Position = root.Position
-        
-        local bg = root:FindFirstChild("RyuGyroVera")
-        if not bg then
-            bg = Instance.new("BodyGyro")
-            bg.Name = "RyuGyroVera"
-            bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
-            bg.P = 15000
-            bg.D = 500
-            bg.Parent = root
+        if not bp then
+            bp = Instance.new("BodyPosition")
+            bp.Name = "RyuHover"
+            bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+            bp.D = 500
+            bp.P = 50000
+            bp.Parent = root
         end
-        
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then hum.PlatformStand = true end
+        bp.Position = root.Position
     else
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp:Destroy() end
-        local bg = root:FindFirstChild("RyuGyroVera")
-        if bg then bg:Destroy() end
-        
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if hum then hum.PlatformStand = false end
     end
 end
 
--- HP FAILSAFE
+-- SMART TRANSPORT WITH CLIMB DETECTION
+local function SmartTransport(targetPos, speed)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
+    ToggleHover(true)
+
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+    while RyuSavedConfig.AutoImpelDown do
+        local dist = (root.Position - targetPos).Magnitude
+        if dist < 4 then break end
+
+        local dt = RunService.Heartbeat:Wait()
+        local dir = (targetPos - root.Position).Unit
+        local flatDir = Vector3.new(dir.X, 0, dir.Z).Unit
+        if flatDir.Magnitude ~= flatDir.Magnitude then flatDir = Vector3.new(1,0,0) end
+
+        local isClimbing = false
+        local hit = Workspace:Raycast(root.Position, flatDir * 5, rayParams)
+        if hit and hit.Instance and hit.Instance.CanCollide and hit.Instance.Transparency < 1 then
+            isClimbing = true
+            pcall(function() if climbEvent then climbEvent:InvokeServer(true) end end)
+        else
+            pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
+        end
+
+        local moveSpeed = speed
+        local nextPos = root.Position
+        if isClimbing then
+            nextPos = root.Position + Vector3.new(0, 30 * dt, 0)
+        else
+            nextPos = root.Position + (dir * moveSpeed * dt)
+        end
+
+        root.CFrame = CFrame.lookAt(nextPos, nextPos + flatDir)
+        local bp = root:FindFirstChild("RyuHover")
+        if bp then bp.Position = nextPos end
+        root.Velocity = Vector3.new(0,0,0)
+        root.RotVelocity = Vector3.new(0,0,0)
+    end
+    pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
+end
+
+local function SpamInteract(duration)
+    local t = tick()
+    while tick() - t < duration do
+        if not RyuSavedConfig.AutoImpelDown then break end
+        pcall(function()
+            VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.E, false, game)
+            task.wait(0.05)
+            VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.E, false, game)
+        end)
+        for _, v in pairs(Workspace:GetDescendants()) do
+            if v:IsA("ProximityPrompt") and (LocalPlayer.Character.HumanoidRootPart.Position - v.Parent.Position).Magnitude <= v.MaxActivationDistance + 5 then
+                if fireproximityprompt then fireproximityprompt(v, 1) else
+                    v:InputHoldBegin() task.wait(0.05) v:InputHoldEnd()
+                end
+            end
+        end
+        task.wait(0.1)
+    end
+end
+
 local function CheckHPAndFailsafe(root, hum, safePos)
     if hum.Health / hum.MaxHealth < 0.8 then
         ToggleHover(true)
@@ -651,7 +648,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.10: 60-DEGREE TILT & HITBOX EXPANDER)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.0: SMART CHEST ROUTE & CLIMBING)
 --// ============================================================================
 
 task.spawn(function()
@@ -672,6 +669,7 @@ end)
 _G.ImpelState = "Init"
 _G.VeraSeen = false
 _G.CutsceneStarted = false
+_G.KeyWaitTriggered = false
 
 task.spawn(function()
     while true do
@@ -691,7 +689,7 @@ task.spawn(function()
             continue 
         end
 
-        -- 2. VERA COMBAT (60 Degree Tilt & Hitbox Expander)
+        -- 2. VERA COMBAT (Phase 2 remains exactly as requested)
         if _G.ImpelState == "Init" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             local vera = npcsFolder and npcsFolder:FindFirstChild("Vera")
@@ -700,49 +698,26 @@ task.spawn(function()
                 local vHum = vera:FindFirstChildOfClass("Humanoid")
                 local vRoot = vera:FindFirstChild("HumanoidRootPart") or vera.PrimaryPart
                 
-                if not vHum or not vRoot then
-                    task.wait(0.1)
-                    continue
-                end
+                if not vHum or not vRoot then task.wait(0.1) continue end
                 
                 if vHum.Health > 0 then
                     local distToVera = (root.Position - vRoot.Position).Magnitude
-                    
-                    -- Phase End Teleport Check
-                    if _G.VeraSeen and distToVera > 150 then
-                        ToggleHover(false)
-                        _G.ImpelState = "WaitForCutscene"
-                        continue
-                    end
-
-                    -- Range Limit
-                    if not _G.VeraSeen and distToVera > 50 then
-                        continue
-                    end
+                    if _G.VeraSeen and distToVera > 150 then ToggleHover(false) _G.ImpelState = "WaitForCutscene" continue end
+                    if not _G.VeraSeen and distToVera > 50 then continue end
 
                     _G.VeraSeen = true
                     
-                    -- HITBOX EXPANDER
-                    if vRoot.Size.X < 15 then
-                        vRoot.Size = Vector3.new(15, 15, 15)
-                        vRoot.CanCollide = false
-                    end
-
-                    -- FAILSAFE
+                    if vRoot.Size.X < 15 then vRoot.Size = Vector3.new(15, 15, 15) vRoot.CanCollide = false end
                     if CheckHPAndFailsafe(root, hum, vRoot.Position + Vector3.new(0, 13, 0)) then continue end
                     
-                    -- POSITIONING: 3 studs behind, 6.5 studs up
                     local lookDir = vRoot.CFrame.LookVector
                     local attackPos = vRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
-                    
-                    -- ROTATION: Look horizontally at target, then pitch down 60 degrees
                     local flatTarget = Vector3.new(vRoot.Position.X, attackPos.Y, vRoot.Position.Z)
                     local targetRot = CFrame.lookAt(attackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
                     
                     ToggleHover(true)
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = attackPos end
-                    
                     local bg = root:FindFirstChild("RyuGyroVera")
                     if bg then bg.CFrame = targetRot end
 
@@ -754,10 +729,7 @@ task.spawn(function()
                     _G.ImpelState = "WaitForCutscene"
                 end
             else
-                if _G.VeraSeen then
-                    ToggleHover(false)
-                    _G.ImpelState = "WaitForCutscene"
-                end
+                if _G.VeraSeen then ToggleHover(false) _G.ImpelState = "WaitForCutscene" end
             end
             continue
         end
@@ -779,30 +751,96 @@ task.spawn(function()
                 task.wait(0.5)
                 continue
             else
-                if _G.CutsceneStarted then
-                    _G.CutsceneStarted = false
-                    _G.ImpelState = "Waypoints"
-                else
-                    task.wait(0.5)
-                end
+                if _G.CutsceneStarted then _G.CutsceneStarted = false _G.ImpelState = "Key"
+                else task.wait(0.5) end
             end
             continue
         end
 
-        -- 3. WEGPUNKTE
+        -- 3. KEY PHASE (Wait 4s, SmartTransport)
+        if _G.ImpelState == "Key" then
+            if not _G.KeyWaitTriggered then
+                _G.KeyWaitTriggered = true
+                ToggleHover(true)
+                root.Velocity = Vector3.new(0,0,0)
+                task.wait(4)
+            end
+
+            local keyPart = nil
+            pcall(function()
+                local effects = Workspace:FindFirstChild("Effects")
+                if effects then
+                    local kModel = effects:FindFirstChild("Key")
+                    if kModel then
+                        if kModel:IsA("BasePart") then keyPart = kModel 
+                        elseif kModel:FindFirstChild("Key") then keyPart = kModel.Key end
+                    end
+                end
+                if not keyPart then
+                    local islands = Workspace:FindFirstChild("Islands")
+                    if islands then
+                        for _, isl in pairs(islands:GetChildren()) do
+                            if isl.Name:find("Impel Base") then
+                                local spawns = isl:FindFirstChild("KeySpawns")
+                                if spawns then
+                                    for _, k in pairs(spawns:GetChildren()) do
+                                        if k.Name == "Key" and k:IsA("BasePart") and k.Transparency < 1 then keyPart = k; break end
+                                    end
+                                end
+                            end
+                        end
+                    end
+                end
+            end)
+
+            if keyPart then
+                SmartTransport(keyPart.Position, 40)
+                SpamInteract(2)
+                _G.ImpelState = "ChestRoute"
+                continue
+            else
+                _G.ImpelState = "ChestRoute"
+                continue
+            end
+        end
+
+        -- 4. CHEST ROUTE
+        if _G.ImpelState == "ChestRoute" then
+            task.wait(2)
+            local points = {
+                {pos = Vector3.new(2952.66, 2075.45, -13461.08), action = "wait", time = 1},
+                {pos = Vector3.new(3010.94, 2076.70, -13535.94), action = "chest", time = 3},
+                {pos = Vector3.new(2991.08, 2076.70, -13583.22), action = "chest", time = 3},
+                {pos = Vector3.new(2886.56, 2077.70, -13581.59), action = "chest", time = 3},
+                {pos = Vector3.new(2860.68, 2084.70, -13604.73), action = "chest", time = 3},
+                {pos = Vector3.new(3036.38, 2082.95, -13540.35), action = "chest", time = 3},
+                {pos = Vector3.new(3090.27, 2080.05, -13512.88), action = "chest", time = 3},
+                {pos = Vector3.new(3079.41, 2080.45, -13473.72), action = "chest", time = 3}
+            }
+
+            for _, pt in ipairs(points) do
+                if not RyuSavedConfig.AutoImpelDown then break end
+                SmartTransport(pt.pos, 40)
+                if pt.action == "wait" then
+                    task.wait(pt.time)
+                elseif pt.action == "chest" then
+                    SpamInteract(pt.time)
+                end
+            end
+
+            _G.ImpelState = "Waypoints"
+            continue
+        end
+
+        -- 5. WAYPOINTS TO GUARDS
         if _G.ImpelState == "Waypoints" then
-            local wp1 = Vector3.new(2941.29, 2075.25, -13574.59)
-            local wp2 = Vector3.new(2952.60, 2075.15, -13848.57)
-            
-            SafeTween(CFrame.new(wp1), 45, false)
-            task.wait(1)
-            SafeTween(CFrame.new(wp2), 45, false)
-            
+            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 40)
+            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 40)
             _G.ImpelState = "Guards"
             continue
         end
 
-        -- 4. IMPEL GUARDS
+        -- 6. IMPEL GUARDS
         if _G.ImpelState == "Guards" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
@@ -821,29 +859,22 @@ task.spawn(function()
                 local tHum = target:FindFirstChildOfClass("Humanoid")
                 
                 if tRoot and tHum then
-                    if (root.Position - tRoot.Position).Magnitude > 50 then continue end
-                    
-                    -- HITBOX EXPANDER
-                    if tRoot.Size.X < 15 then
-                        tRoot.Size = Vector3.new(15, 15, 15)
-                        tRoot.CanCollide = false
+                    if (root.Position - tRoot.Position).Magnitude > 50 then 
+                        _G.ImpelState = "WaitingForNext"
+                        continue 
                     end
-
-                    -- FAILSAFE
+                    
+                    if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
                     if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
                     
-                    -- POSITIONING: 3 studs behind, 6.5 studs up
                     local lookDir = tRoot.CFrame.LookVector
                     local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
-                    
-                    -- ROTATION: Look horizontally at target, then pitch down 60 degrees
                     local flatTarget = Vector3.new(tRoot.Position.X, attackPos.Y, tRoot.Position.Z)
                     local targetRot = CFrame.lookAt(attackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
                     
                     ToggleHover(true)
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = attackPos end
-                    
                     local bg = root:FindFirstChild("RyuGyroVera")
                     if bg then bg.CFrame = targetRot end
 
@@ -852,32 +883,14 @@ task.spawn(function()
                 end
                 continue
             else
-                _G.ImpelState = "Labyrinth"
+                _G.ImpelState = "WaitingForNext"
                 continue
             end
         end
 
-        -- 5. LABYRINTH / NEXT STAGE
-        if _G.ImpelState == "Labyrinth" then
-            local labyrinthTarget = Vector3.new(2664.91, 2075.15, -15491.03)
-            if (root.Position - labyrinthTarget).Magnitude > 5 then
-                ToggleHover(false)
-                local path = PathfindingService:CreatePath({AgentRadius = 2.5, AgentHeight = 5, AgentCanJump = true, WaypointSpacing = 4})
-                local success, err = pcall(function() path:ComputeAsync(root.Position, labyrinthTarget) end)
-                if success and path.Status == Enum.PathStatus.Success then
-                    local waypoints = path:GetWaypoints()
-                    for i, waypoint in ipairs(waypoints) do
-                        if not RyuSavedConfig.AutoImpelDown then break end
-                        if waypoint.Action == Enum.PathWaypointAction.Jump then hum.Jump = true end
-                        SafeTween(CFrame.new(waypoint.Position), 45, false) 
-                        if (root.Position - waypoint.Position).Magnitude > 15 then break end
-                    end
-                else
-                    task.wait(1)
-                end
-            else
-                root.Velocity = Vector3.new(0, 0, 0)
-            end
+        -- 7. IDLE WAIT
+        if _G.ImpelState == "WaitingForNext" then
+            task.wait(1)
             continue
         end
 
