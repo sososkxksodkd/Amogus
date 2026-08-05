@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH PHASE 5 APPROACH FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH RED-BUTTON FIX & TP-CHECK SCANNER)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -425,7 +425,75 @@ local function ToggleHover(state)
     end
 end
 
--- PATH TRANSPORT (SELF-HEALING ROUTE RUNNER FOR PHASE 5 AND OTHERS)
+-- SMART TRANSPORT WITH TIMEOUT & CLIMB DETECTION
+local function SmartTransport(targetPos, speed, timeout)
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return false end
+
+    local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
+    ToggleHover(true)
+
+    local rayParams = RaycastParams.new()
+    rayParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+    rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+    local wasClimbing = false
+    local startTime = tick()
+    local timeoutLimit = timeout or 99999
+
+    while RyuSavedConfig.AutoImpelDown do
+        if tick() - startTime > timeoutLimit then 
+            if wasClimbing then pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end) end
+            return false -- Timeout
+        end
+
+        local dist = (root.Position - targetPos).Magnitude
+        if dist < 4 then break end
+
+        local dt = RunService.Heartbeat:Wait()
+        local dir = (targetPos - root.Position).Unit
+        local flatDir = Vector3.new(dir.X, 0, dir.Z).Unit
+        if flatDir.Magnitude ~= flatDir.Magnitude then flatDir = Vector3.new(1,0,0) end
+
+        local hit = Workspace:Raycast(root.Position, flatDir * 5, rayParams)
+        local shouldClimb = hit and hit.Instance and hit.Instance.CanCollide and hit.Instance.Transparency < 1
+
+        if shouldClimb and not wasClimbing then
+            wasClimbing = true
+            pcall(function() if climbEvent then climbEvent:InvokeServer(true) end end)
+        elseif not shouldClimb and wasClimbing then
+            wasClimbing = false
+            pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
+        end
+
+        local nextPos = root.Position
+        if shouldClimb then
+            nextPos = root.Position + Vector3.new(0, speed * dt, 0)
+        else
+            nextPos = root.Position + (dir * speed * dt)
+        end
+
+        root.CFrame = CFrame.lookAt(nextPos, nextPos + flatDir)
+        local bp = root:FindFirstChild("RyuHover")
+        if bp then bp.Position = nextPos end
+        root.Velocity = Vector3.new(0,0,0)
+        root.RotVelocity = Vector3.new(0,0,0)
+        
+        -- CAMERA TRACKING
+        pcall(function()
+            local camPos = root.Position - (flatDir * 15) + Vector3.new(0, 7, 0)
+            camera.CFrame = CFrame.lookAt(camPos, root.Position)
+        end)
+    end
+    
+    if wasClimbing then
+        pcall(function() if climbEvent then climbEvent:InvokeServer(false) end end)
+    end
+    return true
+end
+
+-- PATH TRANSPORT WITH TP-CHECK SCANNER
 local function PathTransport(targetPos, speed, timeout)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -434,26 +502,40 @@ local function PathTransport(targetPos, speed, timeout)
     ToggleHover(true)
     local startTime = tick()
     local timeoutLimit = timeout or 99999
-    local lastPos = root.Position
-    local stuckTimer = 0
+    local tickCounter = 0
 
     while RyuSavedConfig.AutoImpelDown do
         if tick() - startTime > timeoutLimit then return false end
 
         local dist = (root.Position - targetPos).Magnitude
         if dist < 4 then break end
+        
+        -- TP CHECK SCANNER
+        tickCounter = tickCounter + 1
+        if tickCounter % 15 == 0 then
+            local tpCheck = false
+            pcall(function()
+                local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                if pg then
+                    for _, v in pairs(pg:GetDescendants()) do
+                        if v:IsA("TextLabel") and v.Visible and v.TextTransparency < 1 then
+                            local txt = string.lower(v.Text)
+                            if string.find(txt, "tp check") or string.find(txt, "teleport check") then
+                                tpCheck = true
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+            if tpCheck then
+                root.Velocity = Vector3.new(0,0,0)
+                task.wait(1.5)
+                return false -- Abort to recalculate
+            end
+        end
 
         local dt = RunService.Heartbeat:Wait()
-        
-        -- STUCK DETECTION (Self-Healing Maze Loop)
-        if (root.Position - lastPos).Magnitude < (speed * dt * 0.2) then
-            stuckTimer = stuckTimer + dt
-            if stuckTimer > 0.5 then return false end -- Abbruch erzwingt direkte Neuberechnung im Caller
-        else
-            stuckTimer = 0
-        end
-        lastPos = root.Position
-
         local dir = (targetPos - root.Position).Unit
         local flatDir = Vector3.new(dir.X, 0, dir.Z).Unit
         if flatDir.Magnitude ~= flatDir.Magnitude then flatDir = Vector3.new(1,0,0) end
@@ -466,7 +548,7 @@ local function PathTransport(targetPos, speed, timeout)
         root.Velocity = Vector3.new(0,0,0)
         root.RotVelocity = Vector3.new(0,0,0)
         
-        -- STRICT BACK CAMERA TRACKING
+        -- CAMERA TRACKING
         pcall(function()
             local camPos = root.Position - (flatDir * 15) + Vector3.new(0, 7, 0)
             camera.CFrame = CFrame.lookAt(camPos, root.Position)
@@ -475,7 +557,6 @@ local function PathTransport(targetPos, speed, timeout)
     return true
 end
 
--- HOLD INTERACT (EXACT 0.5s HOLD)
 local function HoldInteract(duration)
     local t = tick()
     while tick() - t < duration do
@@ -664,7 +745,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V5.1: PATHFINDING MAZE & FIXED STATS)
+--// IMPEL DOWN AUTO FARM ENGINE (V5.2: STRICT RED/GREEN BUTTON FIX & MAZE RECALC)
 --// ============================================================================
 
 -- PASSIVE STATS ALLOCATOR
@@ -683,7 +764,7 @@ task.spawn(function()
     end
 end)
 
--- PASSIVE SPIRIT ESSENCE HANDLER
+-- PASSIVE SPIRIT ESSENCE HANDLER (Strict Green/Accept Match)
 _G.SpiritEssenceUsed = false
 task.spawn(function()
     local GuiService = game:GetService("GuiService")
@@ -720,29 +801,35 @@ task.spawn(function()
                     for _, v in pairs(pg:GetDescendants()) do
                         if v:IsA("TextButton") or v:IsA("ImageButton") then
                             local txt = ""
-                            if v:IsA("TextButton") then txt = string.lower(v.Text) end
+                            if v:IsA("TextLabel") or v:IsA("TextButton") then txt = string.lower(v.Text or "") end
                             local name = string.lower(v.Name)
                             
-                            local isGreen = false
+                            local r, g, b = 0, 0, 0
                             if v.BackgroundColor3 then
-                                isGreen = (v.BackgroundColor3.G > v.BackgroundColor3.R + 0.1 and v.BackgroundColor3.G > v.BackgroundColor3.B + 0.1)
+                                r = v.BackgroundColor3.R
+                                g = v.BackgroundColor3.G
+                                b = v.BackgroundColor3.B
                             end
                             
+                            local isRed = (r > g + 0.1 and r > b + 0.1)
+                            local isGreen = (g > r + 0.1 and g > b + 0.1)
+                            
+                            if isRed then continue end 
+                            if string.find(txt, "decline") or string.find(txt, "no") or string.find(txt, "ablehnen") then continue end
+                            
                             if (string.find(txt, "accept") or string.find(name, "accept") or string.find(txt, "yes") or string.find(name, "yes") or string.find(txt, "akzeptieren") or isGreen) then
-                                if not string.find(txt, "no") and not string.find(txt, "decline") and not string.find(name, "no") and not string.find(name, "decline") and not string.find(txt, "ablehnen") then
-                                    local absPos = v.AbsolutePosition
-                                    local absSize = v.AbsoluteSize
-                                    local centerX = absPos.X + (absSize.X / 2)
-                                    local centerY = absPos.Y + (absSize.Y / 2) + guiInset.Y
-                                    
-                                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
-                                    task.wait(0.05)
-                                    VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
-                                    
-                                    pcall(function() v.Activated:Fire() end)
-                                    pcall(function() getsenv(v).Click() end)
-                                    pcall(function() v.MouseButton1Click:Fire() end)
-                                end
+                                local absPos = v.AbsolutePosition
+                                local absSize = v.AbsoluteSize
+                                local centerX = absPos.X + (absSize.X / 2)
+                                local centerY = absPos.Y + (absSize.Y / 2) + guiInset.Y
+                                
+                                VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, true, game, 1)
+                                task.wait(0.05)
+                                VirtualInputManager:SendMouseButtonEvent(centerX, centerY, 0, false, game, 1)
+                                
+                                pcall(function() v.Activated:Fire() end)
+                                pcall(function() getsenv(v).Click() end)
+                                pcall(function() v.MouseButton1Click:Fire() end)
                             end
                         end
                     end
@@ -772,12 +859,6 @@ task.spawn(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
-
-        -- CAMERA NORMALIZATION 
-        pcall(function()
-            camera.CameraType = Enum.CameraType.Custom
-            camera.CameraSubject = hum
-        end)
 
         -- 1. DIFF CHOOSER
         local diffChooser = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("DiffChooser")
@@ -853,7 +934,7 @@ task.spawn(function()
             continue
         end
 
-        -- 2.5 CUTSCENE / MESSAGE WAIT
+        -- 2.5 CUTSCENE WAIT
         if _G.ImpelState == "WaitForCutscene" then
             if not _G.VeraDeadTime then _G.VeraDeadTime = tick() end
             
@@ -878,7 +959,6 @@ task.spawn(function()
                 if hum then hum:Move(Vector3.new(0,0,0), false) end
                 root.Velocity = Vector3.new(0, 0, 0)
                 
-                task.wait(5)
                 _G.ImpelState = "Key"
             else
                 if tick() - _G.VeraDeadTime > 15 then 
@@ -923,7 +1003,7 @@ task.spawn(function()
             end)
 
             if keyPart then
-                local reached = PathTransport(keyPart.Position, 43, 20)
+                local reached = SmartTransport(keyPart.Position, 43, 20)
                 if reached then
                     HoldInteract(2)
                 end
@@ -950,7 +1030,7 @@ task.spawn(function()
 
             for _, pt in ipairs(points) do
                 if not RyuSavedConfig.AutoImpelDown then break end
-                local reached = PathTransport(pt.pos, 43, 20)
+                local reached = SmartTransport(pt.pos, 43, 20)
                 if reached then
                     if pt.action == "wait" then
                         task.wait(pt.time)
@@ -966,8 +1046,8 @@ task.spawn(function()
 
         -- 5. WAYPOINTS TO GUARDS
         if _G.ImpelState == "Waypoints" then
-            PathTransport(Vector3.new(2945.63, 2075.55, -13578.02), 30, 20)
-            PathTransport(Vector3.new(2946.49, 2075.45, -13908.61), 30, 20)
+            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 43, 20)
+            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 43, 20)
             _G.ImpelState = "Guards"
             continue
         end
@@ -1002,7 +1082,7 @@ task.spawn(function()
                     local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
                     
                     if distToGuard > 15 then 
-                        PathTransport(attackPos, 30, 20)
+                        SmartTransport(attackPos, 30, 20)
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
@@ -1054,7 +1134,7 @@ task.spawn(function()
             end
         end
 
-        -- 7. LABYRINTH BYPASS (PATHFINDING MAZE SOLVER)
+        -- 7. LABYRINTH BYPASS
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
             PathTransport(pos1, 43, 20)
@@ -1080,7 +1160,6 @@ task.spawn(function()
                         if waypoint.Action == Enum.PathWaypointAction.Jump then
                             hum.Jump = true
                         end
-                        -- PathTransport returns false if stuck -> forces immediate re-computation!
                         local reached = PathTransport(waypoint.Position, 43, 3) 
                         if not reached then
                             break
@@ -1099,7 +1178,7 @@ task.spawn(function()
             continue
         end
 
-        -- 8. LABYRINTH GUARDS
+        -- 8. LABYRINTH GUARDS (Phase 6 equivalent from instructions)
         if _G.ImpelState == "LabyrinthGuards" then
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             local guards = {}
@@ -1125,6 +1204,14 @@ task.spawn(function()
                 local tHum = target:FindFirstChildOfClass("Humanoid")
                 
                 if tRoot and tHum then
+                    local distToGuard = (root.Position - tRoot.Position).Magnitude
+                    local lookDir = tRoot.CFrame.LookVector
+                    local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
+                    
+                    if distToGuard > 15 then 
+                        SmartTransport(attackPos, 40, 20) -- Direct transport, NO pathfinding
+                    end
+                    
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
                     if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
                     
@@ -1150,14 +1237,13 @@ task.spawn(function()
                     local currentDodgeOffset = (tick() < (_G.GuardDodgeEndTime or 0)) and 2 or 0
                     local actualHeight = _G.GuardHoverHeight + currentDodgeOffset
 
-                    local lookDir = tRoot.CFrame.LookVector
-                    local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
-                    local flatTarget = Vector3.new(tRoot.Position.X, attackPos.Y, tRoot.Position.Z)
-                    local targetRot = CFrame.lookAt(attackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
+                    local finalAttackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
+                    local flatTarget = Vector3.new(tRoot.Position.X, finalAttackPos.Y, tRoot.Position.Z)
+                    local targetRot = CFrame.lookAt(finalAttackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
                     
                     ToggleHover(true)
                     local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = attackPos end
+                    if bp then bp.Position = finalAttackPos end
                     local bg = root:FindFirstChild("RyuGyroVera")
                     if bg then bg.CFrame = targetRot end
 
@@ -1174,7 +1260,7 @@ task.spawn(function()
             continue
         end
 
-        -- 9. WAITING FOR NEXT ROOM (Floor 2 Detection)
+        -- 9. IDLE WAIT
         if _G.ImpelState == "WaitingForNext" then
             local floor2Found = false
             pcall(function()
