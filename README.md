@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH EXACT UNPACK & FLOOR 2 TWEENS)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH GETCONNECTIONS FIX & FLOOR 2 ROOM 2)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -683,7 +683,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V4.4: FINAL FIXES & CAMERA STRICT LOCK)
+--// IMPEL DOWN AUTO FARM ENGINE (V5.4: STRICT PATHFINDING RECALC & NEW WAYPOINTS)
 --// ============================================================================
 
 -- PASSIVE STATS ALLOCATOR
@@ -1008,8 +1008,8 @@ task.spawn(function()
 
         -- 5. WAYPOINTS TO GUARDS
         if _G.ImpelState == "Waypoints" then
-            PathTransport(Vector3.new(2945.63, 2075.55, -13578.02), 43, 20)
-            PathTransport(Vector3.new(2946.49, 2075.45, -13908.61), 43, 20)
+            PathTransport(Vector3.new(2945.63, 2075.55, -13578.02), 30, 20)
+            PathTransport(Vector3.new(2946.49, 2075.45, -13908.61), 30, 20)
             _G.ImpelState = "Guards"
             continue
         end
@@ -1044,7 +1044,7 @@ task.spawn(function()
                     local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
                     
                     if distToGuard > 15 then 
-                        PathTransport(attackPos, 40, 20)
+                        PathTransport(attackPos, 30, 20)
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
@@ -1096,7 +1096,7 @@ task.spawn(function()
             end
         end
 
-        -- 7. LABYRINTH BYPASS
+        -- 7. LABYRINTH BYPASS (PATHFINDING MAZE SOLVER WITH TP-CHECK SCANNER)
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
             PathTransport(pos1, 43, 20)
@@ -1122,6 +1122,7 @@ task.spawn(function()
                         if waypoint.Action == Enum.PathWaypointAction.Jump then
                             hum.Jump = true
                         end
+                        -- PathTransport has the TP/Noclip scanner inside. Returns false if recalulation is needed.
                         local reached = PathTransport(waypoint.Position, 43, 3) 
                         if not reached then
                             break
@@ -1171,7 +1172,7 @@ task.spawn(function()
                     local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
                     
                     if distToGuard > 15 then 
-                        PathTransport(attackPos, 40, 20)
+                        PathTransport(attackPos, 40, 20) -- Direct transport, NO pathfinding
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
@@ -1251,8 +1252,7 @@ task.spawn(function()
             local pts = {
                 Vector3.new(3200.23, 2405.38, -20190.65),
                 Vector3.new(3265.69, 2405.38, -20199.22),
-                Vector3.new(3261.70, 2405.38, -20193.35),
-                Vector3.new(3197.87, 2380.43, -20281.73)
+                Vector3.new(3261.70, 2405.38, -20193.35)
             }
             
             for _, pt in ipairs(pts) do
@@ -1265,7 +1265,7 @@ task.spawn(function()
             continue
         end
 
-        -- 11. FLOOR 2 COMBAT
+        -- 11. FLOOR 2 COMBAT 1
         if _G.ImpelState == "Floor2Combat" then
             local roomCleared = false
             pcall(function()
@@ -1285,7 +1285,8 @@ task.spawn(function()
 
             if roomCleared then
                 ToggleHover(false)
-                _G.ImpelState = "Floor2Done"
+                _G.ImpelState = "Floor2Waypoints2"
+                task.wait(2)
                 continue
             end
 
@@ -1343,6 +1344,112 @@ task.spawn(function()
 
                     local currentDodgeOffset = (tick() < (_G.F2DodgeEndTime or 0)) and 2 or 0
                     local actualHeight = _G.F2HoverHeight + currentDodgeOffset
+
+                    local finalAttackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
+                    local flatTarget = Vector3.new(tRoot.Position.X, finalAttackPos.Y, tRoot.Position.Z)
+                    local targetRot = CFrame.lookAt(finalAttackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
+                    
+                    ToggleHover(true)
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = finalAttackPos end
+                    local bg = root:FindFirstChild("RyuGyroVera")
+                    if bg then bg.CFrame = targetRot end
+
+                    EquipTargetWeapon()
+                    PerformMeleeAttack(enemies) 
+                end
+            else
+                task.wait(0.1)
+            end
+            continue
+        end
+        
+        -- 12. FLOOR 2 WAYPOINTS 2
+        if _G.ImpelState == "Floor2Waypoints2" then
+            local pt = Vector3.new(3201.04, 2378.43, -20382.98)
+            PathTransport(pt, 43, 20)
+            _G.ImpelState = "Floor2Combat2"
+            continue
+        end
+
+        -- 13. FLOOR 2 COMBAT 2
+        if _G.ImpelState == "Floor2Combat2" then
+            local roomCleared = false
+            pcall(function()
+                local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                if pg then
+                    for _, v in pairs(pg:GetDescendants()) do
+                        if v:IsA("TextLabel") and v.Visible and v.TextTransparency < 1 then
+                            local txt = string.lower(v.Text)
+                            if string.find(txt, "room cleared") or string.find(txt, "floor cleared") then
+                                roomCleared = true
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+
+            if roomCleared then
+                ToggleHover(false)
+                _G.ImpelState = "Floor2Done"
+                continue
+            end
+
+            local npcsFolder = Workspace:FindFirstChild("NPCs")
+            local enemies = {}
+            if npcsFolder then
+                for _, v in pairs(npcsFolder:GetChildren()) do
+                    if v:FindFirstChildOfClass("Humanoid") and v.Name ~= LocalPlayer.Name and v.Name ~= "Vera" then
+                        local eHum = v:FindFirstChildOfClass("Humanoid")
+                        local eRoot = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart
+                        if eHum and eHum.Health > 0 and eRoot then
+                            if (root.Position - eRoot.Position).Magnitude <= 150 then
+                                table.insert(enemies, v)
+                            end
+                        end
+                    end
+                end
+            end
+
+            if #enemies > 0 then
+                local target = enemies[1]
+                local tRoot = target:FindFirstChild("HumanoidRootPart") or target.PrimaryPart
+                local tHum = target:FindFirstChildOfClass("Humanoid")
+                
+                if tRoot and tHum then
+                    local distToGuard = (root.Position - tRoot.Position).Magnitude
+                    local lookDir = tRoot.CFrame.LookVector
+                    local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
+                    
+                    if distToGuard > 15 then 
+                        PathTransport(attackPos, 40, 20) 
+                    end
+                    
+                    if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
+                    if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
+                    
+                    if not _G.F2H2HoverHeight then _G.F2H2HoverHeight = 6.5 end
+                    
+                    if not _G.PlayerLastHpF2H2 then _G.PlayerLastHpF2H2 = hum.Health end
+                    if hum.Health < _G.PlayerLastHpF2H2 then
+                        _G.F2H2DodgeEndTime = tick() + 0.8
+                    end
+                    _G.PlayerLastHpF2H2 = hum.Health
+                    
+                    if not _G.F2H2LastHp then _G.F2H2LastHp = tHum.Health end
+                    if tHum.Health < _G.F2H2LastHp then
+                        _G.F2H2LastHp = tHum.Health
+                        _G.F2H2LastHitTime = tick()
+                    end
+                    
+                    if tick() - (_G.F2H2LastHitTime or tick()) > 1.5 then
+                        _G.F2H2HoverHeight = math.max(4.0, _G.F2H2HoverHeight - 0.1)
+                        _G.F2H2LastHitTime = tick()
+                    end
+
+                    local currentDodgeOffset = (tick() < (_G.F2H2DodgeEndTime or 0)) and 2 or 0
+                    local actualHeight = _G.F2H2HoverHeight + currentDodgeOffset
 
                     local finalAttackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
                     local flatTarget = Vector3.new(tRoot.Position.X, finalAttackPos.Y, tRoot.Position.Z)
