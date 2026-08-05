@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & SMART CHEST/GUARDS FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH SMART ESSENCE & GUARD TRACKING)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -13,6 +13,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local PathfindingService = game:GetService("PathfindingService")
+local TeleportService = game:GetService("TeleportService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -423,7 +424,7 @@ local function ToggleHover(state)
     end
 end
 
--- SMART TRANSPORT WITH CLIMB DETECTION (FIXED SPAM)
+-- SMART TRANSPORT WITH CLIMB DETECTION
 local function SmartTransport(targetPos, speed)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -665,9 +666,10 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V3.3: CHEST HOLD FIX & CUTSCENE DETECT)
+--// IMPEL DOWN AUTO FARM ENGINE (V3.4: SMART ESSENCE, REJOIN & GUARDS FIX)
 --// ============================================================================
 
+-- PASSIVE STATS ALLOCATOR
 task.spawn(function()
     while true do
         task.wait(3)
@@ -675,10 +677,62 @@ task.spawn(function()
             pcall(function()
                 local rs = game:GetService("ReplicatedStorage")
                 if rs:FindFirstChild("Events") and rs.Events:FindFirstChild("stats") then
-                    rs.Events.stats:FireServer("Strength", {[3] = 700})
-                    rs.Events.stats:FireServer("Defense", {[3] = 800})
+                    local argsStr = {"Strength"} argsStr[3] = 700
+                    rs.Events.stats:FireServer(unpack(argsStr))
+                    
+                    local argsDef = {"Defense"} argsDef[3] = 800
+                    rs.Events.stats:FireServer(unpack(argsDef))
                 end
             end)
+        end
+    end
+end)
+
+-- PASSIVE SPIRIT ESSENCE HANDLER
+_G.SpiritEssenceUsed = false
+task.spawn(function()
+    while true do
+        task.wait(1)
+        if not RyuSavedConfig.AutoImpelDown then continue end
+        if _G.SpiritEssenceUsed then continue end
+        if _G.ImpelState == "Init" or _G.ImpelState == "WaitForCutscene" then continue end 
+        
+        local char = LocalPlayer.Character
+        if not char then continue end
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        
+        local essence = LocalPlayer.Backpack:FindFirstChild("Spirit Essence") or char:FindFirstChild("Spirit Essence")
+        if essence and hum then
+            ToggleHover(false)
+            char.PrimaryPart.Velocity = Vector3.new(0,0,0)
+            
+            pcall(function() hum:EquipTool(essence) end)
+            task.wait(0.5)
+            
+            pcall(function() essence:Activate() end)
+            task.wait(1)
+            
+            pcall(function()
+                local getNil = getnilinstances and function(name,class)
+                    for _,v in pairs(getnilinstances()) do
+                        if v.ClassName==class and v.Name==name then return v end
+                    end
+                end
+                local args = {true}
+                if getNil then
+                    local remote = getNil("Confirm", "RemoteEvent") 
+                    if remote then remote:FireServer(unpack(args)) end
+                else
+                    Instance.new("RemoteEvent", nil):FireServer(unpack(args))
+                end
+            end)
+            
+            task.wait(0.5)
+            pcall(function() VirtualInputManager:SendKeyEvent(true, Enum.KeyCode.J, false, game) end)
+            task.wait(0.1)
+            pcall(function() VirtualInputManager:SendKeyEvent(false, Enum.KeyCode.J, false, game) end)
+            
+            _G.SpiritEssenceUsed = true
         end
     end
 end)
@@ -781,7 +835,7 @@ task.spawn(function()
                     for _, v in pairs(pg:GetDescendants()) do
                         if v:IsA("TextLabel") and v.Visible and v.TextTransparency < 1 then
                             local txt = string.lower(v.Text)
-                            if string.find(txt, "floor 1") or string.find(txt, "stage 1") or string.find(txt, "your skill points have been reseted") then
+                            if string.find(txt, "floor 1") or string.find(txt, "stage 1") or string.find(txt, "your skill points have been reset") then
                                 messageFound = true
                                 break
                             end
@@ -798,7 +852,11 @@ task.spawn(function()
                 task.wait(5)
                 _G.ImpelState = "Key"
             else
-                task.wait(0.2)
+                if tick() - _G.VeraDeadTime > 15 then 
+                    _G.ImpelState = "Key" 
+                else
+                    task.wait(0.2)
+                end
             end
             continue
         end
@@ -837,7 +895,7 @@ task.spawn(function()
             end)
 
             if keyPart then
-                SmartTransport(keyPart.Position, 40)
+                SmartTransport(keyPart.Position, 44)
                 HoldInteract(2)
                 _G.ImpelState = "ChestRoute"
             else
@@ -862,7 +920,7 @@ task.spawn(function()
 
             for _, pt in ipairs(points) do
                 if not RyuSavedConfig.AutoImpelDown then break end
-                SmartTransport(pt.pos, 40)
+                SmartTransport(pt.pos, 44)
                 if pt.action == "wait" then
                     task.wait(pt.time)
                 elseif pt.action == "chest" then
@@ -876,14 +934,23 @@ task.spawn(function()
 
         -- 5. WAYPOINTS TO GUARDS
         if _G.ImpelState == "Waypoints" then
-            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 40)
-            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 40)
+            SmartTransport(Vector3.new(2945.63, 2075.55, -13578.02), 44)
+            SmartTransport(Vector3.new(2946.49, 2075.45, -13908.61), 44)
             _G.ImpelState = "Guards"
             continue
         end
 
         -- 6. IMPEL GUARDS
         if _G.ImpelState == "Guards" then
+            -- REJOIN CHECK WENN KEINE ESSENCE GEFUNDEN WURDE
+            if not _G.SpiritEssenceUsed then
+                local hasEssence = LocalPlayer.Backpack:FindFirstChild("Spirit Essence") or (char and char:FindFirstChild("Spirit Essence"))
+                if not hasEssence then
+                    pcall(function() TeleportService:TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer) end)
+                    task.wait(9e9) 
+                end
+            end
+
             local npcsFolder = Workspace:FindFirstChild("NPCs")
             if not npcsFolder then continue end
             
@@ -891,25 +958,25 @@ task.spawn(function()
             for _, v in pairs(npcsFolder:GetChildren()) do
                 if string.find(string.lower(v.Name), "guard") then
                     local gHum = v:FindFirstChildOfClass("Humanoid")
-                    if gHum and gHum.Health > 0 then table.insert(guards, v) end
+                    local gRoot = v:FindFirstChild("HumanoidRootPart") or v.PrimaryPart
+                    if gHum and gHum.Health > 0 and gRoot then
+                        if (root.Position - gRoot.Position).Magnitude <= 100 then
+                            table.insert(guards, v)
+                        end
+                    end
                 end
             end
             
             if #guards > 0 then
+                _G.LastGuardSeenTime = tick()
                 local target = guards[1]
                 local tRoot = target:FindFirstChild("HumanoidRootPart") or target.PrimaryPart
                 local tHum = target:FindFirstChildOfClass("Humanoid")
                 
                 if tRoot and tHum then
-                    if (root.Position - tRoot.Position).Magnitude > 50 then 
-                        _G.ImpelState = "WaitingForNext"
-                        continue 
-                    end
-                    
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
                     if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
                     
-                    -- SMART DODGE ENGINE FOR GUARDS
                     if not _G.GuardHoverHeight then _G.GuardHoverHeight = 6.5 end
                     
                     if not _G.PlayerLastHpGuard then _G.PlayerLastHpGuard = hum.Health end
@@ -948,7 +1015,10 @@ task.spawn(function()
                 end
                 continue
             else
-                _G.ImpelState = "WaitingForNext"
+                if not _G.LastGuardSeenTime then _G.LastGuardSeenTime = tick() end
+                if tick() - _G.LastGuardSeenTime > 5 then
+                    _G.ImpelState = "WaitingForNext"
+                end
                 continue
             end
         end
