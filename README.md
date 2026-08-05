@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & SMART HOVER ENGINE)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & VERA PURSUIT ENGINE)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -401,7 +401,7 @@ local function PerformMeleeAttack(targets)
     end)
 end
 
--- TWEEN FUNCTION WITH TP CHECK BYPASS
+-- TWEEN FUNCTION WITH TP CHECK BYPASS & CLIMB ANTI-STUCK
 local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -432,6 +432,7 @@ local function SafeTween(targetCFrame, customSpeed, isMoveCheck)
     end
 
     local lastRealPos = root.Position
+    local stuckTicks = 0
 
     while tick() - startTime < timeToTake do
         if not RyuSavedConfig.AutoImpelDown then break end
@@ -469,9 +470,27 @@ local function ToggleHover(state)
         local bp = root:FindFirstChild("RyuHover")
         if not bp then bp = Instance.new("BodyPosition"); bp.Name = "RyuHover"; bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge); bp.D = 500; bp.P = 50000; bp.Parent = root end
         bp.Position = root.Position
+        
+        local bg = root:FindFirstChild("RyuGyroVera")
+        if not bg then
+            bg = Instance.new("BodyGyro")
+            bg.Name = "RyuGyroVera"
+            bg.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+            bg.P = 15000
+            bg.D = 500
+            bg.Parent = root
+        end
+        
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.PlatformStand = true end
     else
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp:Destroy() end
+        local bg = root:FindFirstChild("RyuGyroVera")
+        if bg then bg:Destroy() end
+        
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.PlatformStand = false end
     end
 end
 
@@ -605,8 +624,12 @@ local function ApplyLoadedSettings()
 end
 ApplyLoadedSettings()
 
+local FlyDock = Instance.new("Frame", RyuHub); FlyDock.Size = UDim2.new(0, 180, 0, 120); FlyDock.Position = UDim2.new(0.7, 0, 0.5, 0); FlyDock.BackgroundColor3 = Theme.Background; FlyDock.Visible = false; FlyDock.Active = true; FlyDock.Draggable = true; Instance.new("UICorner", FlyDock).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", FlyDock).Color = Theme.Accent
+local function CreateDockBtn(txt, pos, size) local btn = Instance.new("TextButton", FlyDock); btn.Size = size; btn.Position = pos; btn.BackgroundColor3 = Theme.ToggleOff; btn.Font = Enum.Font.GothamBold; btn.Text = txt; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.TextSize = 14; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4); btn.MouseButton1Click:Connect(Ryuhub) end
+CreateDockBtn("W", UDim2.new(0.3, 0, 0.08, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("S", UDim2.new(0.3, 0, 0.62, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("A", UDim2.new(0.08, 0, 0.35, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("D", UDim2.new(0.52, 0, 0.35, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("UP", UDim2.new(0.78, 0, 0.12, 0), UDim2.new(0, 30, 0, 38)); CreateDockBtn("DOWN", UDim2.new(0.78, 0, 0.52, 0), UDim2.new(0, 30, 0, 38))
+
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.9: SMART HEIGHT & CLEAN REACTIVE)
+--// IMPEL DOWN AUTO FARM ENGINE (V2.9: STRICT RE-TWEENS & BODYGYRO PURSUIT)
 --// ============================================================================
 
 task.spawn(function()
@@ -644,7 +667,7 @@ task.spawn(function()
             continue 
         end
 
-        -- 2. VERA COMBAT
+        -- 2. VERA COMBAT (Smooth Pursuit + Lock)
         local npcsFolder = Workspace:FindFirstChild("NPCs")
         local vera = npcsFolder and npcsFolder:FindFirstChild("Vera")
         
@@ -653,19 +676,32 @@ task.spawn(function()
             local vRoot = vera:FindFirstChild("HumanoidRootPart") or vera.PrimaryPart
             
             if vHum and vRoot and vHum.Health > 0 then
-                -- 50 STUDS RANGE LIMIT
-                if (root.Position - vRoot.Position).Magnitude > 50 then
+                local distToVera = (root.Position - vRoot.Position).Magnitude
+                
+                -- PHASE END BY TELEPORT
+                if _G.VeraSeen and distToVera > 150 then
+                    ToggleHover(false)
+                    _G.ImpelState = "WaitForCutscene"
+                    continue
+                end
+
+                -- INITIAL RANGE LIMIT
+                if not _G.VeraSeen and distToVera > 50 then
                     continue
                 end
 
                 _G.VeraSeen = true
                 
-                -- FAILSAFE (LOW HP BLOCK SPAM)
+                -- LOW HP FAILSAFE
                 if hum.Health / hum.MaxHealth < 0.8 then
                     ToggleHover(true)
                     local safePos = vRoot.Position + Vector3.new(0, 13, 0)
-                    root.CFrame = CFrame.lookAt(root.Position, vRoot.Position):Lerp(CFrame.lookAt(safePos, vRoot.Position), 0.3)
-                    if root:FindFirstChild("RyuHover") then root.RyuHover.Position = safePos end
+                    
+                    local bp = root:FindFirstChild("RyuHover")
+                    if bp then bp.Position = safePos end
+                    
+                    local bg = root:FindFirstChild("RyuGyroVera")
+                    if bg then bg.CFrame = CFrame.lookAt(root.Position, vRoot.Position) end
                     
                     pcall(function() ReplicatedStorage.Events.Block:InvokeServer(true, "Melee", true) end)
                     continue 
@@ -673,67 +709,55 @@ task.spawn(function()
                     pcall(function() ReplicatedStorage.Events.Block:InvokeServer(false, "Melee", true) end)
                 end
                 
-                -- SMART HEIGHT TRACKING
-                if not _G.SmartHoverHeight then _G.SmartHoverHeight = 6.5 end
-                if not _G.VeraLastHp then _G.VeraLastHp = vHum.Health end
-                
-                if vHum.Health < _G.VeraLastHp then
-                    _G.VeraLastHp = vHum.Health
-                    _G.VeraLastHitTime = tick()
-                end
-                
-                -- Wenn wir 1.5 Sekunden keinen Damage machen, gehen wir minimal runter
-                if tick() - (_G.VeraLastHitTime or tick()) > 1.5 then
-                    _G.SmartHoverHeight = math.max(4.0, _G.SmartHoverHeight - 0.1)
-                    _G.VeraLastHitTime = tick() 
-                end
-
-                -- Wenn wir Schaden nehmen, gehen wir hoch
-                if not _G.PlayerLastHpVera then _G.PlayerLastHpVera = hum.Health end
-                if hum.Health < _G.PlayerLastHpVera then
-                    _G.SmartHoverHeight = math.min(13, _G.SmartHoverHeight + 0.5)
-                end
-                _G.PlayerLastHpVera = hum.Health
-
-                -- ANTI-STUN
-                hum.PlatformStand = false
-                hum.Sit = false
-                
-                -- DIREKT ÜBER IHR FLIEGEN (NORMAL LOOKAT)
-                local attackPos = vRoot.Position + Vector3.new(0, _G.SmartHoverHeight, 0)
-                local nextPos = root.Position:Lerp(attackPos, 0.4)
-                
+                -- PURSUIT FLYING & COMBAT
                 ToggleHover(true)
-                root.CFrame = CFrame.lookAt(nextPos, vRoot.Position)
+                local attackPos = vRoot.Position + Vector3.new(0, 6.5, 0)
+                
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = attackPos end
-                root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                
+                local bg = root:FindFirstChild("RyuGyroVera")
+                if bg then bg.CFrame = CFrame.lookAt(root.Position, vRoot.Position) end
 
                 EquipTargetWeapon()
                 PerformMeleeAttack({vera})
                 continue 
             end
+        else
+            if _G.VeraSeen then
+                ToggleHover(false)
+                _G.ImpelState = "WaitForCutscene"
+            end
         end
 
         -- 3. CUTSCENE CHECK
-        local inCutscene = false
-        pcall(function()
-            if camera.CameraType == Enum.CameraType.Scriptable then inCutscene = true end
-            local pg = LocalPlayer:FindFirstChild("PlayerGui")
-            if pg and (pg:FindFirstChild("Cutscene") or pg:FindFirstChild("Cinematic") or pg:FindFirstChild("Dialogue")) then inCutscene = true end
-        end)
+        if _G.ImpelState == "WaitForCutscene" then
+            local inCutscene = false
+            pcall(function()
+                if camera.CameraType == Enum.CameraType.Scriptable then inCutscene = true end
+                local pg = LocalPlayer:FindFirstChild("PlayerGui")
+                if pg and (pg:FindFirstChild("Cutscene") or pg:FindFirstChild("Cinematic") or pg:FindFirstChild("Dialogue")) then inCutscene = true end
+            end)
 
-        if inCutscene then
-            ToggleHover(false)
-            root.Velocity = Vector3.new(0, 0, 0)
-            if hum then hum:Move(Vector3.new(0,0,0), false) end
+            if inCutscene then
+                ToggleHover(false)
+                root.Velocity = Vector3.new(0, 0, 0)
+                if hum then hum:Move(Vector3.new(0,0,0), false) end
+                _G.CutsceneStarted = true
+                task.wait(0.5)
+                continue
+            else
+                if _G.CutsceneStarted then
+                    _G.CutsceneStarted = false
+                    _G.ImpelState = "Waypoints"
+                end
+            end
             continue
         end
 
         -- 4. IMPEL GUARDS
         local guards = {}
-        if _G.VeraSeen and npcsFolder then
+        if _G.ImpelState == "Guards" and npcsFolder then
             for _, v in pairs(npcsFolder:GetChildren()) do
                 if v.Name:find("Impel Guard") then
                     local gHum = v:FindFirstChildOfClass("Humanoid")
@@ -747,66 +771,53 @@ task.spawn(function()
                 local tHum = target:FindFirstChildOfClass("Humanoid")
                 
                 if tRoot and tHum then
-                    -- 50 STUDS RANGE LIMIT
-                    if (root.Position - tRoot.Position).Magnitude > 50 then
-                        continue
-                    end
-
-                    -- FAILSAFE (LOW HP BLOCK SPAM)
+                    if (root.Position - tRoot.Position).Magnitude > 50 then continue end
+                    
                     if hum.Health / hum.MaxHealth < 0.8 then
                         ToggleHover(true)
                         local safePos = tRoot.Position + Vector3.new(0, 13, 0)
-                        root.CFrame = CFrame.lookAt(root.Position, tRoot.Position):Lerp(CFrame.lookAt(safePos, tRoot.Position), 0.3)
-                        if root:FindFirstChild("RyuHover") then root.RyuHover.Position = safePos end
+                        local bp = root:FindFirstChild("RyuHover")
+                        if bp then bp.Position = safePos end
+                        local bg = root:FindFirstChild("RyuGyroVera")
+                        if bg then bg.CFrame = CFrame.lookAt(root.Position, tRoot.Position) end
+                        
                         pcall(function() ReplicatedStorage.Events.Block:InvokeServer(true, "Melee", true) end)
                         continue 
                     else
                         pcall(function() ReplicatedStorage.Events.Block:InvokeServer(false, "Melee", true) end)
                     end
                     
-                    -- SMART HEIGHT TRACKING FÜR GUARDS
-                    if not _G.SmartHoverHeight then _G.SmartHoverHeight = 6.5 end
-                    if not _G.GuardLastHp then _G.GuardLastHp = tHum.Health end
-                    
-                    if tHum.Health < _G.GuardLastHp then
-                        _G.GuardLastHp = tHum.Health
-                        _G.GuardLastHitTime = tick()
-                    end
-                    
-                    if tick() - (_G.GuardLastHitTime or tick()) > 1.5 then
-                        _G.SmartHoverHeight = math.max(4.0, _G.SmartHoverHeight - 0.1)
-                        _G.GuardLastHitTime = tick()
-                    end
-
-                    if not _G.PlayerLastHpGuard then _G.PlayerLastHpGuard = hum.Health end
-                    if hum.Health < _G.PlayerLastHpGuard then
-                        _G.SmartHoverHeight = math.min(13, _G.SmartHoverHeight + 0.5)
-                    end
-                    _G.PlayerLastHpGuard = hum.Health
-                    
-                    -- ANTI-STUN
-                    hum.PlatformStand = false
-                    hum.Sit = false
-
-                    local attackPos = tRoot.Position + Vector3.new(0, _G.SmartHoverHeight, 0)
-                    local nextPos = root.Position:Lerp(attackPos, 0.4)
-                    
                     ToggleHover(true)
-                    root.CFrame = CFrame.lookAt(nextPos, tRoot.Position)
+                    local attackPos = tRoot.Position + Vector3.new(0, 6.5, 0)
                     local bp = root:FindFirstChild("RyuHover")
                     if bp then bp.Position = attackPos end
-                    root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
-                    root.AssemblyAngularVelocity = Vector3.new(0, 0, 0)
+                    local bg = root:FindFirstChild("RyuGyroVera")
+                    if bg then bg.CFrame = CFrame.lookAt(root.Position, tRoot.Position) end
 
                     EquipTargetWeapon()
                     PerformMeleeAttack(guards) 
                 end
                 continue
+            else
+                _G.ImpelState = "Labyrinth"
+                continue
             end
         end
 
         -- 5. LABYRINTH / WAYPOINTS
-        if _G.VeraSeen and #guards == 0 then
+        if _G.ImpelState == "Waypoints" then
+            local wp1 = Vector3.new(2941.29, 2075.25, -13574.59)
+            local wp2 = Vector3.new(2952.60, 2075.15, -13848.57)
+            
+            SafeTween(CFrame.new(wp1), 45, true)
+            task.wait(1)
+            SafeTween(CFrame.new(wp2), 45, true)
+            
+            _G.ImpelState = "Guards"
+            continue
+        end
+
+        if _G.ImpelState == "Labyrinth" then
             local labyrinthTarget = Vector3.new(2664.91, 2075.15, -15491.03)
             if (root.Position - labyrinthTarget).Magnitude > 5 then
                 ToggleHover(false)
