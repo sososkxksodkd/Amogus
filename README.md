@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH SELF-HEALING MAZE SOLVER)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH MAZE-LOOP & ESSENCE FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -14,6 +14,7 @@ local RunService = game:GetService("RunService")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local PathfindingService = game:GetService("PathfindingService")
 local TeleportService = game:GetService("TeleportService")
+local GuiService = game:GetService("GuiService")
 
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
@@ -492,7 +493,7 @@ local function SmartTransport(targetPos, speed, timeout)
     return true
 end
 
--- PATH TRANSPORT (NO CLIMBING OR RAYCASTS - PURE NAVIGATION)
+-- PATH TRANSPORT (NO CLIMBING OR RAYCASTS - PURE NAVIGATION WITH SELF-HEALING)
 local function PathTransport(targetPos, speed, timeout)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -512,10 +513,10 @@ local function PathTransport(targetPos, speed, timeout)
 
         local dt = RunService.Heartbeat:Wait()
         
-        -- STUCK DETECTION (Anti-Wall Clip)
+        -- STUCK DETECTION (Self-Healing Maze Loop)
         if (root.Position - lastPos).Magnitude < (speed * dt * 0.2) then
             stuckTimer = stuckTimer + dt
-            if stuckTimer > 0.5 then return false end -- Festgesteckt -> Abbruch für Neuberechnung
+            if stuckTimer > 0.5 then return false end -- Abbruch erzwingt direkte Neuberechnung
         else
             stuckTimer = 0
         end
@@ -542,7 +543,7 @@ local function PathTransport(targetPos, speed, timeout)
     return true
 end
 
--- HOLD INTERACT (NO SPAM CLICK)
+-- HOLD INTERACT (EXACT 0.5s HOLD)
 local function HoldInteract(duration)
     local t = tick()
     while tick() - t < duration do
@@ -731,7 +732,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V4.2: EXACT STAT UNPACK & PERFECT MAZE SOLVER)
+--// IMPEL DOWN AUTO FARM ENGINE (V4.3: STAT FIX, CAMERA FIX, LABYRINTH LOOP FIX)
 --// ============================================================================
 
 -- PASSIVE STATS ALLOCATOR (100% Fix with unpack(args, 1, 3))
@@ -787,8 +788,9 @@ task.spawn(function()
                     for _, v in pairs(pg:GetDescendants()) do
                         if v:IsA("TextButton") then
                             local txt = string.lower(v.Text)
-                            local isGreen = (v.BackgroundColor3.G > v.BackgroundColor3.R and v.BackgroundColor3.G > v.BackgroundColor3.B)
-                            if string.find(txt, "accept") or string.find(txt, "akzeptieren") or isGreen then
+                            local name = string.lower(v.Name)
+                            
+                            if (string.find(txt, "accept") or string.find(name, "accept") or string.find(txt, "yes") or string.find(name, "yes") or string.find(txt, "akzeptieren")) and not string.find(txt, "no") and not string.find(txt, "decline") and not string.find(txt, "ablehnen") then
                                 local absPos = v.AbsolutePosition
                                 local absSize = v.AbsoluteSize
                                 local centerX = absPos.X + (absSize.X / 2)
@@ -950,13 +952,6 @@ task.spawn(function()
 
         -- 3. KEY PHASE
         if _G.ImpelState == "Key" then
-            if not _G.PreKeyStatsDone then
-                ToggleHover(true)
-                root.Velocity = Vector3.new(0,0,0)
-                task.wait(5)
-                _G.PreKeyStatsDone = true
-            end
-
             local keyPart = nil
             pcall(function()
                 local effects = Workspace:FindFirstChild("Effects")
@@ -1119,47 +1114,48 @@ task.spawn(function()
             end
         end
 
-        -- 7. LABYRINTH BYPASS (PATHFINDING NO-CLIMB NAVIGATOR)
+        -- 7. LABYRINTH BYPASS (Self-Healing Loop)
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
             SmartTransport(pos1, 43, 20)
             
             local labyrinthTarget = Vector3.new(2660.54, 2075.45, -15403.33)
             
-            local path = PathfindingService:CreatePath({
-                AgentRadius = 4.5,
-                AgentHeight = 6,
-                AgentCanJump = true,
-                WaypointSpacing = 4
-            })
-            
-            local success, err = pcall(function()
-                path:ComputeAsync(root.Position, labyrinthTarget)
-            end)
-            
-            if success and path.Status == Enum.PathStatus.Success then
-                local waypoints = path:GetWaypoints()
-                for i, waypoint in ipairs(waypoints) do
-                    if not RyuSavedConfig.AutoImpelDown then break end
-                    if waypoint.Action == Enum.PathWaypointAction.Jump then
-                        hum.Jump = true
-                    end
-                    local reached = PathTransport(waypoint.Position, 43, 3) 
-                    if not reached then
-                        break
-                    end
-                end
-            else
-                PathTransport(labyrinthTarget, 43, 2)
-            end
-            
-            if (root.Position - labyrinthTarget).Magnitude < 15 then
-                local pos3 = Vector3.new(2663.73, 2075.45, -15501.86)
-                PathTransport(pos3, 43, 10)
+            while RyuSavedConfig.AutoImpelDown and (root.Position - labyrinthTarget).Magnitude > 15 do
+                local path = PathfindingService:CreatePath({
+                    AgentRadius = 4.5,
+                    AgentHeight = 6,
+                    AgentCanJump = true,
+                    WaypointSpacing = 4
+                })
                 
-                _G.LabGuardLastCombat = tick()
-                _G.ImpelState = "LabyrinthGuards"
+                local success, err = pcall(function()
+                    path:ComputeAsync(root.Position, labyrinthTarget)
+                end)
+                
+                if success and path.Status == Enum.PathStatus.Success then
+                    local waypoints = path:GetWaypoints()
+                    for i, waypoint in ipairs(waypoints) do
+                        if not RyuSavedConfig.AutoImpelDown then break end
+                        if waypoint.Action == Enum.PathWaypointAction.Jump then
+                            hum.Jump = true
+                        end
+                        -- PathTransport returns false if stuck -> forces immediate re-computation!
+                        local reached = PathTransport(waypoint.Position, 43, 3) 
+                        if not reached then
+                            break
+                        end
+                    end
+                else
+                    PathTransport(labyrinthTarget, 43, 2)
+                end
             end
+            
+            local pos3 = Vector3.new(2663.73, 2075.45, -15501.86)
+            PathTransport(pos3, 43, 20)
+            
+            _G.LabGuardLastCombat = tick()
+            _G.ImpelState = "LabyrinthGuards"
             continue
         end
 
