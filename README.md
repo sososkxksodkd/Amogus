@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH GETCONNECTIONS FIX & FLOOR 2 ROOM 2)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH GPO-EQUIP & 80% HEAL FAILSAFE)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -528,10 +528,12 @@ end
 local function CheckHPAndFailsafe(root, hum, safePos)
     if hum.Health / hum.MaxHealth < 0.3 then
         ToggleHover(true)
+        pcall(function() ReplicatedStorage.Events.climb:InvokeServer(true) end)
+        
         local bp = root:FindFirstChild("RyuHover")
         if bp then bp.Position = safePos end
         
-        while hum.Health / hum.MaxHealth < 0.4 do
+        while hum.Health / hum.MaxHealth < 0.8 do
             if not RyuSavedConfig.AutoImpelDown then break end
             pcall(function()
                 if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Block") then
@@ -542,6 +544,7 @@ local function CheckHPAndFailsafe(root, hum, safePos)
             task.wait(0.2)
         end
         
+        pcall(function() ReplicatedStorage.Events.climb:InvokeServer(false) end)
         pcall(function()
             if ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("Block") then
                 ReplicatedStorage.Events.Block:InvokeServer(false, "Melee", true)
@@ -683,7 +686,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V5.4: STRICT PATHFINDING RECALC & NEW WAYPOINTS)
+--// IMPEL DOWN AUTO FARM ENGINE (V5.5: PERFECT FAILSAFE, EXACT ESSENCE & MAZE)
 --// ============================================================================
 
 -- PASSIVE STATS ALLOCATOR
@@ -702,7 +705,7 @@ task.spawn(function()
     end
 end)
 
--- PASSIVE SPIRIT ESSENCE HANDLER (Strict Green/Accept Match)
+-- PASSIVE SPIRIT ESSENCE HANDLER
 _G.SpiritEssenceUsed = false
 task.spawn(function()
     local GuiService = game:GetService("GuiService")
@@ -721,6 +724,8 @@ task.spawn(function()
             ToggleHover(false)
             char.PrimaryPart.Velocity = Vector3.new(0,0,0)
             
+            pcall(function() ReplicatedStorage.Events.Tools:InvokeServer("equip", "Spirit Essence") end)
+            task.wait(0.5)
             pcall(function() hum:EquipTool(essence) end)
             task.wait(0.5)
             
@@ -736,28 +741,26 @@ task.spawn(function()
                 local pg = LocalPlayer:FindFirstChild("PlayerGui")
                 local guiInset = GuiService:GetGuiInset()
                 if pg then
-                    local clicked = false
                     for _, v in pairs(pg:GetDescendants()) do
-                        if clicked then break end
                         if v:IsA("TextButton") or v:IsA("ImageButton") then
                             local txt = ""
                             if v:IsA("TextLabel") or v:IsA("TextButton") then txt = string.lower(v.Text or "") end
                             local name = string.lower(v.Name)
                             
-                            local r, g, b = 0, 0, 0
+                            local isGreen = false
+                            local isRed = false
                             if v.BackgroundColor3 then
-                                r = v.BackgroundColor3.R
-                                g = v.BackgroundColor3.G
-                                b = v.BackgroundColor3.B
+                                isGreen = (v.BackgroundColor3.G > v.BackgroundColor3.R + 0.1 and v.BackgroundColor3.G > v.BackgroundColor3.B + 0.1)
+                                isRed = (v.BackgroundColor3.R > v.BackgroundColor3.G + 0.1 and v.BackgroundColor3.R > v.BackgroundColor3.B + 0.1)
                             end
                             
-                            local isRed = (r > g + 0.1 and r > b + 0.1)
-                            local isGreen = (g > r + 0.1 and g > b + 0.1)
+                            -- FILTER OUT DECLINE/NO/RED
+                            if isRed or string.find(txt, "no") or string.find(txt, "decline") or string.find(txt, "ablehnen") or string.find(name, "no") or string.find(name, "decline") then
+                                continue
+                            end
                             
-                            if isRed then continue end 
-                            if string.find(txt, "decline") or string.find(txt, "no") or string.find(txt, "ablehnen") or string.find(name, "decline") or string.find(name, "no") then continue end
-                            
-                            if (string.find(txt, "accept") or string.find(name, "accept") or string.find(txt, "yes") or string.find(name, "yes") or string.find(txt, "akzeptieren") or isGreen) then
+                            -- ACCEPT GREEN
+                            if string.find(txt, "accept") or string.find(name, "accept") or string.find(txt, "yes") or string.find(name, "yes") or string.find(txt, "akzeptieren") or isGreen then
                                 local absPos = v.AbsolutePosition
                                 local absSize = v.AbsoluteSize
                                 local centerX = absPos.X + (absSize.X / 2)
@@ -771,8 +774,7 @@ task.spawn(function()
                                 pcall(function() getsenv(v).Click() end)
                                 pcall(function() v.MouseButton1Click:Fire() end)
                                 
-                                clicked = true
-                                break
+                                break -- EXTREMELY IMPORTANT: Stop checking other buttons!
                             end
                         end
                     end
@@ -793,25 +795,6 @@ end)
 _G.ImpelState = "Init"
 _G.VeraSeen = false
 
--- PASSIVE CAMERA TRACKING
-task.spawn(function()
-    while true do
-        task.wait()
-        if RyuSavedConfig.AutoImpelDown then
-            pcall(function()
-                local char = LocalPlayer.Character
-                if char then
-                    local hum = char:FindFirstChildOfClass("Humanoid")
-                    if hum then
-                        camera.CameraType = Enum.CameraType.Custom
-                        camera.CameraSubject = hum
-                    end
-                end
-            end)
-        end
-    end
-end)
-
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -821,6 +804,12 @@ task.spawn(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
+
+        -- CAMERA NORMALIZATION 
+        pcall(function()
+            camera.CameraType = Enum.CameraType.Custom
+            camera.CameraSubject = hum
+        end)
 
         -- 1. DIFF CHOOSER
         local diffChooser = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("DiffChooser")
@@ -849,7 +838,7 @@ task.spawn(function()
                     _G.VeraSeen = true
                     
                     if vRoot.Size.X < 15 then vRoot.Size = Vector3.new(15, 15, 15) vRoot.CanCollide = false end
-                    if CheckHPAndFailsafe(root, hum, vRoot.Position + Vector3.new(0, 13, 0)) then continue end
+                    if CheckHPAndFailsafe(root, hum, vRoot.Position) then continue end
                     
                     if not _G.SmartHoverHeight then _G.SmartHoverHeight = 6.5 end
                     
@@ -1044,11 +1033,11 @@ task.spawn(function()
                     local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
                     
                     if distToGuard > 15 then 
-                        PathTransport(attackPos, 30, 20)
+                        PathTransport(attackPos, 40, 20) -- DIRECT TWEEN TO GUARDS
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
-                    if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
+                    if CheckHPAndFailsafe(root, hum, tRoot.Position) then continue end
                     
                     if not _G.GuardHoverHeight then _G.GuardHoverHeight = 6.5 end
                     
@@ -1122,7 +1111,6 @@ task.spawn(function()
                         if waypoint.Action == Enum.PathWaypointAction.Jump then
                             hum.Jump = true
                         end
-                        -- PathTransport has the TP/Noclip scanner inside. Returns false if recalulation is needed.
                         local reached = PathTransport(waypoint.Position, 43, 3) 
                         if not reached then
                             break
@@ -1172,11 +1160,11 @@ task.spawn(function()
                     local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
                     
                     if distToGuard > 15 then 
-                        PathTransport(attackPos, 40, 20) -- Direct transport, NO pathfinding
+                        PathTransport(attackPos, 40, 20) -- Direct transport
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
-                    if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
+                    if CheckHPAndFailsafe(root, hum, tRoot.Position) then continue end
                     
                     if not _G.GuardHoverHeight then _G.GuardHoverHeight = 6.5 end
                     
@@ -1247,12 +1235,13 @@ task.spawn(function()
             continue
         end
 
-        -- 10. FLOOR 2 WAYPOINTS
+        -- 10. FLOOR 2 WAYPOINTS (Room 1)
         if _G.ImpelState == "Floor2Waypoints" then
             local pts = {
                 Vector3.new(3200.23, 2405.38, -20190.65),
                 Vector3.new(3265.69, 2405.38, -20199.22),
-                Vector3.new(3261.70, 2405.38, -20193.35)
+                Vector3.new(3261.70, 2405.38, -20193.35),
+                Vector3.new(3197.87, 2380.43, -20281.73)
             }
             
             for _, pt in ipairs(pts) do
@@ -1265,7 +1254,7 @@ task.spawn(function()
             continue
         end
 
-        -- 11. FLOOR 2 COMBAT 1
+        -- 11. FLOOR 2 COMBAT (Room 1)
         if _G.ImpelState == "Floor2Combat" then
             local roomCleared = false
             pcall(function()
@@ -1321,7 +1310,7 @@ task.spawn(function()
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
-                    if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
+                    if CheckHPAndFailsafe(root, hum, tRoot.Position) then continue end
                     
                     if not _G.F2HoverHeight then _G.F2HoverHeight = 6.5 end
                     
@@ -1364,7 +1353,7 @@ task.spawn(function()
             continue
         end
         
-        -- 12. FLOOR 2 WAYPOINTS 2
+        -- 12. FLOOR 2 WAYPOINTS (Room 2)
         if _G.ImpelState == "Floor2Waypoints2" then
             local pt = Vector3.new(3201.04, 2378.43, -20382.98)
             PathTransport(pt, 43, 20)
@@ -1372,7 +1361,7 @@ task.spawn(function()
             continue
         end
 
-        -- 13. FLOOR 2 COMBAT 2
+        -- 13. FLOOR 2 COMBAT (Room 2)
         if _G.ImpelState == "Floor2Combat2" then
             local roomCleared = false
             pcall(function()
@@ -1427,7 +1416,7 @@ task.spawn(function()
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
-                    if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
+                    if CheckHPAndFailsafe(root, hum, tRoot.Position) then continue end
                     
                     if not _G.F2H2HoverHeight then _G.F2H2HoverHeight = 6.5 end
                     
@@ -1477,3 +1466,4 @@ task.spawn(function()
 
     end
 end)
+
