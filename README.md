@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH FLOOR 2 & NOCLIP FIX)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH EXACT UNPACK & FLOOR 2 TWEENS)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -425,7 +425,7 @@ local function ToggleHover(state)
     end
 end
 
--- PATH TRANSPORT WITH NOCLIP SCANNER & ANTI-STUCK
+-- PATH TRANSPORT WITH TP-CHECK SCANNER & EXACT 40/43 SPEED
 local function PathTransport(targetPos, speed, timeout)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -444,9 +444,7 @@ local function PathTransport(targetPos, speed, timeout)
         local dist = (root.Position - targetPos).Magnitude
         if dist < 4 then break end
         
-        local dt = RunService.Heartbeat:Wait()
-        
-        -- TP & NOCLIP CHECK SCANNER
+        -- TP CHECK SCANNER
         tickCounter = tickCounter + 1
         if tickCounter % 15 == 0 then
             local tpCheck = false
@@ -471,6 +469,8 @@ local function PathTransport(targetPos, speed, timeout)
             end
         end
 
+        local dt = RunService.Heartbeat:Wait()
+        
         -- STUCK DETECTION (Self-Healing Maze Loop)
         if (root.Position - lastPos).Magnitude < (speed * dt * 0.2) then
             stuckTimer = stuckTimer + dt
@@ -491,12 +491,6 @@ local function PathTransport(targetPos, speed, timeout)
         if bp then bp.Position = nextPos end
         root.Velocity = Vector3.new(0,0,0)
         root.RotVelocity = Vector3.new(0,0,0)
-        
-        -- CAMERA TRACKING
-        pcall(function()
-            local camPos = root.Position - (flatDir * 15) + Vector3.new(0, 7, 0)
-            camera.CFrame = CFrame.lookAt(camPos, root.Position)
-        end)
     end
     return true
 end
@@ -689,7 +683,7 @@ end
 ApplyLoadedSettings()
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V5.3: SPIRIT ESSENCE FIX & NOCLIP SCANNER)
+--// IMPEL DOWN AUTO FARM ENGINE (V4.4: FINAL FIXES & CAMERA STRICT LOCK)
 --// ============================================================================
 
 -- PASSIVE STATS ALLOCATOR
@@ -788,7 +782,7 @@ task.spawn(function()
             task.wait(1)
             pcall(function()
                 local args = {"Buso"}
-                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Haki"):FireServer(unpack(args))
+                game:GetService("ReplicatedStorage"):WaitForChild("Events"):WaitForChild("Haki"):FireServer(unpack(args, 1, 1))
             end)
             
             _G.SpiritEssenceUsed = true
@@ -799,6 +793,25 @@ end)
 _G.ImpelState = "Init"
 _G.VeraSeen = false
 
+-- PASSIVE CAMERA TRACKING
+task.spawn(function()
+    while true do
+        task.wait()
+        if RyuSavedConfig.AutoImpelDown then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char then
+                    local hum = char:FindFirstChildOfClass("Humanoid")
+                    if hum then
+                        camera.CameraType = Enum.CameraType.Custom
+                        camera.CameraSubject = hum
+                    end
+                end
+            end)
+        end
+    end
+end)
+
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -808,12 +821,6 @@ task.spawn(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum or hum.Health <= 0 then continue end
-
-        -- CAMERA NORMALIZATION 
-        pcall(function()
-            camera.CameraType = Enum.CameraType.Custom
-            camera.CameraSubject = hum
-        end)
 
         -- 1. DIFF CHOOSER
         local diffChooser = LocalPlayer:FindFirstChild("PlayerGui") and LocalPlayer.PlayerGui:FindFirstChild("DiffChooser")
@@ -1001,8 +1008,8 @@ task.spawn(function()
 
         -- 5. WAYPOINTS TO GUARDS
         if _G.ImpelState == "Waypoints" then
-            PathTransport(Vector3.new(2945.63, 2075.55, -13578.02), 30, 20)
-            PathTransport(Vector3.new(2946.49, 2075.45, -13908.61), 30, 20)
+            PathTransport(Vector3.new(2945.63, 2075.55, -13578.02), 43, 20)
+            PathTransport(Vector3.new(2946.49, 2075.45, -13908.61), 43, 20)
             _G.ImpelState = "Guards"
             continue
         end
@@ -1037,7 +1044,7 @@ task.spawn(function()
                     local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
                     
                     if distToGuard > 15 then 
-                        PathTransport(attackPos, 30, 20)
+                        PathTransport(attackPos, 40, 20)
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
@@ -1089,7 +1096,7 @@ task.spawn(function()
             end
         end
 
-        -- 7. LABYRINTH BYPASS (PATHFINDING MAZE SOLVER WITH NOCLIP SCANNER)
+        -- 7. LABYRINTH BYPASS
         if _G.ImpelState == "LabyrinthStart" then
             local pos1 = Vector3.new(2951.33, 2075.45, -14048.78)
             PathTransport(pos1, 43, 20)
@@ -1115,7 +1122,6 @@ task.spawn(function()
                         if waypoint.Action == Enum.PathWaypointAction.Jump then
                             hum.Jump = true
                         end
-                        -- PathTransport has the TP/Noclip scanner inside
                         local reached = PathTransport(waypoint.Position, 43, 3) 
                         if not reached then
                             break
@@ -1165,7 +1171,7 @@ task.spawn(function()
                     local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
                     
                     if distToGuard > 15 then 
-                        PathTransport(attackPos, 40, 20) 
+                        PathTransport(attackPos, 40, 20)
                     end
                     
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
@@ -1246,8 +1252,7 @@ task.spawn(function()
                 Vector3.new(3200.23, 2405.38, -20190.65),
                 Vector3.new(3265.69, 2405.38, -20199.22),
                 Vector3.new(3261.70, 2405.38, -20193.35),
-                Vector3.new(3197.87, 2380.43, -20281.73),
-                Vector3.new(3268.90, 2380.38, -20298.85)
+                Vector3.new(3197.87, 2380.43, -20281.73)
             }
             
             for _, pt in ipairs(pts) do
@@ -1306,6 +1311,14 @@ task.spawn(function()
                 local tHum = target:FindFirstChildOfClass("Humanoid")
                 
                 if tRoot and tHum then
+                    local distToGuard = (root.Position - tRoot.Position).Magnitude
+                    local lookDir = tRoot.CFrame.LookVector
+                    local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, 6.5, 0)
+                    
+                    if distToGuard > 15 then 
+                        PathTransport(attackPos, 40, 20)
+                    end
+                    
                     if tRoot.Size.X < 15 then tRoot.Size = Vector3.new(15, 15, 15) tRoot.CanCollide = false end
                     if CheckHPAndFailsafe(root, hum, tRoot.Position + Vector3.new(0, 13, 0)) then continue end
                     
@@ -1331,14 +1344,13 @@ task.spawn(function()
                     local currentDodgeOffset = (tick() < (_G.F2DodgeEndTime or 0)) and 2 or 0
                     local actualHeight = _G.F2HoverHeight + currentDodgeOffset
 
-                    local lookDir = tRoot.CFrame.LookVector
-                    local attackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
-                    local flatTarget = Vector3.new(tRoot.Position.X, attackPos.Y, tRoot.Position.Z)
-                    local targetRot = CFrame.lookAt(attackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
+                    local finalAttackPos = tRoot.Position - (lookDir * 3) + Vector3.new(0, actualHeight, 0)
+                    local flatTarget = Vector3.new(tRoot.Position.X, finalAttackPos.Y, tRoot.Position.Z)
+                    local targetRot = CFrame.lookAt(finalAttackPos, flatTarget) * CFrame.Angles(math.rad(-60), 0, 0)
                     
                     ToggleHover(true)
                     local bp = root:FindFirstChild("RyuHover")
-                    if bp then bp.Position = attackPos end
+                    if bp then bp.Position = finalAttackPos end
                     local bg = root:FindFirstChild("RyuGyroVera")
                     if bg then bg.CFrame = targetRot end
 
