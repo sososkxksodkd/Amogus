@@ -1,5 +1,5 @@
 --// ==========================================
---// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & PURE REACTIVE ENGINE)
+--// IMPEL DOWN SCRIPT (ULTIMATE PREMIUM UI WITH AUTO-SAVE & STRICT VERTICAL FIX)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -586,8 +586,13 @@ CreateButton(SecSave, "Reset UI Settings", Theme.Warning, function()
     end
 end)
 
-task.spawn(function() Tabs[1].Toggle(); Tabs[1].SubTabs[1].Open() end)
+-- INITIALISIERUNG
+task.spawn(function()
+    Tabs[1].Toggle()
+    Tabs[1].SubTabs[1].Open()
+end)
 
+-- SETTINGS LADEN BEIM START
 local function ApplyLoadedSettings()
     if RyuSavedConfig.GlassMode then
         MainFrame.BackgroundTransparency = 0.4; MainFrame.BackgroundColor3 = Color3.fromRGB(5,5,5)
@@ -605,12 +610,13 @@ local function ApplyLoadedSettings()
 end
 ApplyLoadedSettings()
 
+-- MOBILE FLY DOCK
 local FlyDock = Instance.new("Frame", RyuHub); FlyDock.Size = UDim2.new(0, 180, 0, 120); FlyDock.Position = UDim2.new(0.7, 0, 0.5, 0); FlyDock.BackgroundColor3 = Theme.Background; FlyDock.Visible = false; FlyDock.Active = true; FlyDock.Draggable = true; Instance.new("UICorner", FlyDock).CornerRadius = UDim.new(0, 8); Instance.new("UIStroke", FlyDock).Color = Theme.Accent
 local function CreateDockBtn(txt, pos, size) local btn = Instance.new("TextButton", FlyDock); btn.Size = size; btn.Position = pos; btn.BackgroundColor3 = Theme.ToggleOff; btn.Font = Enum.Font.GothamBold; btn.Text = txt; btn.TextColor3 = Color3.fromRGB(255,255,255); btn.TextSize = 14; Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 4); btn.MouseButton1Click:Connect(Ryuhub) end
 CreateDockBtn("W", UDim2.new(0.3, 0, 0.08, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("S", UDim2.new(0.3, 0, 0.62, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("A", UDim2.new(0.08, 0, 0.35, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("D", UDim2.new(0.52, 0, 0.35, 0), UDim2.new(0, 32, 0, 32)); CreateDockBtn("UP", UDim2.new(0.78, 0, 0.12, 0), UDim2.new(0, 30, 0, 38)); CreateDockBtn("DOWN", UDim2.new(0.78, 0, 0.52, 0), UDim2.new(0, 30, 0, 38))
 
 --// ============================================================================
---// IMPEL DOWN AUTO FARM ENGINE (V2.8: STRICT VERTICAL FIX & KEY TWEEN)
+--// IMPEL DOWN AUTO FARM ENGINE
 --// ============================================================================
 
 task.spawn(function()
@@ -698,10 +704,11 @@ task.spawn(function()
                 -- DIREKT ÜBER IHR FLIEGEN & STRIKT VERTIKAL ERZWINGEN (90 GRAD NACH UNTEN)
                 local attackPos = vRoot.Position + Vector3.new(0, _G.VeraHoverHeight, 0)
                 local nextPos = root.Position:Lerp(attackPos, 0.4)
-                local targetCFrame = CFrame.new(nextPos, nextPos + Vector3.new(0, -1, 0))
                 
                 ToggleHover(true)
-                root.CFrame = targetCFrame
+                -- CFrame.Angles für absolut starren Look nach unten
+                root.CFrame = CFrame.new(nextPos) * CFrame.Angles(math.rad(-90), 0, 0)
+                
                 local bp = root:FindFirstChild("RyuHover")
                 if bp then bp.Position = attackPos end
                 root.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
@@ -757,6 +764,13 @@ task.spawn(function()
         end)
 
         if _G.VeraSeen and keyPart then
+            if not _G.KeyWaitTriggered then
+                _G.KeyWaitTriggered = true
+                ToggleHover(true)
+                root.Velocity = Vector3.new(0,0,0)
+                task.wait(4)
+            end
+
             local flatDir = Vector3.new(root.Position.X - keyPart.Position.X, 0, root.Position.Z - keyPart.Position.Z)
             if flatDir.Magnitude < 0.1 then flatDir = Vector3.new(1, 0, 0) end
             local safePos = keyPart.Position + flatDir.Unit * 2
@@ -834,7 +848,7 @@ task.spawn(function()
 
                     local attackPos = tRoot.Position + Vector3.new(0, _G.GuardHoverHeight, 0)
                     local nextPos = root.Position:Lerp(attackPos, 0.4)
-                    local targetCFrame = CFrame.new(nextPos, nextPos + Vector3.new(0, -1, 0))
+                    local targetCFrame = CFrame.new(nextPos) * CFrame.Angles(math.rad(-90), 0, 0)
                     
                     ToggleHover(true)
                     root.CFrame = targetCFrame
