@@ -1,130 +1,124 @@
 --// ==========================================
---// GPO SOLO TEST V3 (40 SPEED & PERMA-SKEDADDLE LOOP)
+--// GPO SOLO TEST: SPIDER-SKEDADDLE TRANSPORT
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
-local Mouse = LocalPlayer:GetMouse()
+local camera = Workspace.CurrentCamera
 
 --// GUI CLEANUP
 local guiParent = LocalPlayer:WaitForChild("PlayerGui")
 pcall(function() if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end end)
-for _, v in pairs(guiParent:GetChildren()) do if v.Name == "GPOSoloTestV3" then v:Destroy() end end
+for _, v in pairs(guiParent:GetChildren()) do if v.Name == "GPOSpiderTest" then v:Destroy() end end
 
 --// GLOBALS
-_G.SkedaddleTween = false
-_G.AltNoclip = false
+_G.IsSpiderTransporting = false
 
 --// =======================
---// 1. SKEDADDLE CLICK-TWEEN
+--// SPIDER TRANSPORT LOGIC
 --// =======================
-local currentTween = nil
-local tweenActive = false
+local function SpiderScedaddleTransport(distance)
+    if _G.IsSpiderTransporting then return end
+    _G.IsSpiderTransporting = true
 
-Mouse.Button1Down:Connect(function()
-    if not _G.SkedaddleTween then return end
-    
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
-    if not root then return end
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if not root or not hum then _G.IsSpiderTransporting = false; return end
 
-    local targetPos = Mouse.Hit.Position
-    local dist = (root.Position - targetPos).Magnitude
-    local speed = 40 -- Exakt 40 Studs/Sekunde wie gewünscht
-    local tweenTime = dist / speed
-
-    tweenActive = true
-
-    -- 1. Skedaddle in einer Loop aktivieren, damit der Wallhack-Buff nie abläuft!
+    local events = ReplicatedStorage:FindFirstChild("Events")
+    local targetPos = root.Position + (root.CFrame.LookVector * distance)
+    
+    -- 1. REMOTE SPAMMER LOOP (Asynchron, damit das Game nicht crasht)
     task.spawn(function()
-        while tweenActive and _G.SkedaddleTween do
-            pcall(function()
-                ReplicatedStorage:WaitForChild("Events"):WaitForChild("Skill"):InvokeServer("Skedaddle")
-            end)
-            task.wait(0.2) -- Hält das Anti-Cheat konstant geblendet
-        end
-    end)
-
-    -- 2. Anti-Gravity temporär anmachen, damit wir nicht runterfallen
-    local bv = root:FindFirstChild("SkedaddleFloat")
-    if not bv then
-        bv = Instance.new("BodyVelocity")
-        bv.Name = "SkedaddleFloat"
-        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
-        bv.Velocity = Vector3.new(0, 0, 0)
-        bv.Parent = root
-    end
-
-    -- 3. Den Tween starten
-    if currentTween then currentTween:Cancel() end
-    local ti = TweenInfo.new(tweenTime, Enum.EasingStyle.Linear)
-    -- Zielposition leicht anheben, damit wir nicht im Boden stecken
-    currentTween = TweenService:Create(root, ti, {CFrame = CFrame.lookAt(targetPos + Vector3.new(0, 5, 0), targetPos)})
-    
-    currentTween:Play()
-    
-    currentTween.Completed:Connect(function()
-        tweenActive = false -- Stoppt die Skedaddle-Loop
-        if bv then bv:Destroy() end
-    end)
-end)
-
---// =======================
---// 2. ALTERNATIVE NOCLIP (CFrame Step)
---// =======================
-local altNoclipConnection = nil
-local function ToggleAltNoclip(state)
-    _G.AltNoclip = state
-    if state then
-        if altNoclipConnection then altNoclipConnection:Disconnect() end
-        altNoclipConnection = RunService.Stepped:Connect(function()
-            local char = LocalPlayer.Character
-            local root = char and char:FindFirstChild("HumanoidRootPart")
-            if root then
-                for _, v in pairs(char:GetDescendants()) do
-                    if v:IsA("BasePart") then
-                        v.CanCollide = false
-                    end
-                end
+        while _G.IsSpiderTransporting do
+            task.wait() -- So schnell es geht ohne Crash
+            if events then
+                -- Climb Remote (Permanent an)
+                task.spawn(function() pcall(function() events.climb:InvokeServer(true) end) end)
+                
+                -- Skedaddle Skill Remote
+                task.spawn(function() pcall(function() events.Skill:InvokeServer("Skedaddle") end) end)
+                
+                -- Run / Sprint Remote (GPO nutzt oft Events.Sprint oder ahnliches)
+                task.spawn(function() pcall(function() 
+                    if events:FindFirstChild("Sprint") then events.Sprint:FireServer(true) end 
+                end) end)
+                
+                -- Fall Emote / Animation erzwingen
+                pcall(function() hum:ChangeState(Enum.HumanoidStateType.Freefall) end)
             end
-        end)
-    else
-        if altNoclipConnection then altNoclipConnection:Disconnect() end
-    end
+        end
+        
+        -- Cleanup nach dem Transport
+        if events then pcall(function() events.climb:InvokeServer(false) end) end
+        pcall(function() hum:ChangeState(Enum.HumanoidStateType.GettingUp) end)
+    end)
+
+    -- 2. SPIDER LERP MOVEMENT
+    task.spawn(function()
+        -- BodyPosition für Stabilität in der Luft
+        local bp = root:FindFirstChild("SpiderHover") or Instance.new("BodyPosition")
+        bp.Name = "SpiderHover"
+        bp.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bp.P = 50000
+        bp.D = 500
+        bp.Parent = root
+        
+        while _G.IsSpiderTransporting do
+            local dist = (root.Position - targetPos).Magnitude
+            if dist < 5 then break end
+
+            local dt = RunService.Heartbeat:Wait()
+            local dir = (targetPos - root.Position).Unit
+            
+            -- Spider Lerp: Nutzt Lerp statt simpler Addition für "krabbelndes" Movement
+            local nextPos = root.Position:Lerp(root.Position + dir * 50, dt * 1.5)
+            
+            -- Charakter wild rotieren für den Spider-Look (optional, verwirrt Hitbox zusätzlich)
+            -- root.CFrame = CFrame.lookAt(nextPos, nextPos + dir) * CFrame.Angles(math.rad(math.random(-45, 45)), 0, 0)
+            
+            root.CFrame = CFrame.lookAt(nextPos, nextPos + dir)
+            bp.Position = nextPos
+            root.Velocity = Vector3.new(0,0,0)
+            root.RotVelocity = Vector3.new(0,0,0)
+        end
+        
+        _G.IsSpiderTransporting = false
+        bp:Destroy()
+    end)
 end
 
 --// =======================
---// 3. SOLO GUI BUILDER
+--// SOLO GUI BUILDER
 --// =======================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "GPOSoloTestV3"
+ScreenGui.Name = "GPOSpiderTest"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = guiParent
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 270, 0, 160)
-MainFrame.Position = UDim2.new(0.5, -135, 0.5, -80)
+MainFrame.Size = UDim2.new(0, 250, 0, 110)
+MainFrame.Position = UDim2.new(0.5, -125, 0.5, -55)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
 MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
-local UICorner = Instance.new("UICorner", MainFrame)
-UICorner.CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(60, 60, 65)
+Instance.new("UICorner", MainFrame).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(150, 50, 255)
 
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.BackgroundTransparency = 1
-Title.Text = " GPO TEST V3 (40 Speed)"
+Title.Text = " GPO: SPIDER TRANSPORT"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 14
+Title.TextSize = 13
 Title.TextXAlignment = Enum.TextXAlignment.Left
 
 local CloseBtn = Instance.new("TextButton", MainFrame)
@@ -136,73 +130,35 @@ CloseBtn.TextColor3 = Color3.fromRGB(255, 100, 100)
 CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.TextSize = 14
 CloseBtn.MouseButton1Click:Connect(function()
+    _G.IsSpiderTransporting = false
     ScreenGui:Destroy()
-    _G.SkedaddleTween = false
-    tweenActive = false
-    ToggleAltNoclip(false)
 end)
 
-local function CreateTestToggle(yPos, text, callback)
-    local frame = Instance.new("Frame", MainFrame)
-    frame.Size = UDim2.new(1, -20, 0, 40)
-    frame.Position = UDim2.new(0, 10, 0, yPos)
-    frame.BackgroundColor3 = Color3.fromRGB(30, 30, 33)
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+local RunBtn = Instance.new("TextButton", MainFrame)
+RunBtn.Size = UDim2.new(0.9, 0, 0, 40)
+RunBtn.Position = UDim2.new(0.05, 0, 0, 45)
+RunBtn.BackgroundColor3 = Color3.fromRGB(120, 50, 200)
+RunBtn.Text = "TEST (FLY 150 STUDS FWD)"
+RunBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+RunBtn.Font = Enum.Font.GothamBold
+RunBtn.TextSize = 12
+Instance.new("UICorner", RunBtn).CornerRadius = UDim.new(0, 6)
 
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(0.7, 0, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = text
-    label.TextColor3 = Color3.fromRGB(200, 200, 200)
-    label.Font = Enum.Font.GothamMedium
-    label.TextSize = 12
-    label.TextXAlignment = Enum.TextXAlignment.Left
-
-    local toggleBtn = Instance.new("TextButton", frame)
-    toggleBtn.Size = UDim2.new(0, 40, 0, 20)
-    toggleBtn.Position = UDim2.new(1, -50, 0.5, -10)
-    toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-    toggleBtn.Text = ""
-    Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(1, 0)
-
-    local circle = Instance.new("Frame", toggleBtn)
-    circle.Size = UDim2.new(0, 16, 0, 16)
-    circle.Position = UDim2.new(0, 2, 0.5, -8)
-    circle.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
-    Instance.new("UICorner", circle).CornerRadius = UDim.new(1, 0)
-
-    local state = false
-    toggleBtn.MouseButton1Click:Connect(function()
-        state = not state
-        if state then
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
-            circle.Position = UDim2.new(1, -18, 0.5, -8)
-            circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-            label.TextColor3 = Color3.fromRGB(255, 255, 255)
-        else
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
-            circle.Position = UDim2.new(0, 2, 0.5, -8)
-            circle.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
-            label.TextColor3 = Color3.fromRGB(200, 200, 200)
-        end
-        callback(state)
-    end)
-end
-
-CreateTestToggle(40, "Skedaddle Tween (Click Map)", function(state)
-    _G.SkedaddleTween = state
+RunBtn.MouseButton1Click:Connect(function()
+    if _G.IsSpiderTransporting then
+        _G.IsSpiderTransporting = false
+        RunBtn.Text = "TEST (FLY 150 STUDS FWD)"
+        RunBtn.BackgroundColor3 = Color3.fromRGB(120, 50, 200)
+    else
+        RunBtn.Text = "STOP TRANSPORT"
+        RunBtn.BackgroundColor3 = Color3.fromRGB(200, 50, 50)
+        SpiderScedaddleTransport(150)
+        
+        -- Reset Button Text when done
+        task.spawn(function()
+            while _G.IsSpiderTransporting do task.wait(0.1) end
+            RunBtn.Text = "TEST (FLY 150 STUDS FWD)"
+            RunBtn.BackgroundColor3 = Color3.fromRGB(120, 50, 200)
+        end)
+    end
 end)
-
-CreateTestToggle(90, "Alt Noclip Mode", function(state)
-    ToggleAltNoclip(state)
-end)
-
-local Hint = Instance.new("TextLabel", MainFrame)
-Hint.Size = UDim2.new(1, 0, 0, 20)
-Hint.Position = UDim2.new(0, 0, 1, -25)
-Hint.BackgroundTransparency = 1
-Hint.Text = "Turn on Skedaddle, then CLICK anywhere!"
-Hint.TextColor3 = Color3.fromRGB(100, 200, 255)
-Hint.Font = Enum.Font.Gotham
-Hint.TextSize = 11
