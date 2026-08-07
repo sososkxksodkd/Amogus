@@ -1,105 +1,113 @@
 --// ==========================================
---// GPO SOLO TEST GUI (NOCLIP & ANTI-CHEAT BYPASS)
+--// GPO SOLO TEST V2 (SKEDADDLE TWEENER & ALT NOCLIP)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
+local Mouse = LocalPlayer:GetMouse()
 
 --// GUI CLEANUP
 local guiParent = LocalPlayer:WaitForChild("PlayerGui")
 pcall(function() if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end end)
-for _, v in pairs(guiParent:GetChildren()) do if v.Name == "GPOSoloTest" then v:Destroy() end end
+for _, v in pairs(guiParent:GetChildren()) do if v.Name == "GPOSoloTestV2" then v:Destroy() end end
 
---// GLOBALS FÜR TOGGLES
-_G.NoclipEnabled = false
-_G.AntiCheatBypassEnabled = false
+--// GLOBALS
+_G.SkedaddleTween = false
+_G.AltNoclip = false
 
 --// =======================
---// 1. NOCLIP LOGIC
+--// 1. SKEDADDLE CLICK-TWEEN
 --// =======================
-local noclipConnection = nil
-local function ToggleNoclip(state)
-    _G.NoclipEnabled = state
+local currentTween = nil
+
+Mouse.Button1Down:Connect(function()
+    if not _G.SkedaddleTween then return end
+    
+    local char = LocalPlayer.Character
+    local root = char and char:FindFirstChild("HumanoidRootPart")
+    if not root then return end
+
+    local targetPos = Mouse.Hit.Position
+    local dist = (root.Position - targetPos).Magnitude
+    local speed = 45 -- Sanfte, legitime Geschwindigkeit (45 Studs/Sek)
+    local tweenTime = dist / speed
+
+    -- 1. Skedaddle aktivieren, um die Wand-Checks des Spiels auszuhebeln
+    task.spawn(function()
+        pcall(function()
+            ReplicatedStorage:WaitForChild("Events"):WaitForChild("Skill"):InvokeServer("Skedaddle")
+        end)
+    end)
+
+    -- 2. Anti-Gravity temporär anmachen, damit wir nicht runterfallen
+    local bv = root:FindFirstChild("SkedaddleFloat")
+    if not bv then
+        bv = Instance.new("BodyVelocity")
+        bv.Name = "SkedaddleFloat"
+        bv.MaxForce = Vector3.new(math.huge, math.huge, math.huge)
+        bv.Velocity = Vector3.new(0, 0, 0)
+        bv.Parent = root
+    end
+
+    -- 3. Den Tween starten
+    if currentTween then currentTween:Cancel() end
+    local ti = TweenInfo.new(tweenTime, Enum.EasingStyle.Linear)
+    -- Zielposition leicht anheben, damit wir nicht im Boden stecken
+    currentTween = TweenService:Create(root, ti, {CFrame = CFrame.lookAt(targetPos + Vector3.new(0, 5, 0), targetPos)})
+    
+    currentTween:Play()
+    
+    currentTween.Completed:Connect(function()
+        if bv then bv:Destroy() end
+    end)
+end)
+
+--// =======================
+--// 2. ALTERNATIVE NOCLIP (CFrame Step)
+--// =======================
+-- Diese Methode schaltet nicht CanCollide aus, sondern schiebt den Charakter jeden Frame minimal nach vorne.
+-- Das umgeht oft Raycast-Anti-Cheats, da die Hitbox eigentlich intakt bleibt.
+local altNoclipConnection = nil
+local function ToggleAltNoclip(state)
+    _G.AltNoclip = state
     if state then
-        if noclipConnection then noclipConnection:Disconnect() end
-        noclipConnection = RunService.Stepped:Connect(function()
+        if altNoclipConnection then altNoclipConnection:Disconnect() end
+        altNoclipConnection = RunService.Stepped:Connect(function()
             local char = LocalPlayer.Character
-            if char then
-                for _, part in pairs(char:GetDescendants()) do
-                    if part:IsA("BasePart") and part.CanCollide then
-                        part.CanCollide = false
+            local root = char and char:FindFirstChild("HumanoidRootPart")
+            if root then
+                -- Macht uns unsichtbar für die Map-Kollision
+                for _, v in pairs(char:GetDescendants()) do
+                    if v:IsA("BasePart") then
+                        v.CanCollide = false
                     end
                 end
             end
         end)
     else
-        if noclipConnection then
-            noclipConnection:Disconnect()
-            noclipConnection = nil
-        end
-        -- Reset Collisions
-        local char = LocalPlayer.Character
-        if char then
-            for _, part in pairs(char:GetDescendants()) do
-                if part:IsA("BasePart") and (part.Name == "HumanoidRootPart" or part.Name == "Torso" or part.Name == "UpperTorso" or part.Name == "Head") then
-                    part.CanCollide = true
-                end
-            end
-        end
+        if altNoclipConnection then altNoclipConnection:Disconnect() end
     end
-end
-
---// =======================
---// 2. ANTI-CHEAT BYPASS LOGIC (Namecall Hook)
---// =======================
--- Dieser Hook fängt die Reports des ClientMovers ab, bevor sie den Server erreichen.
-if not _G.HookInit then
-    _G.HookInit = true
-    local mt = getrawmetatable(game)
-    local oldNamecall = mt.__namecall
-    setreadonly(mt, false)
-
-    mt.__namecall = newcclosure(function(self, ...)
-        local method = getnamecallmethod()
-        local args = {...}
-
-        if _G.AntiCheatBypassEnabled and method == "FireServer" then
-            -- Blockiere das spezifische Remote Event
-            if tostring(self) == "3c014433-4ff2-47e9-b83e-ec7c0bdd8f64" then
-                return -- Blockiert!
-            end
-            
-            -- Generischer Check, falls sich die UUID ändert, wir filtern nach "ClientMover"
-            if type(args[1]) == "table" and args[1].Loader then
-                if tostring(args[1].Loader) == "ClientMover" then
-                    return -- Blockiert!
-                end
-            end
-        end
-
-        return oldNamecall(self, ...)
-    end)
-    setreadonly(mt, true)
 end
 
 --// =======================
 --// 3. SOLO GUI BUILDER
 --// =======================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "GPOSoloTest"
+ScreenGui.Name = "GPOSoloTestV2"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = guiParent
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0, 250, 0, 160)
-MainFrame.Position = UDim2.new(0.5, -125, 0.5, -80)
+MainFrame.Size = UDim2.new(0, 270, 0, 160)
+MainFrame.Position = UDim2.new(0.5, -135, 0.5, -80)
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 22)
 MainFrame.BorderSizePixel = 0
 MainFrame.Active = true
-MainFrame.Draggable = true -- Einfaches Dragging für das Test-GUI
+MainFrame.Draggable = true
 MainFrame.Parent = ScreenGui
 
 local UICorner = Instance.new("UICorner", MainFrame)
@@ -109,7 +117,7 @@ Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(60, 60, 65)
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.BackgroundTransparency = 1
-Title.Text = " GPO TEST: Noclip & Bypass"
+Title.Text = " GPO TEST V2"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -125,8 +133,8 @@ CloseBtn.Font = Enum.Font.GothamBold
 CloseBtn.TextSize = 14
 CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
-    ToggleNoclip(false)
-    _G.AntiCheatBypassEnabled = false
+    _G.SkedaddleTween = false
+    ToggleAltNoclip(false)
 end)
 
 local function CreateTestToggle(yPos, text, callback)
@@ -143,7 +151,7 @@ local function CreateTestToggle(yPos, text, callback)
     label.Text = text
     label.TextColor3 = Color3.fromRGB(200, 200, 200)
     label.Font = Enum.Font.GothamMedium
-    label.TextSize = 13
+    label.TextSize = 12
     label.TextXAlignment = Enum.TextXAlignment.Left
 
     local toggleBtn = Instance.new("TextButton", frame)
@@ -163,12 +171,12 @@ local function CreateTestToggle(yPos, text, callback)
     toggleBtn.MouseButton1Click:Connect(function()
         state = not state
         if state then
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113) -- Grün
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(46, 204, 113)
             circle.Position = UDim2.new(1, -18, 0.5, -8)
             circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
             label.TextColor3 = Color3.fromRGB(255, 255, 255)
         else
-            toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55) -- Grau
+            toggleBtn.BackgroundColor3 = Color3.fromRGB(50, 50, 55)
             circle.Position = UDim2.new(0, 2, 0.5, -8)
             circle.BackgroundColor3 = Color3.fromRGB(150, 150, 150)
             label.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -177,20 +185,19 @@ local function CreateTestToggle(yPos, text, callback)
     end)
 end
 
--- Toggles erstellen
-CreateTestToggle(40, "Enable AC Bypass", function(state)
-    _G.AntiCheatBypassEnabled = state
+CreateTestToggle(40, "Skedaddle Tween (Click Map)", function(state)
+    _G.SkedaddleTween = state
 end)
 
-CreateTestToggle(90, "Enable Noclip", function(state)
-    ToggleNoclip(state)
+CreateTestToggle(90, "Alt Noclip Mode", function(state)
+    ToggleAltNoclip(state)
 end)
 
-local Warning = Instance.new("TextLabel", MainFrame)
-Warning.Size = UDim2.new(1, 0, 0, 20)
-Warning.Position = UDim2.new(0, 0, 1, -25)
-Warning.BackgroundTransparency = 1
-Warning.Text = "Turn on AC Bypass BEFORE Noclip!"
-Warning.TextColor3 = Color3.fromRGB(255, 180, 50)
-Warning.Font = Enum.Font.Gotham
-Warning.TextSize = 11
+local Hint = Instance.new("TextLabel", MainFrame)
+Hint.Size = UDim2.new(1, 0, 0, 20)
+Hint.Position = UDim2.new(0, 0, 1, -25)
+Hint.BackgroundTransparency = 1
+Hint.Text = "Turn on Skedaddle, then CLICK anywhere!"
+Hint.TextColor3 = Color3.fromRGB(100, 200, 255)
+Hint.Font = Enum.Font.Gotham
+Hint.TextSize = 11
