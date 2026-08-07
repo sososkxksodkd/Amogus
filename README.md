@@ -1,5 +1,5 @@
 --// ==========================================
---// GPO SOLO TEST V2 (SKEDADDLE TWEENER & ALT NOCLIP)
+--// GPO SOLO TEST V3 (40 SPEED & PERMA-SKEDADDLE LOOP)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -13,7 +13,7 @@ local Mouse = LocalPlayer:GetMouse()
 --// GUI CLEANUP
 local guiParent = LocalPlayer:WaitForChild("PlayerGui")
 pcall(function() if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end end)
-for _, v in pairs(guiParent:GetChildren()) do if v.Name == "GPOSoloTestV2" then v:Destroy() end end
+for _, v in pairs(guiParent:GetChildren()) do if v.Name == "GPOSoloTestV3" then v:Destroy() end end
 
 --// GLOBALS
 _G.SkedaddleTween = false
@@ -23,6 +23,7 @@ _G.AltNoclip = false
 --// 1. SKEDADDLE CLICK-TWEEN
 --// =======================
 local currentTween = nil
+local tweenActive = false
 
 Mouse.Button1Down:Connect(function()
     if not _G.SkedaddleTween then return end
@@ -33,14 +34,19 @@ Mouse.Button1Down:Connect(function()
 
     local targetPos = Mouse.Hit.Position
     local dist = (root.Position - targetPos).Magnitude
-    local speed = 45 -- Sanfte, legitime Geschwindigkeit (45 Studs/Sek)
+    local speed = 40 -- Exakt 40 Studs/Sekunde wie gewünscht
     local tweenTime = dist / speed
 
-    -- 1. Skedaddle aktivieren, um die Wand-Checks des Spiels auszuhebeln
+    tweenActive = true
+
+    -- 1. Skedaddle in einer Loop aktivieren, damit der Wallhack-Buff nie abläuft!
     task.spawn(function()
-        pcall(function()
-            ReplicatedStorage:WaitForChild("Events"):WaitForChild("Skill"):InvokeServer("Skedaddle")
-        end)
+        while tweenActive and _G.SkedaddleTween do
+            pcall(function()
+                ReplicatedStorage:WaitForChild("Events"):WaitForChild("Skill"):InvokeServer("Skedaddle")
+            end)
+            task.wait(0.2) -- Hält das Anti-Cheat konstant geblendet
+        end
     end)
 
     -- 2. Anti-Gravity temporär anmachen, damit wir nicht runterfallen
@@ -62,6 +68,7 @@ Mouse.Button1Down:Connect(function()
     currentTween:Play()
     
     currentTween.Completed:Connect(function()
+        tweenActive = false -- Stoppt die Skedaddle-Loop
         if bv then bv:Destroy() end
     end)
 end)
@@ -69,8 +76,6 @@ end)
 --// =======================
 --// 2. ALTERNATIVE NOCLIP (CFrame Step)
 --// =======================
--- Diese Methode schaltet nicht CanCollide aus, sondern schiebt den Charakter jeden Frame minimal nach vorne.
--- Das umgeht oft Raycast-Anti-Cheats, da die Hitbox eigentlich intakt bleibt.
 local altNoclipConnection = nil
 local function ToggleAltNoclip(state)
     _G.AltNoclip = state
@@ -80,7 +85,6 @@ local function ToggleAltNoclip(state)
             local char = LocalPlayer.Character
             local root = char and char:FindFirstChild("HumanoidRootPart")
             if root then
-                -- Macht uns unsichtbar für die Map-Kollision
                 for _, v in pairs(char:GetDescendants()) do
                     if v:IsA("BasePart") then
                         v.CanCollide = false
@@ -97,7 +101,7 @@ end
 --// 3. SOLO GUI BUILDER
 --// =======================
 local ScreenGui = Instance.new("ScreenGui")
-ScreenGui.Name = "GPOSoloTestV2"
+ScreenGui.Name = "GPOSoloTestV3"
 ScreenGui.ResetOnSpawn = false
 ScreenGui.Parent = guiParent
 
@@ -117,7 +121,7 @@ Instance.new("UIStroke", MainFrame).Color = Color3.fromRGB(60, 60, 65)
 local Title = Instance.new("TextLabel", MainFrame)
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.BackgroundTransparency = 1
-Title.Text = " GPO TEST V2"
+Title.Text = " GPO TEST V3 (40 Speed)"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.Font = Enum.Font.GothamBold
 Title.TextSize = 14
@@ -134,6 +138,7 @@ CloseBtn.TextSize = 14
 CloseBtn.MouseButton1Click:Connect(function()
     ScreenGui:Destroy()
     _G.SkedaddleTween = false
+    tweenActive = false
     ToggleAltNoclip(false)
 end)
 
