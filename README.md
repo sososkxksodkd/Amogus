@@ -733,11 +733,11 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             local yVelocity = 0
             local addTime = dt
 
-            -- 1 Stud Wall Check & Noclip Prevention
+            -- 3 Stud Wall Check (Kletter-Abstand)
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
-            local wallHit = Workspace:Raycast(calcPos, moveDir * 1.5, rayParamsDown)
+            local wallHit = Workspace:Raycast(calcPos, moveDir * 3, rayParamsDown)
             
             if wallHit and wallHit.Instance.Transparency < 1 then
                 local wallTopY = GetTrueTopY(wallHit.Position.X, wallHit.Position.Z) + floorOffset
@@ -755,15 +755,17 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                 if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
             end
 
-            if isWallInFront then addTime = 0 end -- Stoppt vorwärts gehen bis oben
+            if isWallInFront then addTime = 0 end 
 
-            local safeVerticalSpeed = 60
+            -- Zack-Hoch (500) vs Sicher-Runter (60)
+            local safeVerticalSpeedUp = 600
+            local safeVerticalSpeedDown = 60
 
             if currentY < targetY - 0.5 then
-                currentY = math.min(currentY + (safeVerticalSpeed * dt), targetY)
+                currentY = math.min(currentY + (safeVerticalSpeedUp * dt), targetY)
                 yVelocity = 20
             elseif currentY > targetY + 0.5 then
-                currentY = math.max(currentY - (safeVerticalSpeed * dt), targetY)
+                currentY = math.max(currentY - (safeVerticalSpeedDown * dt), targetY)
                 if currentY < (groundY + floorOffset) then currentY = groundY + floorOffset end
                 yVelocity = -20
             else
@@ -775,8 +777,13 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             bp.Position = finalPos
             root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
             
-            -- GPO Animation & Footstep
-            if hum then hum:Move(moveDir, false) end
+            -- ERZWINGT LAUF-ANIMATION & VERHINDERT FALL-ANIMATION
+            if hum then 
+                hum:ChangeState(Enum.HumanoidStateType.Running)
+                hum:Move(moveDir, false) 
+            end
+            
+            -- Velocity Y ist 0, damit GPO nicht denkt wir fallen
             root.Velocity = Vector3.new(moveDir.X * currentSpeed, 0, moveDir.Z * currentSpeed)
             
             if tick() - lastFootstep > 0.35 then
