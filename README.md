@@ -587,7 +587,7 @@ local function CreateSearchableDropdown(section, headerText, itemsList, targetCo
     local header = Instance.new("TextLabel", frame); header.Size = UDim2.new(1, 0, 0, 20); header.BackgroundTransparency = 1; header.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None"); header.TextColor3 = Theme.SubText; header.Font = Enum.Font.GothamMedium; header.TextSize = 12; header.TextXAlignment = Enum.TextXAlignment.Left
     
     local searchBox = Instance.new("TextBox", frame)
-    searchBox.Size = UDim2.new(1, 0, 0, 26); searchBox.Position = UDim2.new(0, 0, 0, 25); searchBox.BackgroundColor3 = Theme.ToggleOff; searchBox.TextColor3 = Theme.Text; searchBox.PlaceholderText = "Search..."; searchBox.Font = Enum.Font.Gotham; searchBox.TextSize = 12; Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 4)
+    searchBox.Size = UDim2.new(1, 0, 0, 26); searchBox.Position = UDim2.new(0, 0, 0, 25); searchBox.BackgroundColor3 = Theme.ToggleOff; searchBox.TextColor3 = Theme.Text; searchBox.PlaceholderText = "Island name"; searchBox.Font = Enum.Font.Gotham; searchBox.TextSize = 12; Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 4)
     
     local scroll = Instance.new("ScrollingFrame", frame); scroll.Size = UDim2.new(1, 0, 0, 135); scroll.Position = UDim2.new(0, 0, 0, 60); scroll.BackgroundColor3 = Theme.Background; scroll.ScrollBarThickness = 4; Instance.new("UICorner", scroll).CornerRadius = UDim.new(0, 6)
     local listLayout = Instance.new("UIListLayout", scroll); listLayout.Padding = UDim.new(0, 4); listLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
