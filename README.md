@@ -1179,6 +1179,20 @@ local currentComboIndex = 1
 local lastSwing = 0
 local comboWait = 0.45
 
+_G.RyuIsAttacking = false
+
+-- ANTI FLING SCHLEIFE: Zwingt Velocity auf 0 wenn wir farmen!
+RunService.Stepped:Connect(function()
+    if _G.RyuIsAttacking then
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.Velocity = Vector3.new(0, 0, 0)
+            root.RotVelocity = Vector3.new(0, 0, 0)
+        end
+    end
+end)
+
 local function PerformAttack(targets)
     local now = tick()
     if now - lastSwing < comboWait then return end
@@ -1321,7 +1335,7 @@ task.spawn(function()
             if #targetMobs > 0 then
                 if RyuConfig.FarmMode == "Solo" then
                     for _, mob in ipairs(targetMobs) do
-                        if not RyuConfig.AutoFarm then break end
+                        if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         if mHum and mRoot and mHum.Health > 0 then
@@ -1329,13 +1343,22 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and mHum and mHum.Parent and mHum.Health > 0 do
                                 local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 13 then
+                                    _G.RyuIsAttacking = false
                                     SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
                                 else
+                                    _G.RyuIsAttacking = true
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
                                     
-                                    -- Nur Rotation, kein Teleport-Fling
-                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                                    -- ANTI-FLING: Keine CFrame.lookAt Rotation erzwingen!
+                                    -- Nur Position fixieren, deine aktuelle Blickrichtung bleibt erhalten!
+                                    root.CFrame = CFrame.new(targetP) * root.CFrame.Rotation
+                                    
+                                    -- Waffe Equippen Check (Simuliert "1" drücken bzw. Melee ausrüsten)
+                                    if not char:FindFirstChildOfClass("Tool") then
+                                        local tool = LocalPlayer.Backpack:FindFirstChild("Melee") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+                                        if tool then hum:EquipTool(tool) end
+                                    end
                                     
                                     -- NPC Kollision deaktivieren für Extra-Sicherheit
                                     for _, p in pairs(mob:GetChildren()) do
@@ -1358,7 +1381,7 @@ task.spawn(function()
                     end
                 elseif RyuConfig.FarmMode == "Underground" then
                     for _, mob in ipairs(targetMobs) do
-                        if not RyuConfig.AutoFarm then break end
+                        if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         if mHum and mRoot and mHum.Health > 0 then
@@ -1366,13 +1389,21 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and mHum and mHum.Parent and mHum.Health > 0 do
                                 local targetP = mRoot.Position - Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 13 then
+                                    _G.RyuIsAttacking = false
                                     SmartTween(targetP, 65, 0, nil)
                                 else
+                                    _G.RyuIsAttacking = true
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
                                     
-                                    -- Nur Rotation, kein Teleport-Fling
-                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                                    -- ANTI-FLING: Keine CFrame.lookAt Rotation erzwingen!
+                                    root.CFrame = CFrame.new(targetP) * root.CFrame.Rotation
+                                    
+                                    -- Waffe Equippen
+                                    if not char:FindFirstChildOfClass("Tool") then
+                                        local tool = LocalPlayer.Backpack:FindFirstChild("Melee") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+                                        if tool then hum:EquipTool(tool) end
+                                    end
                                     
                                     -- NPC Kollision deaktivieren
                                     for _, p in pairs(mob:GetChildren()) do
@@ -1415,13 +1446,21 @@ task.spawn(function()
                             local mRoot = currentPrimary:FindFirstChild("HumanoidRootPart")
                             local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                             if (root.Position - targetP).Magnitude > 13 then
+                                _G.RyuIsAttacking = false
                                 SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
                             else
+                                _G.RyuIsAttacking = true
                                 local bp = ToggleHover(true, root)
                                 bp.Position = targetP
                                 
-                                -- Nur Rotation, kein Teleport-Fling
-                                root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                                -- ANTI-FLING: Keine CFrame.lookAt Rotation erzwingen!
+                                root.CFrame = CFrame.new(targetP) * root.CFrame.Rotation
+                                
+                                -- Waffe Equippen
+                                if not char:FindFirstChildOfClass("Tool") then
+                                    local tool = LocalPlayer.Backpack:FindFirstChild("Melee") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+                                    if tool then hum:EquipTool(tool) end
+                                end
                                 
                                 PerformAttack(hitTargets)
                             end
