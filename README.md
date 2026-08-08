@@ -814,36 +814,6 @@ local function CreateButton(section, text, color, callback)
     return btn
 end
 
-local function CreateTextBox(section, placeholder, callback)
-    itemOrderCounter = itemOrderCounter + 1
-    local frame = Instance.new("Frame", section)
-    frame.LayoutOrder = itemOrderCounter
-    frame.Size = UDim2.new(0.92, 0, 0, 34)
-    frame.BackgroundTransparency = 1
-    
-    local box = Instance.new("TextBox", frame)
-    box.Size = UDim2.new(1, 0, 1, 0)
-    box.BackgroundColor3 = Theme.Background
-    box.PlaceholderText = placeholder
-    box.Text = ""
-    box.TextColor3 = Theme.Text
-    box.Font = Enum.Font.GothamMedium
-    box.TextSize = 12
-    box.ClearTextOnFocus = false
-    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
-    
-    local stroke = Instance.new("UIStroke", box)
-    stroke.Color = Theme.Stroke
-    stroke.Transparency = 0.2
-    
-    if callback then 
-        box.FocusLost:Connect(function() 
-            callback(box.Text) 
-        end) 
-    end
-    return box
-end
-
 local function CreateDropdown(section, headerText, itemsList, defaultVal, callback)
     itemOrderCounter = itemOrderCounter + 1
     local frame = Instance.new("Frame", section)
@@ -1007,20 +977,9 @@ local function SmartTween(targetPos, speedLimit, floorOffset, islandPos)
         pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) 
     end
     
-    local fakeFloor = Workspace:FindFirstChild("RyuFakeFloor")
-    if not fakeFloor then
-        fakeFloor = Instance.new("Part")
-        fakeFloor.Name = "RyuFakeFloor"
-        fakeFloor.Size = Vector3.new(4, 1, 4)
-        fakeFloor.Anchored = true
-        fakeFloor.CanCollide = true
-        fakeFloor.Transparency = 1
-        fakeFloor.Parent = Workspace
-    end
-    
     local function GetTrueTopY(x, z)
         local rParams = RaycastParams.new()
-        local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), fakeFloor}
+        local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
         rParams.FilterType = Enum.RaycastFilterType.Exclude
         rParams.IgnoreWater = true
         
@@ -1103,7 +1062,7 @@ local function SmartTween(targetPos, speedLimit, floorOffset, islandPos)
         
         local isHittingWall1Stud = false
         local rayParamsDown = RaycastParams.new()
-        rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), fakeFloor}
+        rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects")}
         rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
         local wallHit = Workspace:Raycast(calcPos, moveDir * 1, rayParamsDown)
         
@@ -1150,10 +1109,6 @@ local function SmartTween(targetPos, speedLimit, floorOffset, islandPos)
         bp.Position = finalPos
         root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
         
-        if fakeFloor then 
-            fakeFloor.CFrame = root.CFrame * CFrame.new(0, -((hum.HipHeight or 2) + (root.Size.Y / 2) + 0.05), 0) 
-        end
-        
         if hum then 
             hum:ChangeState(Enum.HumanoidStateType.Running)
             hum:Move(moveDir, false) 
@@ -1161,7 +1116,6 @@ local function SmartTween(targetPos, speedLimit, floorOffset, islandPos)
         root.Velocity = Vector3.new(moveDir.X * speedLimit, 0, moveDir.Z * speedLimit)
     end
     
-    if fakeFloor then fakeFloor:Destroy() end
     if hum then hum:Move(Vector3.new(0,0,0), false) end
     if climbEvent and isClimbingState then pcall(function() climbEvent:InvokeServer(false) end) end
     ToggleHover(false, root)
@@ -1177,6 +1131,20 @@ end
 local currentComboIndex = 1
 local lastSwing = 0
 local comboWait = 0.45
+
+_G.RyuIsAttacking = false
+
+-- ANTI FLING SCHLEIFE: Zwingt Velocity auf 0 wenn wir farmen!
+RunService.Stepped:Connect(function()
+    if _G.RyuIsAttacking then
+        local char = LocalPlayer.Character
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        if root then
+            root.Velocity = Vector3.new(0, 0, 0)
+            root.RotVelocity = Vector3.new(0, 0, 0)
+        end
+    end
+end)
 
 local function PerformAttack(targets)
     local now = tick()
@@ -1201,6 +1169,7 @@ local function PerformAttack(targets)
         
         local animName = "Punch" .. currentComboIndex
         if currentComboIndex == 4 then animName = "GroundPunch4" end
+        -- Schlag 5 komplett entfernt, nach 4 ist Schluss!
         
         local speedArg = (currentComboIndex >= 3) and 1.75 or 2
         
@@ -1327,15 +1296,20 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and mHum.Health > 0 and CheckQuestActive() do
                                 local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 13 then
+                                    _G.RyuIsAttacking = false
                                     SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
                                 else
+                                    _G.RyuIsAttacking = true
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
                                     
-                                    -- ANTI-FLING & TELEPORT LOCK (Kein Anchor, keine Plattform nötig)
+                                    -- ANTI-FLING & TELEPORT LOCK (Kein Anchor)
                                     root.CFrame = CFrame.lookAt(targetP, Vector3.new(mRoot.Position.X, targetP.Y, mRoot.Position.Z))
-                                    root.Velocity = Vector3.new(0, 0, 0)
-                                    root.RotVelocity = Vector3.new(0, 0, 0)
+                                    
+                                    -- NPC Kollision deaktivieren für Extra-Sicherheit
+                                    for _, p in pairs(mob:GetChildren()) do
+                                        if p:IsA("BasePart") then p.CanCollide = false end
+                                    end
                                     
                                     PerformAttack({mob})
                                 end
@@ -1347,9 +1321,10 @@ task.spawn(function()
                                 end
                                 lastPlayerHP = hum.Health
                             end
-                            
+                            _G.RyuIsAttacking = false
                         end
                     end
+                    
                 elseif RyuConfig.FarmMode == "Underground" then
                     for _, mob in ipairs(targetMobs) do
                         if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
@@ -1360,23 +1335,29 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and mHum.Health > 0 and CheckQuestActive() do
                                 local targetP = mRoot.Position - Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 13 then
+                                    _G.RyuIsAttacking = false
                                     SmartTween(targetP, 65, 0, nil)
                                 else
+                                    _G.RyuIsAttacking = true
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
                                     
                                     -- ANTI-FLING & TELEPORT LOCK
                                     root.CFrame = CFrame.lookAt(targetP, Vector3.new(mRoot.Position.X, targetP.Y, mRoot.Position.Z))
-                                    root.Velocity = Vector3.new(0, 0, 0)
-                                    root.RotVelocity = Vector3.new(0, 0, 0)
+                                    
+                                    -- NPC Kollision deaktivieren
+                                    for _, p in pairs(mob:GetChildren()) do
+                                        if p:IsA("BasePart") then p.CanCollide = false end
+                                    end
                                     
                                     PerformAttack({mob})
                                 end
                                 task.wait()
                             end
-                            
+                            _G.RyuIsAttacking = false
                         end
                     end
+                    
                 elseif RyuConfig.FarmMode == "Group" then
                     local primaryMob = targetMobs[1]
                     if primaryMob and primaryMob:FindFirstChild("HumanoidRootPart") then
@@ -1390,8 +1371,13 @@ task.spawn(function()
                                 local mRoot = mob:FindFirstChild("HumanoidRootPart")
                                 if mHum and mRoot and mHum.Health > 0 then
                                     anyAlive = true
-                                    mRoot.Size = Vector3.new(60, 60, 60) -- Group Expander!
-                                    mRoot.CanCollide = false
+                                    
+                                    -- Group Expander + Collision Off
+                                    mRoot.Size = Vector3.new(60, 60, 60) 
+                                    for _, p in pairs(mob:GetChildren()) do
+                                        if p:IsA("BasePart") then p.CanCollide = false end
+                                    end
+                                    
                                     table.insert(hitTargets, mob)
                                 end
                             end
@@ -1399,15 +1385,15 @@ task.spawn(function()
                             if anyAlive and primaryMob:FindFirstChild("HumanoidRootPart") then 
                                 local targetP = primaryMob.HumanoidRootPart.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 13 then
+                                    _G.RyuIsAttacking = false
                                     SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
                                 else
+                                    _G.RyuIsAttacking = true
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
                                     
                                     -- ANTI-FLING & TELEPORT LOCK
                                     root.CFrame = CFrame.lookAt(targetP, Vector3.new(primaryMob.HumanoidRootPart.Position.X, targetP.Y, primaryMob.HumanoidRootPart.Position.Z))
-                                    root.Velocity = Vector3.new(0, 0, 0)
-                                    root.RotVelocity = Vector3.new(0, 0, 0)
                                     
                                     PerformAttack(hitTargets)
                                 end
@@ -1420,6 +1406,7 @@ task.spawn(function()
                                 lastPlayerHP = hum.Health
                             end
                         end
+                        _G.RyuIsAttacking = false
                     end
                 end
             end
