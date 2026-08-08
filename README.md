@@ -1138,9 +1138,9 @@ local function SmartTween(targetPos, speedLimit, floorOffset, islandPos)
         end 
 
         if currentY < targetY - 0.5 then 
-            currentY = math.min(currentY + (600 * dt), targetY)
+            currentY = math.min(currentY + (1200 * dt), targetY)
         elseif currentY > targetY + 0.5 then 
-            currentY = math.max(currentY - (60 * dt), targetY)
+            currentY = math.max(currentY - (80 * dt), targetY)
         else 
             currentY = targetY 
         end
@@ -1607,7 +1607,7 @@ local SubTween = CreateSubTab(TabMobility, "Tween")
 
 local SecIslandTP = CreateSection(SubTween, "Spider Tween (Islands)")
 CreateSearchableDropdown(SecIslandTP, "Selected Island", InitIslands, "TargetIsland")
-CreateSlider(SecIslandTP, "Tween Speed (Max 65)", 10, 65, 65, function(val) RyuConfig.IslandSpeed = val end)
+CreateSlider(SecIslandTP, "Tween Speed (Max 80)", 10, 80, 65, function(val) RyuConfig.IslandSpeed = val end)
 CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
