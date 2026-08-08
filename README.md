@@ -768,7 +768,6 @@ local function CreateSlider(section, text, min, max, default, callback)
     
     local dragging = false
     local function setSlider(value)
-        -- Unterstützung für 1 Nachkommastelle (z.B. 6.5)
         local relative = math.clamp((value - min) / (max - min), 0, 1)
         local finalValue = math.floor((min + (max - min) * relative) * 10) / 10
         valLabel.Text = tostring(finalValue)
@@ -1322,12 +1321,12 @@ task.spawn(function()
             if #targetMobs > 0 then
                 if RyuConfig.FarmMode == "Solo" then
                     for _, mob in ipairs(targetMobs) do
-                        if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
+                        if not RyuConfig.AutoFarm then break end
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         if mHum and mRoot and mHum.Health > 0 then
                             
-                            while RyuConfig.AutoFarm and mHum.Health > 0 and CheckQuestActive() do
+                            while RyuConfig.AutoFarm and mHum and mHum.Parent and mHum.Health > 0 do
                                 local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 13 then
                                     SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
@@ -1338,6 +1337,11 @@ task.spawn(function()
                                     -- Nur Rotation, kein Teleport-Fling
                                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
                                     
+                                    -- NPC Kollision deaktivieren für Extra-Sicherheit
+                                    for _, p in pairs(mob:GetChildren()) do
+                                        if p:IsA("BasePart") then p.CanCollide = false end
+                                    end
+                                    
                                     PerformAttack({mob})
                                 end
                                 
@@ -1348,17 +1352,18 @@ task.spawn(function()
                                 end
                                 lastPlayerHP = hum.Health
                             end
-                            
+                            task.wait(0.2)
+                            root.Velocity = Vector3.new(0,0,0)
                         end
                     end
                 elseif RyuConfig.FarmMode == "Underground" then
                     for _, mob in ipairs(targetMobs) do
-                        if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
+                        if not RyuConfig.AutoFarm then break end
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         if mHum and mRoot and mHum.Health > 0 then
                             
-                            while RyuConfig.AutoFarm and mHum.Health > 0 and CheckQuestActive() do
+                            while RyuConfig.AutoFarm and mHum and mHum.Parent and mHum.Health > 0 do
                                 local targetP = mRoot.Position - Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 13 then
                                     SmartTween(targetP, 65, 0, nil)
@@ -1369,58 +1374,68 @@ task.spawn(function()
                                     -- Nur Rotation, kein Teleport-Fling
                                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
                                     
+                                    -- NPC Kollision deaktivieren
+                                    for _, p in pairs(mob:GetChildren()) do
+                                        if p:IsA("BasePart") then p.CanCollide = false end
+                                    end
+                                    
                                     PerformAttack({mob})
                                 end
                                 task.wait()
                             end
-                            
+                            task.wait(0.2)
+                            root.Velocity = Vector3.new(0,0,0)
                         end
                     end
                 elseif RyuConfig.FarmMode == "Group" then
-                    local primaryMob = targetMobs[1]
-                    if primaryMob and primaryMob:FindFirstChild("HumanoidRootPart") then
-                        local anyAlive = true
-                        while RyuConfig.AutoFarm and anyAlive and CheckQuestActive() do
-                            anyAlive = false
-                            local hitTargets = {}
-                            
-                            for _, mob in ipairs(targetMobs) do
-                                local mHum = mob:FindFirstChildOfClass("Humanoid")
-                                local mRoot = mob:FindFirstChild("HumanoidRootPart")
-                                if mHum and mRoot and mHum.Health > 0 then
-                                    anyAlive = true
-                                    
-                                    -- Group Expander + Collision Off für Sicherheit
-                                    mRoot.Size = Vector3.new(60, 60, 60) 
-                                    mRoot.CanCollide = false
-                                    
-                                    table.insert(hitTargets, mob)
-                                end
-                            end
-                            
-                            if anyAlive and primaryMob:FindFirstChild("HumanoidRootPart") then 
-                                local targetP = primaryMob.HumanoidRootPart.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
-                                if (root.Position - targetP).Magnitude > 13 then
-                                    SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
-                                else
-                                    local bp = ToggleHover(true, root)
-                                    bp.Position = targetP
-                                    
-                                    -- Nur Rotation, kein Teleport-Fling
-                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(primaryMob.HumanoidRootPart.Position.X, root.Position.Y, primaryMob.HumanoidRootPart.Position.Z))
-                                    
-                                    PerformAttack(hitTargets)
+                    local anyAlive = true
+                    while RyuConfig.AutoFarm and anyAlive do
+                        anyAlive = false
+                        local hitTargets = {}
+                        local currentPrimary = nil
+                        
+                        for _, mob in ipairs(targetMobs) do
+                            local mHum = mob:FindFirstChildOfClass("Humanoid")
+                            local mRoot = mob:FindFirstChild("HumanoidRootPart")
+                            if mHum and mRoot and mHum.Health > 0 then
+                                anyAlive = true
+                                if not currentPrimary then currentPrimary = mob end
+                                
+                                -- Group Expander + Collision Off für Sicherheit
+                                mRoot.Size = Vector3.new(60, 60, 60) 
+                                for _, p in pairs(mob:GetChildren()) do
+                                    if p:IsA("BasePart") then p.CanCollide = false end
                                 end
                                 
-                                task.wait()
-                                if hum.Health < lastPlayerHP then 
-                                    local bp = root:FindFirstChild("RyuHover")
-                                    if bp then bp.Position = bp.Position + Vector3.new(0, 2, 0); task.wait(0.2) end 
-                                end
-                                lastPlayerHP = hum.Health
+                                table.insert(hitTargets, mob)
                             end
                         end
+                        
+                        if anyAlive and currentPrimary and currentPrimary:FindFirstChild("HumanoidRootPart") then 
+                            local mRoot = currentPrimary:FindFirstChild("HumanoidRootPart")
+                            local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
+                            if (root.Position - targetP).Magnitude > 13 then
+                                SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
+                            else
+                                local bp = ToggleHover(true, root)
+                                bp.Position = targetP
+                                
+                                -- Nur Rotation, kein Teleport-Fling
+                                root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                                
+                                PerformAttack(hitTargets)
+                            end
+                            
+                            task.wait()
+                            if hum.Health < lastPlayerHP then 
+                                local bp = root:FindFirstChild("RyuHover")
+                                if bp then bp.Position = bp.Position + Vector3.new(0, 2, 0); task.wait(0.2) end 
+                            end
+                            lastPlayerHP = hum.Health
+                        end
                     end
+                    task.wait(0.2)
+                    root.Velocity = Vector3.new(0,0,0)
                 end
             end
         end
