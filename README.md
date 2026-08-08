@@ -13,6 +13,22 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local LocalPlayer = Players.LocalPlayer
 local camera = Workspace.CurrentCamera
 
+--// QUEST HOOK (Überprüft permanent, ob das Quest-Remote feuert)
+local lastQuestPing = tick()
+pcall(function()
+    local oldNamecall
+    oldNamecall = hookmetamethod(game, "__namecall", function(self, ...)
+        local method = getnamecallmethod()
+        if method == "InvokeServer" and tostring(self) == "Quest" then
+            local args = {...}
+            if args[1] == "getNPCQuestLocations" or (type(args[1]) == "table" and args[1][1] == "getNPCQuestLocations") then
+                lastQuestPing = tick()
+            end
+        end
+        return oldNamecall(self, ...)
+    end)
+end)
+
 --// PLATZHALTER-FUNKTION
 local function Ryuhub()
     -- Für zukünftige Features
@@ -46,7 +62,6 @@ local function GetDynamicLists()
     end
     table.sort(islands)
     return islands
-
 end
 
 local InitIslands = GetDynamicLists()
@@ -670,8 +685,17 @@ CreateToggle(SecUtil, "Noclip (Dash Bypass)", "Walk through walls using Dash", f
                     if v:IsA("BasePart") and v.CanCollide then v.CanCollide = false end
                 end
                 if char:FindFirstChild("Humanoid") and char.Humanoid.MoveDirection.Magnitude > 0 then
-                    pcall(function() ReplicatedStorage.Events.Skill:InvokeServer("Dash") end)
-                    pcall(function() ReplicatedStorage.Events.Skill:InvokeServer("Soru") end)
+                    pcall(function() 
+                        local root = char:FindFirstChild("HumanoidRootPart")
+                        if root then
+                            local args = {
+                                0.535,
+                                "dash",
+                                root.CFrame
+                            }
+                            ReplicatedStorage.Events.takestam:FireServer(unpack(args))
+                        end
+                    end)
                 end
             end
         end)
@@ -787,16 +811,17 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         local lastFootstep = tick()
         local isClimbingState = false
         
+        local foundRobo = false
+        local nextRoboCheck = tick()
+        
         char:SetAttribute("evading", true)
         
-        local elapsedTime = 0
-        local flatStart = Vector3.new(root.Position.X, 0, root.Position.Z)
-        local flatTarget = Vector3.new(targetPos.X, 0, targetPos.Z)
-        local totalDist = (flatStart - flatTarget).Magnitude
-        local t = totalDist / currentSpeed
         local currentY = root.Position.Y
 
-        while elapsedTime < t do
+        -- Tween Loop: Stoppt niemals vorzeitig
+        while true do
+            if not _G.RyuIsTweening then break end
+
             local dt = RunService.Heartbeat:Wait()
             dt = math.clamp(dt, 0.001, 0.05)
             
@@ -809,8 +834,35 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                 break 
             end
             
+            local islandFlat = Vector3.new(rawPos.X, 0, rawPos.Z)
+            local distToIsland = (currentFlat - islandFlat).Magnitude
+            
+            -- Smarte Robo Suche: Nur der Robo auf der ZIEL-INSEL
+            if not foundRobo and distToIsland < 1500 and tick() - nextRoboCheck > 1 then
+                nextRoboCheck = tick()
+                local npcsFolder = Workspace:FindFirstChild("NPCs")
+                if npcsFolder then
+                    local bestRobo = nil
+                    local bestDist = math.huge
+                    for _, v in pairs(npcsFolder:GetChildren()) do
+                        if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
+                            local d = (v.HumanoidRootPart.Position - rawPos).Magnitude
+                            if d <= 500 and d < bestDist then
+                                bestDist = d
+                                bestRobo = v
+                            end
+                        end
+                    end
+                    if bestRobo then
+                        foundRobo = true
+                        targetPos = bestRobo.HumanoidRootPart.Position
+                        targetFlat = Vector3.new(targetPos.X, 0, targetPos.Z)
+                    end
+                end
+            end
+            
             local moveDir = (targetFlat - currentFlat).Unit
-            if targetFlat == currentFlat or (targetFlat - currentFlat).Magnitude < 0.1 then
+            if targetFlat == currentFlat or distToTarget < 0.1 then
                 moveDir = root.CFrame.LookVector
             end
             
@@ -882,7 +934,6 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                 lastFootstep = tick()
                 if footstepEvent then pcall(function() footstepEvent:FireServer() end) end
             end
-            elapsedTime = elapsedTime + addTime
         end
         
         if hum then hum:Move(Vector3.new(0,0,0), false) end
@@ -942,16 +993,24 @@ end
 
 local currentComboIndex = 1
 local lastSwing = 0
+local nextSwingDelay = 0.3
 
 local function PerformMeleeAttack(targets)
     local char = LocalPlayer.Character
     local root = char and char:FindFirstChild("HumanoidRootPart")
     if not root then return end
     
-    -- Exakt 0.3s Delay, kein Spam!
     local now = tick()
-    if now - lastSwing >= 0.3 then
+    if now - lastSwing >= nextSwingDelay then
         lastSwing = now
+        
+        -- Delay für den nächsten Schlag anpassen (2 Sekunden Pause nach der Combo)
+        if currentComboIndex == 4 then
+            nextSwingDelay = 2
+        else
+            nextSwingDelay = 0.3
+        end
+        
         task.spawn(function()
             local hitParts = {}
             for _, npc in ipairs(targets) do
@@ -978,25 +1037,6 @@ local function PerformMeleeAttack(targets)
     end
 end
 
-local function CheckQuestActive()
-    local active = false
-    pcall(function()
-        local pg = LocalPlayer:FindFirstChild("PlayerGui")
-        if pg then
-            for _, v in pairs(pg:GetDescendants()) do
-                if v:IsA("TextLabel") and v.Visible then
-                    local txt = v.Text:lower()
-                    if txt:find("completed") then return false end
-                    if not active and v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
-                        if txt:match("%d+/%d+") or txt:match("%d+%s*/%s*%d+") then active = true end
-                    end
-                end
-            end
-        end
-    end)
-    return active
-end
-
 task.spawn(function()
     while true do
         task.wait(0.1)
@@ -1006,22 +1046,22 @@ task.spawn(function()
         local root = char and char:FindFirstChild("HumanoidRootPart")
         if not root then continue end
         
+        -- Quest Kontrolle über den Remote-Hook Ping
         if RyuConfig.TargetNPC ~= "" then
-            if not CheckQuestActive() then
+            if tick() - lastQuestPing > 2 then
                 local npc = Workspace:FindFirstChild("NPCs") and Workspace.NPCs:FindFirstChild(RyuConfig.TargetNPC)
                 if npc then
                     local targetPos = npc:IsA("Model") and npc:GetPivot().Position or npc.Position
                     FarmTween(targetPos + Vector3.new(0, 0, 3.5))
                     if not RyuConfig.AutoFarm then continue end
                     pcall(function()
-                        local QuestEvent = ReplicatedStorage.Events.Quest
-                        QuestEvent:InvokeServer({"npcChat", true})
-                        QuestEvent:InvokeServer({"takequest", "Help " .. RyuConfig.TargetNPC})
-                        QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
-                        QuestEvent:InvokeServer({"takequest"})
-                        QuestEvent:InvokeServer("takequest")
-                        QuestEvent:InvokeServer({"acceptquest"})
-                        QuestEvent:InvokeServer("acceptquest")
+                        local QuestEvent = ReplicatedStorage.Events:FindFirstChild("Quest")
+                        if QuestEvent then
+                            QuestEvent:InvokeServer({"takequest", "Help " .. RyuConfig.TargetNPC})
+                            QuestEvent:InvokeServer({"npcChat", true})
+                            -- Backup falls Name exakt ist
+                            QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
+                        end
                     end)
                     task.wait(1)
                 end
@@ -1050,7 +1090,7 @@ task.spawn(function()
             if #targetMobs > 0 then
                 if RyuConfig.FarmMode == "Solo" then
                     for _, mob in ipairs(targetMobs) do
-                        if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
+                        if not RyuConfig.AutoFarm or tick() - lastQuestPing > 2 then break end
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         if mHum and mRoot and mHum.Health > 0 then
@@ -1077,7 +1117,7 @@ task.spawn(function()
                     FarmTween(centerPos + Vector3.new(0, RyuConfig.FarmHoverHeight, 0))
                     
                     local anyAlive = true
-                    while RyuConfig.AutoFarm and anyAlive and CheckQuestActive() do
+                    while RyuConfig.AutoFarm and anyAlive and tick() - lastQuestPing <= 2 do
                         anyAlive = false
                         for _, mob in ipairs(targetMobs) do
                             local mHum = mob:FindFirstChildOfClass("Humanoid")
