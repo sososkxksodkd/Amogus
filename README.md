@@ -705,7 +705,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             local rParams = RaycastParams.new()
             local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), fakeFloor}
             rParams.FilterType = Enum.RaycastFilterType.Exclude
-            rParams.IgnoreWater = false -- WICHTIG: Wasser wird als Boden anerkannt!
+            rParams.IgnoreWater = true
             
             local origin = Vector3.new(x, 4000, z)
             
@@ -713,11 +713,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                 rParams.FilterDescendantsInstances = currentFilter
                 local hit = Workspace:Raycast(origin, Vector3.new(0, -5000, 0), rParams)
                 if hit then 
-                    local hitName = hit.Instance.Name
-                    local parentName = hit.Instance.Parent and hit.Instance.Parent.Name or ""
-                    
-                    -- Check für Wasser & normale Böden (Selbst wenn leicht transparent)
-                    if hit.Instance.Transparency < 1 or hitName == "Ocean" or hitName == "Sand" or parentName == "WaterStuff" or hit.Material == Enum.Material.Water then
+                    if hit.Instance.Transparency < 1 then
                         return hit.Position.Y 
                     else
                         table.insert(currentFilter, hit.Instance)
@@ -726,7 +722,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                     break
                 end
             end
-            return 15 -- GPO Default Wasser-Höhe Fallback
+            return 0 
         end
 
         local currentSpeed = RyuConfig.IslandSpeed
@@ -739,8 +735,14 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         
         char:SetAttribute("evading", true)
         
-        -- Exakter Distance-Check anstatt unzuverlässiger Zeit-Schleife
-        while true do
+        local elapsedTime = 0
+        local flatStart = Vector3.new(root.Position.X, 0, root.Position.Z)
+        local flatTarget = Vector3.new(targetPos.X, 0, targetPos.Z)
+        local totalDist = (flatStart - flatTarget).Magnitude
+        local t = totalDist / currentSpeed
+        local currentY = root.Position.Y
+        
+        while elapsedTime < t do
             local dt = RunService.Heartbeat:Wait()
             dt = math.clamp(dt, 0.001, 0.05)
             
@@ -787,17 +789,19 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             
             local currentX = root.Position.X + (moveDir.X * currentSpeed * dt)
             local currentZ = root.Position.Z + (moveDir.Z * currentSpeed * dt)
-            local currentY = root.Position.Y
             local calcPos = Vector3.new(currentX, currentY, currentZ)
             
             local roofY = GetTrueTopY(currentX, currentZ) + floorOffset
             local groundY = GetTrueTopY(currentX, currentZ)
             local targetY = math.max(groundY + floorOffset, roofY)
             
+            -- HARTER Y-LIMIT CHECK (Verhindert das Eintauchen ins Wasser oder Fallen unter -1)
+            targetY = math.max(targetY, 5)
+            
             local yVelocity = 0
             local addTime = dt
 
-            -- 3 Stud Wall Check (Kletter-Abstand)
+            -- 3 Stud Wall Check
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), fakeFloor}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
@@ -845,6 +849,9 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                 yVelocity = 0
             end
             
+            -- Absolute Absicherung: currentY darf NIEMALS negativ sein
+            currentY = math.max(currentY, 0)
+            
             local finalPos = Vector3.new(currentX, currentY, currentZ)
             bp.Position = finalPos
             root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
@@ -854,7 +861,12 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                 fakeFloor.CFrame = root.CFrame * CFrame.new(0, -((hum.HipHeight or 2) + (root.Size.Y / 2) + 0.05), 0)
             end
             
-            if hum then hum:Move(moveDir, false) end
+            -- ERZWINGT LAUF-ANIMATION & VERHINDERT FALL-ANIMATION
+            if hum then 
+                hum:ChangeState(Enum.HumanoidStateType.Running)
+                hum:Move(moveDir, false) 
+            end
+            
             root.Velocity = Vector3.new(moveDir.X * currentSpeed, 0, moveDir.Z * currentSpeed)
             
             if tick() - lastFootstep > 0.35 then
