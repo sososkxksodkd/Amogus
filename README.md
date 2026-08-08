@@ -1,5 +1,5 @@
 --// ==========================================
---// RYU HUB - GPO EDITION (TWEEN & AUTO FARM)
+--// RYU HUB - GPO EDITION (CHECKPOINT 1 TWEEN + AUTO FARM)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -104,6 +104,23 @@ local function GetDynamicLists()
 end
 
 local InitIslands = GetDynamicLists()
+
+--// DYNAMISCHER WORKSPACE SCANNER FÜR NPCs (FÜR AUTO-COMPLETE)
+local function GetNPCNames()
+    local npcs = {}
+    local map = {}
+    local npcFolder = Workspace:FindFirstChild("NPCs")
+    if npcFolder then
+        for _, v in pairs(npcFolder:GetChildren()) do
+            if not map[v.Name] then
+                map[v.Name] = true
+                table.insert(npcs, v.Name)
+            end
+        end
+    end
+    table.sort(npcs)
+    return npcs
+end
 
 --// RYU CONFIGURATION (GPO)
 local RyuConfig = {
@@ -817,92 +834,8 @@ local function CreateButton(section, text, color, callback)
     return btn
 end
 
-local function CreateTextBox(section, placeholder, callback)
-    itemOrderCounter = itemOrderCounter + 1
-    local frame = Instance.new("Frame", section)
-    frame.LayoutOrder = itemOrderCounter
-    frame.Size = UDim2.new(0.92, 0, 0, 34)
-    frame.BackgroundTransparency = 1
-    
-    local box = Instance.new("TextBox", frame)
-    box.Size = UDim2.new(1, 0, 1, 0)
-    box.BackgroundColor3 = Theme.Background
-    box.PlaceholderText = placeholder
-    box.Text = ""
-    box.TextColor3 = Theme.Text
-    box.Font = Enum.Font.GothamMedium
-    box.TextSize = 12
-    box.ClearTextOnFocus = false
-    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
-    Instance.new("UIStroke", box).Color = Theme.Stroke
-    
-    if callback then 
-        box.FocusLost:Connect(function() 
-            callback(box.Text) 
-        end) 
-    end
-    return box
-end
-
-local function CreateDropdown(section, headerText, itemsList, defaultVal, callback)
-    itemOrderCounter = itemOrderCounter + 1
-    local frame = Instance.new("Frame", section)
-    frame.LayoutOrder = itemOrderCounter
-    frame.Size = UDim2.new(0.92, 0, 0, 34)
-    frame.BackgroundColor3 = Theme.ToggleOff
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
-    
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(1, -30, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = headerText .. ": " .. defaultVal
-    label.TextColor3 = Theme.Text
-    label.Font = Enum.Font.GothamMedium
-    label.TextSize = 12
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local isDropped = false
-    local container = Instance.new("Frame", section)
-    container.LayoutOrder = itemOrderCounter
-    container.Size = UDim2.new(0.92, 0, 0, 0)
-    container.BackgroundColor3 = Theme.Background
-    container.ClipsDescendants = true
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
-    
-    local list = Instance.new("UIListLayout", container)
-    list.Padding = UDim.new(0, 2)
-    
-    for _, item in ipairs(itemsList) do
-        local btn = Instance.new("TextButton", container)
-        btn.Size = UDim2.new(1, 0, 0, 26)
-        btn.BackgroundTransparency = 1
-        btn.Text = "  " .. item
-        btn.TextColor3 = Theme.SubText
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 12
-        btn.TextXAlignment = Enum.TextXAlignment.Left
-        
-        btn.MouseButton1Click:Connect(function()
-            label.Text = headerText .. ": " .. item
-            if callback then callback(item) end
-            isDropped = false
-            TweenService:Create(container, TweenInfo.new(0.2), {Size = UDim2.new(0.92, 0, 0, 0)}):Play()
-        end)
-    end
-    
-    local clickArea = Instance.new("TextButton", frame)
-    clickArea.Size = UDim2.new(1,0,1,0)
-    clickArea.BackgroundTransparency = 1
-    clickArea.Text = ""
-    
-    SecureTrigger(clickArea, function()
-        isDropped = not isDropped
-        TweenService:Create(container, TweenInfo.new(0.2), {Size = isDropped and UDim2.new(0.92, 0, 0, list.AbsoluteContentSize.Y) or UDim2.new(0.92, 0, 0, 0)}):Play()
-    end)
-end
-
-local function CreateSearchableDropdown(section, headerText, itemsList, targetConfigKey)
+--// AUTO-COMPLETE SUCHLEISTE (FÜR NPCs & INSELN)
+local function CreateSearchableDropdown(section, headerText, getListFunc, targetConfigKey)
     local frame = Instance.new("Frame", section)
     frame.Size = UDim2.new(0.92, 0, 0, 200)
     frame.BackgroundTransparency = 1
@@ -921,9 +854,10 @@ local function CreateSearchableDropdown(section, headerText, itemsList, targetCo
     searchBox.Position = UDim2.new(0, 0, 0, 25)
     searchBox.BackgroundColor3 = Theme.ToggleOff
     searchBox.TextColor3 = Theme.Text
-    searchBox.PlaceholderText = "Island name"
+    searchBox.PlaceholderText = "Type or search..."
     searchBox.Font = Enum.Font.Gotham
     searchBox.TextSize = 12
+    searchBox.ClearTextOnFocus = false
     Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 4)
     
     local scroll = Instance.new("ScrollingFrame", frame)
@@ -942,7 +876,9 @@ local function CreateSearchableDropdown(section, headerText, itemsList, targetCo
             if child:IsA("TextButton") then child:Destroy() end 
         end
         
-        for _, itemName in ipairs(itemsList) do
+        local items = type(getListFunc) == "function" and getListFunc() or getListFunc
+        
+        for _, itemName in ipairs(items) do
             if filter == "" or string.lower(itemName):find(string.lower(filter)) then
                 local btn = Instance.new("TextButton", scroll)
                 btn.Size = UDim2.new(0.94, 0, 0, 26)
@@ -956,7 +892,8 @@ local function CreateSearchableDropdown(section, headerText, itemsList, targetCo
                 
                 SecureTrigger(btn, function() 
                     RyuConfig[targetConfigKey] = itemName
-                    header.Text = headerText .. ": " .. tostring(itemName) 
+                    header.Text = headerText .. ": " .. tostring(itemName)
+                    searchBox.Text = itemName
                 end)
             end
         end
@@ -968,11 +905,74 @@ local function CreateSearchableDropdown(section, headerText, itemsList, targetCo
     searchBox:GetPropertyChangedSignal("Text"):Connect(function() 
         populate(searchBox.Text) 
     end)
+    
+    searchBox.FocusLost:Connect(function()
+        if searchBox.Text ~= "" then
+            RyuConfig[targetConfigKey] = searchBox.Text
+            header.Text = headerText .. ": " .. searchBox.Text
+        end
+    end)
+    
     listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() 
         scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) 
     end)
     
     populate("")
+end
+
+local function CreateDropdownMenu(section, headerText, itemsList, targetConfigKey)
+    local frame = Instance.new("Frame", section)
+    frame.Size = UDim2.new(0.92, 0, 0, 34)
+    frame.BackgroundColor3 = Theme.ToggleOff
+    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
+    
+    local label = Instance.new("TextLabel", frame)
+    label.Size = UDim2.new(1, -30, 1, 0)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None")
+    label.TextColor3 = Theme.Text
+    label.Font = Enum.Font.GothamMedium
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    
+    local isDropped = false
+    local container = Instance.new("Frame", section)
+    container.Size = UDim2.new(0.92, 0, 0, 0)
+    container.BackgroundColor3 = Theme.Background
+    container.ClipsDescendants = true
+    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
+    
+    local list = Instance.new("UIListLayout", container)
+    list.Padding = UDim.new(0, 2)
+    
+    for _, item in ipairs(itemsList) do
+        local btn = Instance.new("TextButton", container)
+        btn.Size = UDim2.new(1, 0, 0, 26)
+        btn.BackgroundTransparency = 1
+        btn.Text = "  " .. item
+        btn.TextColor3 = Theme.SubText
+        btn.Font = Enum.Font.Gotham
+        btn.TextSize = 12
+        btn.TextXAlignment = Enum.TextXAlignment.Left
+        
+        btn.MouseButton1Click:Connect(function() 
+            RyuConfig[targetConfigKey] = item
+            label.Text = headerText .. ": " .. item
+            isDropped = false
+            TweenService:Create(container, TweenInfo.new(0.2), {Size = UDim2.new(0.92, 0, 0, 0)}):Play() 
+        end)
+    end
+    
+    local clickArea = Instance.new("TextButton", frame)
+    clickArea.Size = UDim2.new(1,0,1,0)
+    clickArea.BackgroundTransparency = 1
+    clickArea.Text = ""
+    
+    clickArea.MouseButton1Click:Connect(function() 
+        isDropped = not isDropped
+        TweenService:Create(container, TweenInfo.new(0.2), {Size = isDropped and UDim2.new(0.92, 0, 0, list.AbsoluteContentSize.Y) or UDim2.new(0.92, 0, 0, 0)}):Play() 
+    end)
 end
 
 --// =======================
@@ -1183,7 +1183,19 @@ end
 --// =======================
 local currentComboIndex = 1
 local lastSwing = 0
-local comboWait = 0.45
+local comboWait = 0.5 -- 0.5 Sekunden Cooldown zwischen M1 bis M4
+
+local function EquipMelee()
+    local char = LocalPlayer.Character
+    local hum = char and char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        -- Suche nach Melee im Backpack und rüste aus
+        local melee = LocalPlayer.Backpack:FindFirstChild("Melee")
+        if melee and melee:IsA("Tool") then
+            hum:EquipTool(melee)
+        end
+    end
+end
 
 local function PerformMeleeAttack()
     local char = LocalPlayer.Character
@@ -1194,11 +1206,11 @@ local function PerformMeleeAttack()
     if now - lastSwing >= comboWait then
         lastSwing = now
         
-        -- Nach dem 5. Schlag 2 Sekunden warten, ansonsten 0.45s
+        -- Nach dem 5. Schlag 2 Sekunden warten, ansonsten 0.5s
         if currentComboIndex == 5 then
             comboWait = 2 
         else
-            comboWait = 0.45
+            comboWait = 0.5
         end
         
         task.spawn(function()
@@ -1242,6 +1254,8 @@ local function CheckQuestActive()
                     local txt = v.Text:lower()
                     if txt:find("quest completed") then
                         v.Visible = false 
+                        v:Destroy() -- Direkt löschen
+                        lastQuestPing = 0 -- Reset Timer, damit Skript sofort die nächste holt!
                         return false 
                     end
                     if not active and v.AbsolutePosition.X < 500 and v.AbsolutePosition.Y < 500 then
@@ -1303,6 +1317,8 @@ task.spawn(function()
         end
         
         if RyuConfig.TargetMob ~= "" then
+            EquipMelee() -- Automatisch Melee ausrüsten
+            
             local npcs = Workspace:FindFirstChild("NPCs")
             if not npcs then continue end
             
@@ -1331,6 +1347,7 @@ task.spawn(function()
                                 PerformMeleeAttack()
                                 local bp = root:FindFirstChild("RyuHover")
                                 if bp then 
+                                    -- Tweent IMMER ÜBER DEM FEIND
                                     bp.Position = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0) 
                                 end
                                 task.wait(0.1)
@@ -1397,61 +1414,6 @@ end)
 --// TABS & SECTIONS
 --// =======================
 
-local function CreateDropdownMenu(section, headerText, itemsList, targetConfigKey)
-    local frame = Instance.new("Frame", section)
-    frame.Size = UDim2.new(0.92, 0, 0, 34)
-    frame.BackgroundColor3 = Theme.ToggleOff
-    Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 6)
-    
-    local label = Instance.new("TextLabel", frame)
-    label.Size = UDim2.new(1, -30, 1, 0)
-    label.Position = UDim2.new(0, 10, 0, 0)
-    label.BackgroundTransparency = 1
-    label.Text = headerText .. ": " .. tostring(RyuConfig[targetConfigKey] or "None")
-    label.TextColor3 = Theme.Text
-    label.Font = Enum.Font.GothamMedium
-    label.TextSize = 12
-    label.TextXAlignment = Enum.TextXAlignment.Left
-    
-    local isDropped = false
-    local container = Instance.new("Frame", section)
-    container.Size = UDim2.new(0.92, 0, 0, 0)
-    container.BackgroundColor3 = Theme.Background
-    container.ClipsDescendants = true
-    Instance.new("UICorner", container).CornerRadius = UDim.new(0, 6)
-    
-    local list = Instance.new("UIListLayout", container)
-    list.Padding = UDim.new(0, 2)
-    
-    for _, item in ipairs(itemsList) do
-        local btn = Instance.new("TextButton", container)
-        btn.Size = UDim2.new(1, 0, 0, 26)
-        btn.BackgroundTransparency = 1
-        btn.Text = "  " .. item
-        btn.TextColor3 = Theme.SubText
-        btn.Font = Enum.Font.Gotham
-        btn.TextSize = 12
-        btn.TextXAlignment = Enum.TextXAlignment.Left
-        
-        btn.MouseButton1Click:Connect(function() 
-            RyuConfig[targetConfigKey] = item
-            label.Text = headerText .. ": " .. item
-            isDropped = false
-            TweenService:Create(container, TweenInfo.new(0.2), {Size = UDim2.new(0.92, 0, 0, 0)}):Play() 
-        end)
-    end
-    
-    local clickArea = Instance.new("TextButton", frame)
-    clickArea.Size = UDim2.new(1,0,1,0)
-    clickArea.BackgroundTransparency = 1
-    clickArea.Text = ""
-    
-    clickArea.MouseButton1Click:Connect(function() 
-        isDropped = not isDropped
-        TweenService:Create(container, TweenInfo.new(0.2), {Size = isDropped and UDim2.new(0.92, 0, 0, list.AbsoluteContentSize.Y) or UDim2.new(0.92, 0, 0, 0)}):Play() 
-    end)
-end
-
 -- TAB 1: FARM
 local TabFarm = CreateMainTab("FARM")
 local SubNPCFarm = CreateSubTab(TabFarm, "NPC Farm")
@@ -1459,8 +1421,8 @@ local SubNPCFarm = CreateSubTab(TabFarm, "NPC Farm")
 local SecNPC = CreateSection(SubNPCFarm, "Auto Farm Settings")
 CreateToggle(SecNPC, "Enable NPC Farm", false, function(state) RyuConfig.AutoFarm = state end)
 CreateDropdownMenu(SecNPC, "Farm Mode", {"Solo", "Group"}, "FarmMode")
-CreateTextBox(SecNPC, "Quest NPC Name", function(val) RyuConfig.TargetNPC = val end)
-CreateTextBox(SecNPC, "Target Mob Name", function(val) RyuConfig.TargetMob = val end)
+CreateSearchableDropdown(SecNPC, "Quest NPC Name", GetNPCNames, "TargetNPC")
+CreateSearchableDropdown(SecNPC, "Target Mob Name", GetNPCNames, "TargetMob")
 CreateSlider(SecNPC, "Farm Hover Height", 3, 30, 5, function(val) RyuConfig.FarmHoverHeight = val end)
 
 -- TAB 2: PLAYER
@@ -1496,6 +1458,10 @@ CreateToggle(SecUtil, "Noclip (Dash Bypass)", false, function(state)
                 end
                 
                 if char:FindFirstChild("Humanoid") and char.Humanoid.MoveDirection.Magnitude > 0 then
+                    -- Laufen Remote (Sprint) triggern
+                    pcall(function() ReplicatedStorage.Events.sprint:FireServer("rbxassetid://15382065457") end)
+                    
+                    -- Dash Remote exakt alle 0.5 Sekunden
                     if tick() - lastDashSpam > 0.5 then
                         lastDashSpam = tick()
                         local root = char:FindFirstChild("HumanoidRootPart")
