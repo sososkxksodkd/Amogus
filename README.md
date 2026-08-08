@@ -1,5 +1,5 @@
 --// ==========================================
---// RYU HUB - GPO EDITION (TRANSPORT & LOGIC)
+--// RYU HUB - GPO EDITION (TWEEN & LOGIC)
 --// ==========================================
 
 local CoreGui = game:GetService("CoreGui")
@@ -303,7 +303,6 @@ local function UpdateSidebarCanvas()
     Sidebar.CanvasSize = UDim2.new(0, 0, 0, totalH)
 end
 
--- Sicherer, Kick-freier Trigger für Buttons
 local function SecureTrigger(button, func)
     button.InputEnded:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -617,11 +616,11 @@ local phBR = Instance.new("TextLabel", SecBR); phBR.Size = UDim2.new(1, 0, 0, 30
 
 -- TAB 3: MOBILITY
 local TabMobility = CreateMainTab("MOBILITY")
-local SubTransport = CreateSubTab(TabMobility, "Transport")
+local SubTween = CreateSubTab(TabMobility, "Tween")
 local SubTeleport = CreateSubTab(TabMobility, "Teleport")
 local SubAutoBuy = CreateSubTab(TabMobility, "Auto Buy")
 
-local SecIslandTP = CreateSection(SubTransport, "Spider Tween (Islands)")
+local SecIslandTP = CreateSection(SubTween, "Spider Tween (Islands)")
 CreateSearchableDropdown(SecIslandTP, "Selected Island", InitIslands, "TargetIsland")
 CreateSlider(SecIslandTP, "Tween Speed (Max 65)", 10, 65, 65, function(val) RyuConfig.IslandSpeed = val end)
 
@@ -671,12 +670,12 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         
         if not island then _G.RyuIsTweening = false; return end
         
-        local targetPos
-        if island:IsA("Model") then targetPos = island:GetPivot().Position
-        elseif island:IsA("BasePart") then targetPos = island.Position
+        local rawPos
+        if island:IsA("Model") then rawPos = island:GetPivot().Position
+        elseif island:IsA("BasePart") then rawPos = island.Position
         else
             local part = island:FindFirstChildWhichIsA("BasePart", true)
-            if part then targetPos = part.Position else _G.RyuIsTweening = false; return end
+            if part then rawPos = part.Position else _G.RyuIsTweening = false; return end
         end
         
         local char = LocalPlayer.Character
@@ -684,6 +683,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum then _G.RyuIsTweening = false; return end
 
+        local targetPos = rawPos
         local bp = ToggleHover(true, root)
         
         local climbEvent = ReplicatedStorage:FindFirstChild("Events") and ReplicatedStorage.Events:FindFirstChild("climb")
@@ -696,12 +696,16 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             local rParams = RaycastParams.new()
             rParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
             rParams.FilterType = Enum.RaycastFilterType.Exclude
-            rParams.IgnoreWater = true
+            rParams.IgnoreWater = false -- HIER GEÄNDERT: Ignoriert Wasser nicht mehr, dadurch hovern wir sicher 5 Studs über Wasser!
             
             local origin = Vector3.new(x, 4000, z)
             local hit = Workspace:Raycast(origin, Vector3.new(0, -5000, 0), rParams)
-            if hit and hit.Instance.Transparency < 1 then return hit.Position.Y end
-            return 0
+            if hit then 
+                if hit.Instance and hit.Instance.Transparency < 1 or hit.Material == Enum.Material.Water then
+                    return hit.Position.Y 
+                end
+            end
+            return 15 -- GPO Default Wasser-Höhe als absoluter Fallback
         end
 
         local currentSpeed = RyuConfig.IslandSpeed
@@ -709,21 +713,62 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         local lastFootstep = tick()
         local isClimbingState = false
         
+        local foundRobo = false
+        local nextRoboCheck = tick()
+        
         char:SetAttribute("evading", true)
         
-        while true do
+        local elapsedTime = 0
+        local flatStart = Vector3.new(root.Position.X, 0, root.Position.Z)
+        local flatTarget = Vector3.new(targetPos.X, 0, targetPos.Z)
+        local totalDist = (flatStart - flatTarget).Magnitude
+        local t = totalDist / currentSpeed
+        local currentY = root.Position.Y
+        
+        while elapsedTime < t do
             local dt = RunService.Heartbeat:Wait()
-            local flatStart = Vector3.new(root.Position.X, 0, root.Position.Z)
-            local flatTarget = Vector3.new(targetPos.X, 0, targetPos.Z)
-            local dist = (flatTarget - flatStart).Magnitude
+            dt = math.clamp(dt, 0.001, 0.05)
             
-            if dist < 5 then break end 
+            local currentFlat = Vector3.new(root.Position.X, 0, root.Position.Z)
+            local islandFlat = Vector3.new(rawPos.X, 0, rawPos.Z)
+            local distToIsland = (currentFlat - islandFlat).Magnitude
             
-            local moveDir = (flatTarget - flatStart).Unit
+            -- Smarte Robo Suche: Startet erst wenn wir auf 1500 Studs der Insel nah sind
+            if not foundRobo and distToIsland < 1500 and tick() - nextRoboCheck > 1 then
+                nextRoboCheck = tick()
+                local npcsFolder = Workspace:FindFirstChild("NPCs")
+                if npcsFolder then
+                    local bestRobo = nil
+                    local bestDist = math.huge
+                    for _, v in pairs(npcsFolder:GetChildren()) do
+                        if v.Name == "Robo" and v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") then
+                            local d = (v.HumanoidRootPart.Position - rawPos).Magnitude
+                            if d <= 500 and d < bestDist then
+                                bestDist = d
+                                bestRobo = v
+                            end
+                        end
+                    end
+                    if bestRobo then
+                        foundRobo = true
+                        targetPos = bestRobo.HumanoidRootPart.Position
+                        -- Recalculate tween trajectory to Robo
+                        flatStart = Vector3.new(root.Position.X, 0, root.Position.Z)
+                        flatTarget = Vector3.new(targetPos.X, 0, targetPos.Z)
+                        totalDist = (flatStart - flatTarget).Magnitude
+                        t = totalDist / currentSpeed
+                        elapsedTime = 0
+                    end
+                end
+            end
+            
+            local moveDir = (flatTarget - currentFlat).Unit
+            if flatTarget == currentFlat or (flatTarget - currentFlat).Magnitude < 0.1 then
+                moveDir = root.CFrame.LookVector
+            end
+            
             local currentX = root.Position.X + (moveDir.X * currentSpeed * dt)
             local currentZ = root.Position.Z + (moveDir.Z * currentSpeed * dt)
-            local currentY = root.Position.Y
-            
             local calcPos = Vector3.new(currentX, currentY, currentZ)
             
             local roofY = GetTrueTopY(currentX, currentZ) + floorOffset
@@ -733,7 +778,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             local yVelocity = 0
             local addTime = dt
 
-            -- 3 Stud Wall Check (Kletter-Abstand)
+            -- 3 Stud Wall Check
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects")}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
@@ -757,7 +802,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
 
             if isWallInFront then addTime = 0 end 
 
-            -- Zack-Hoch (500) vs Sicher-Runter (60)
+            -- Zack-Hoch (600) vs Sicher-Runter (60)
             local safeVerticalSpeedUp = 600
             local safeVerticalSpeedDown = 60
 
@@ -773,17 +818,20 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                 yVelocity = 0
             end
             
+            elapsedTime = elapsedTime + addTime
+            
             local finalPos = Vector3.new(currentX, currentY, currentZ)
             bp.Position = finalPos
             root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
             
             -- ERZWINGT LAUF-ANIMATION & VERHINDERT FALL-ANIMATION
             if hum then 
-                hum:ChangeState(Enum.HumanoidStateType.Running)
+                if hum:GetState() ~= Enum.HumanoidStateType.Running then
+                    hum:ChangeState(Enum.HumanoidStateType.Running)
+                end
                 hum:Move(moveDir, false) 
             end
             
-            -- Velocity Y ist 0, damit GPO nicht denkt wir fallen
             root.Velocity = Vector3.new(moveDir.X * currentSpeed, 0, moveDir.Z * currentSpeed)
             
             if tick() - lastFootstep > 0.35 then
