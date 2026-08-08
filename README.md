@@ -1241,7 +1241,7 @@ local function PerformAttack(targets)
         currentComboIndex = currentComboIndex + 1
         if currentComboIndex > 4 then 
             currentComboIndex = 1 
-            comboWait = 2 -- Cooldown nach ganzer Combo
+            comboWait = 1 -- Cooldown nach ganzer Combo auf 1 Sekunde
         else
             comboWait = 0.45 -- Zwischen normalen Schlägen
         end
@@ -1340,7 +1340,7 @@ task.spawn(function()
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         if mHum and mRoot and mHum.Health > 0 then
                             
-                            while RyuConfig.AutoFarm and mHum and mHum.Parent and mHum.Health > 0 do
+                            while RyuConfig.AutoFarm and mHum and mHum.Parent and mHum.Health > 0 and CheckQuestActive() do
                                 local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 13 then
                                     _G.RyuIsAttacking = false
@@ -1375,8 +1375,8 @@ task.spawn(function()
                                 end
                                 lastPlayerHP = hum.Health
                             end
+                            _G.RyuIsAttacking = false
                             task.wait(0.2)
-                            root.Velocity = Vector3.new(0,0,0)
                         end
                     end
                 elseif RyuConfig.FarmMode == "Underground" then
@@ -1386,7 +1386,7 @@ task.spawn(function()
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         if mHum and mRoot and mHum.Health > 0 then
                             
-                            while RyuConfig.AutoFarm and mHum and mHum.Parent and mHum.Health > 0 do
+                            while RyuConfig.AutoFarm and mHum and mHum.Parent and mHum.Health > 0 and CheckQuestActive() do
                                 local targetP = mRoot.Position - Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 13 then
                                     _G.RyuIsAttacking = false
@@ -1405,6 +1405,15 @@ task.spawn(function()
                                         if tool then hum:EquipTool(tool) end
                                     end
                                     
+                                    -- Underground Noclip & Dash Remote
+                                    for _, p in pairs(char:GetChildren()) do
+                                        if p:IsA("BasePart") then p.CanCollide = false end
+                                    end
+                                    if tick() - lastDashSpam > 0.5 then
+                                        lastDashSpam = tick()
+                                        pcall(function() ReplicatedStorage.Events.takestam:FireServer(0.535, "dash", root.CFrame) end) 
+                                    end
+                                    
                                     -- NPC Kollision deaktivieren
                                     for _, p in pairs(mob:GetChildren()) do
                                         if p:IsA("BasePart") then p.CanCollide = false end
@@ -1414,67 +1423,105 @@ task.spawn(function()
                                 end
                                 task.wait()
                             end
+                            _G.RyuIsAttacking = false
                             task.wait(0.2)
-                            root.Velocity = Vector3.new(0,0,0)
                         end
                     end
                 elseif RyuConfig.FarmMode == "Group" then
-                    local anyAlive = true
-                    while RyuConfig.AutoFarm and anyAlive do
-                        anyAlive = false
-                        local hitTargets = {}
-                        local currentPrimary = nil
-                        
-                        for _, mob in ipairs(targetMobs) do
-                            local mHum = mob:FindFirstChildOfClass("Humanoid")
+                    local aliveMobs = {}
+                    for _, mob in ipairs(targetMobs) do
+                        local mHum = mob:FindFirstChildOfClass("Humanoid")
+                        local mRoot = mob:FindFirstChild("HumanoidRootPart")
+                        if mHum and mRoot and mHum.Health > 0 then
+                            table.insert(aliveMobs, mob)
+                        end
+                    end
+                    
+                    if #aliveMobs > 0 then
+                        -- 1. Alle einmal hitten für Aggro
+                        local centerPos = Vector3.new(0,0,0)
+                        for _, mob in ipairs(aliveMobs) do
+                            if not RyuConfig.AutoFarm then break end
                             local mRoot = mob:FindFirstChild("HumanoidRootPart")
-                            if mHum and mRoot and mHum.Health > 0 then
-                                anyAlive = true
-                                if not currentPrimary then currentPrimary = mob end
-                                
-                                -- Group Expander + Collision Off für Sicherheit
-                                mRoot.Size = Vector3.new(60, 60, 60) 
-                                for _, p in pairs(mob:GetChildren()) do
-                                    if p:IsA("BasePart") then p.CanCollide = false end
+                            local mHum = mob:FindFirstChildOfClass("Humanoid")
+                            if mRoot and mHum and mHum.Health > 0 then
+                                local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
+                                if (root.Position - targetP).Magnitude > 13 then
+                                    _G.RyuIsAttacking = false
+                                    SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
                                 end
                                 
-                                table.insert(hitTargets, mob)
-                            end
-                        end
-                        
-                        if anyAlive and currentPrimary and currentPrimary:FindFirstChild("HumanoidRootPart") then 
-                            local mRoot = currentPrimary:FindFirstChild("HumanoidRootPart")
-                            local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
-                            if (root.Position - targetP).Magnitude > 13 then
-                                _G.RyuIsAttacking = false
-                                SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
-                            else
                                 _G.RyuIsAttacking = true
                                 local bp = ToggleHover(true, root)
                                 bp.Position = targetP
-                                
-                                -- ANTI-FLING: Keine CFrame.lookAt Rotation erzwingen!
                                 root.CFrame = CFrame.new(targetP) * root.CFrame.Rotation
                                 
-                                -- Waffe Equippen
                                 if not char:FindFirstChildOfClass("Tool") then
                                     local tool = LocalPlayer.Backpack:FindFirstChild("Melee") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
                                     if tool then hum:EquipTool(tool) end
                                 end
                                 
-                                PerformAttack(hitTargets)
+                                PerformAttack({mob})
+                                task.wait(0.45)
+                                centerPos = centerPos + mRoot.Position
+                            end
+                        end
+                        
+                        -- 2. Mitte berechnen
+                        centerPos = centerPos / #aliveMobs
+                        
+                        -- 3. In der Mitte bleiben und aoe killen
+                        local anyAlive = true
+                        while RyuConfig.AutoFarm and anyAlive and CheckQuestActive() do
+                            anyAlive = false
+                            local hitTargets = {}
+                            
+                            for _, mob in ipairs(aliveMobs) do
+                                local mHum = mob:FindFirstChildOfClass("Humanoid")
+                                local mRoot = mob:FindFirstChild("HumanoidRootPart")
+                                if mHum and mRoot and mHum.Health > 0 then
+                                    anyAlive = true
+                                    
+                                    -- Group Expander + Collision Off für Sicherheit
+                                    mRoot.Size = Vector3.new(60, 60, 60) 
+                                    mRoot.CanCollide = false
+                                    
+                                    table.insert(hitTargets, mob)
+                                end
                             end
                             
-                            task.wait()
-                            if hum.Health < lastPlayerHP then 
-                                local bp = root:FindFirstChild("RyuHover")
-                                if bp then bp.Position = bp.Position + Vector3.new(0, 2, 0); task.wait(0.2) end 
+                            if anyAlive then 
+                                local targetP = centerPos + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
+                                if (root.Position - targetP).Magnitude > 13 then
+                                    _G.RyuIsAttacking = false
+                                    SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
+                                else
+                                    _G.RyuIsAttacking = true
+                                    local bp = ToggleHover(true, root)
+                                    bp.Position = targetP
+                                    
+                                    -- Nur Rotation, kein Teleport-Fling
+                                    root.CFrame = CFrame.new(targetP) * root.CFrame.Rotation
+                                    
+                                    if not char:FindFirstChildOfClass("Tool") then
+                                        local tool = LocalPlayer.Backpack:FindFirstChild("Melee") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+                                        if tool then hum:EquipTool(tool) end
+                                    end
+                                    
+                                    PerformAttack(hitTargets)
+                                end
+                                
+                                task.wait()
+                                if hum.Health < lastPlayerHP then 
+                                    local bp = root:FindFirstChild("RyuHover")
+                                    if bp then bp.Position = bp.Position + Vector3.new(0, 2, 0); task.wait(0.2) end 
+                                end
+                                lastPlayerHP = hum.Health
                             end
-                            lastPlayerHP = hum.Health
                         end
+                        _G.RyuIsAttacking = false
+                        task.wait(0.2)
                     end
-                    task.wait(0.2)
-                    root.Velocity = Vector3.new(0,0,0)
                 end
             end
         end
