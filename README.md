@@ -1170,37 +1170,10 @@ local function SmartTween(targetPos, speedLimit, floorOffset, islandPos)
     return true
 end
 
+
 --// =======================
 --// AUTO FARM LOGIC (Damage Remotes, Quests, Evade, Anti-Fling)
 --// =======================
-
--- Helper function um eine Plattform unter dem Spieler während des Farms zu spawnen
-local function ManageFarmPlatform(active, char)
-    local floorName = "RyuAutoFarmFloor"
-    local floor = Workspace:FindFirstChild(floorName)
-    if not active then
-        if floor then floor:Destroy() end
-        return
-    end
-    if not floor then
-        floor = Instance.new("Part")
-        floor.Name = floorName
-        floor.Size = Vector3.new(15, 1, 15)
-        floor.Anchored = true
-        floor.CanCollide = true
-        floor.Transparency = 1
-        floor.Parent = Workspace
-    end
-    if char then
-        local root = char:FindFirstChild("HumanoidRootPart")
-        local hum = char:FindFirstChildOfClass("Humanoid")
-        if root and hum then
-            floor.CFrame = root.CFrame * CFrame.new(0, -((hum.HipHeight or 2) + (root.Size.Y / 2) + 0.05), 0)
-            hum:ChangeState(Enum.HumanoidStateType.Running)
-        end
-    end
-end
-
 local currentComboIndex = 1
 local lastSwing = 0
 local comboWait = 0.45
@@ -1228,7 +1201,6 @@ local function PerformAttack(targets)
         
         local animName = "Punch" .. currentComboIndex
         if currentComboIndex == 4 then animName = "GroundPunch4" end
-        -- Schlag 5 komplett entfernt, nach 4 ist Schluss!
         
         local speedArg = (currentComboIndex >= 3) and 1.75 or 2
         
@@ -1253,9 +1225,9 @@ local function PerformAttack(targets)
         currentComboIndex = currentComboIndex + 1
         if currentComboIndex > 4 then 
             currentComboIndex = 1 
-            comboWait = 2 -- Exakt 2 Sekunden Delay nach der 4-Hit Combo
+            comboWait = 2 -- Cooldown nach ganzer Combo
         else
-            comboWait = 0.45 -- 0.45 Sekunden Delay zwischen Schlägen
+            comboWait = 0.45 -- Zwischen normalen Schlägen
         end
     end)
 end
@@ -1288,10 +1260,7 @@ task.spawn(function()
     local lastPlayerHP = nil
     while true do
         task.wait() -- Maximal schnelle Reaktionszeit
-        if not RyuConfig.AutoFarm then 
-            ManageFarmPlatform(false, nil)
-            continue 
-        end
+        if not RyuConfig.AutoFarm then continue end
         
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -1357,17 +1326,16 @@ task.spawn(function()
                             
                             while RyuConfig.AutoFarm and mHum.Health > 0 and CheckQuestActive() do
                                 local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
-                                if (root.Position - targetP).Magnitude > 15 then
-                                    ManageFarmPlatform(false, char)
+                                if (root.Position - targetP).Magnitude > 13 then
                                     SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
                                 else
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
-                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
-                                    -- Anti Fling Logik & Plattform
-                                    root.Velocity = Vector3.new(0,0,0)
-                                    root.RotVelocity = Vector3.new(0,0,0)
-                                    ManageFarmPlatform(true, char)
+                                    
+                                    -- ANTI-FLING & TELEPORT LOCK (Kein Anchor, keine Plattform nötig)
+                                    root.CFrame = CFrame.lookAt(targetP, Vector3.new(mRoot.Position.X, targetP.Y, mRoot.Position.Z))
+                                    root.Velocity = Vector3.new(0, 0, 0)
+                                    root.RotVelocity = Vector3.new(0, 0, 0)
                                     
                                     PerformAttack({mob})
                                 end
@@ -1379,10 +1347,9 @@ task.spawn(function()
                                 end
                                 lastPlayerHP = hum.Health
                             end
-                            ManageFarmPlatform(false, char)
+                            
                         end
                     end
-                    
                 elseif RyuConfig.FarmMode == "Underground" then
                     for _, mob in ipairs(targetMobs) do
                         if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
@@ -1392,26 +1359,24 @@ task.spawn(function()
                             
                             while RyuConfig.AutoFarm and mHum.Health > 0 and CheckQuestActive() do
                                 local targetP = mRoot.Position - Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
-                                if (root.Position - targetP).Magnitude > 15 then
-                                    ManageFarmPlatform(false, char)
+                                if (root.Position - targetP).Magnitude > 13 then
                                     SmartTween(targetP, 65, 0, nil)
                                 else
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
-                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
-                                    -- Anti Fling Logik & Plattform
-                                    root.Velocity = Vector3.new(0,0,0)
-                                    root.RotVelocity = Vector3.new(0,0,0)
-                                    ManageFarmPlatform(true, char)
+                                    
+                                    -- ANTI-FLING & TELEPORT LOCK
+                                    root.CFrame = CFrame.lookAt(targetP, Vector3.new(mRoot.Position.X, targetP.Y, mRoot.Position.Z))
+                                    root.Velocity = Vector3.new(0, 0, 0)
+                                    root.RotVelocity = Vector3.new(0, 0, 0)
                                     
                                     PerformAttack({mob})
                                 end
                                 task.wait()
                             end
-                            ManageFarmPlatform(false, char)
+                            
                         end
                     end
-                    
                 elseif RyuConfig.FarmMode == "Group" then
                     local primaryMob = targetMobs[1]
                     if primaryMob and primaryMob:FindFirstChild("HumanoidRootPart") then
@@ -1433,17 +1398,16 @@ task.spawn(function()
                             
                             if anyAlive and primaryMob:FindFirstChild("HumanoidRootPart") then 
                                 local targetP = primaryMob.HumanoidRootPart.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
-                                if (root.Position - targetP).Magnitude > 20 then
-                                    ManageFarmPlatform(false, char)
+                                if (root.Position - targetP).Magnitude > 13 then
                                     SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
                                 else
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
-                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(primaryMob.HumanoidRootPart.Position.X, root.Position.Y, primaryMob.HumanoidRootPart.Position.Z))
-                                    -- Anti Fling Logik & Plattform
-                                    root.Velocity = Vector3.new(0,0,0)
-                                    root.RotVelocity = Vector3.new(0,0,0)
-                                    ManageFarmPlatform(true, char)
+                                    
+                                    -- ANTI-FLING & TELEPORT LOCK
+                                    root.CFrame = CFrame.lookAt(targetP, Vector3.new(primaryMob.HumanoidRootPart.Position.X, targetP.Y, primaryMob.HumanoidRootPart.Position.Z))
+                                    root.Velocity = Vector3.new(0, 0, 0)
+                                    root.RotVelocity = Vector3.new(0, 0, 0)
                                     
                                     PerformAttack(hitTargets)
                                 end
@@ -1456,11 +1420,8 @@ task.spawn(function()
                                 lastPlayerHP = hum.Health
                             end
                         end
-                        ManageFarmPlatform(false, char)
                     end
                 end
-            else
-                ManageFarmPlatform(false, char)
             end
         end
     end
