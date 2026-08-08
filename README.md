@@ -116,7 +116,7 @@ local RyuConfig = {
     GuiColor = Color3.fromRGB(255, 255, 255),
     
     AutoFarm = false,
-    FarmMode = "Solo", -- "Solo", "Group", "Underground"
+    FarmMode = "Solo", -- "Solo", "Group"
     TargetNPC = "",
     TargetMob = "",
     FarmHoverHeight = 6.5,
@@ -1138,9 +1138,9 @@ local function SmartTween(targetPos, speedLimit, floorOffset, islandPos)
         end 
 
         if currentY < targetY - 0.5 then 
-            currentY = math.min(currentY + (1200 * dt), targetY)
+            currentY = math.min(currentY + (600 * dt), targetY)
         elseif currentY > targetY + 0.5 then 
-            currentY = math.max(currentY - (80 * dt), targetY)
+            currentY = math.max(currentY - (60 * dt), targetY)
         else 
             currentY = targetY 
         end
@@ -1379,54 +1379,6 @@ task.spawn(function()
                             task.wait(0.2)
                         end
                     end
-                elseif RyuConfig.FarmMode == "Underground" then
-                    for _, mob in ipairs(targetMobs) do
-                        if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
-                        local mHum = mob:FindFirstChildOfClass("Humanoid")
-                        local mRoot = mob:FindFirstChild("HumanoidRootPart")
-                        if mHum and mRoot and mHum.Health > 0 then
-                            
-                            while RyuConfig.AutoFarm and mHum and mHum.Parent and mHum.Health > 0 and CheckQuestActive() do
-                                local targetP = mRoot.Position - Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
-                                if (root.Position - targetP).Magnitude > 13 then
-                                    _G.RyuIsAttacking = false
-                                    SmartTween(targetP, 65, 0, nil)
-                                else
-                                    _G.RyuIsAttacking = true
-                                    local bp = ToggleHover(true, root)
-                                    bp.Position = targetP
-                                    
-                                    -- ANTI-FLING: Keine CFrame.lookAt Rotation erzwingen!
-                                    root.CFrame = CFrame.new(targetP) * root.CFrame.Rotation
-                                    
-                                    -- Waffe Equippen
-                                    if not char:FindFirstChildOfClass("Tool") then
-                                        local tool = LocalPlayer.Backpack:FindFirstChild("Melee") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
-                                        if tool then hum:EquipTool(tool) end
-                                    end
-                                    
-                                    -- Underground Noclip & Dash Remote
-                                    for _, p in pairs(char:GetChildren()) do
-                                        if p:IsA("BasePart") then p.CanCollide = false end
-                                    end
-                                    if tick() - lastDashSpam > 0.5 then
-                                        lastDashSpam = tick()
-                                        pcall(function() ReplicatedStorage.Events.takestam:FireServer(0.535, "dash", root.CFrame) end) 
-                                    end
-                                    
-                                    -- NPC Kollision deaktivieren
-                                    for _, p in pairs(mob:GetChildren()) do
-                                        if p:IsA("BasePart") then p.CanCollide = false end
-                                    end
-                                    
-                                    PerformAttack({mob})
-                                end
-                                task.wait()
-                            end
-                            _G.RyuIsAttacking = false
-                            task.wait(0.2)
-                        end
-                    end
                 elseif RyuConfig.FarmMode == "Group" then
                     local aliveMobs = {}
                     for _, mob in ipairs(targetMobs) do
@@ -1538,10 +1490,28 @@ local SubNPCFarm = CreateSubTab(TabFarm, "NPC Farm")
 
 local SecNPC = CreateSection(SubNPCFarm, "Auto Farm Settings")
 CreateToggle(SecNPC, "Enable NPC Farm", false, function(state) RyuConfig.AutoFarm = state end)
-CreateDropdown(SecNPC, "Farm Mode", {"Solo", "Group", "Underground"}, "Solo", function(val) RyuConfig.FarmMode = val end)
+CreateDropdown(SecNPC, "Farm Mode", {"Solo", "Group"}, "Solo", function(val) RyuConfig.FarmMode = val end)
 CreateSearchableDropdown(SecNPC, "Quest NPC Name", GetNPCNames, "TargetNPC")
 CreateSearchableDropdown(SecNPC, "Target Mob Name", GetNPCNames, "TargetMob")
 CreateSlider(SecNPC, "Farm Hover Distance", 3, 30, 6.5, function(val) RyuConfig.FarmHoverHeight = val end)
+
+local SubStats = CreateSubTab(TabFarm, "Stats")
+local SecStats = CreateSection(SubStats, "Live Statistics")
+local statKills = Instance.new("TextLabel", SecStats)
+statKills.Size = UDim2.new(1, 0, 0, 30)
+statKills.BackgroundTransparency = 1
+statKills.Text = "Kills: 0"
+statKills.TextColor3 = Theme.SubText
+statKills.Font = Enum.Font.Gotham
+statKills.TextSize = 12
+
+local statTime = Instance.new("TextLabel", SecStats)
+statTime.Size = UDim2.new(1, 0, 0, 30)
+statTime.BackgroundTransparency = 1
+statTime.Text = "Time Elapsed: 00:00:00"
+statTime.TextColor3 = Theme.SubText
+statTime.Font = Enum.Font.Gotham
+statTime.TextSize = 12
 
 -- TAB 2: PLAYER
 local TabPlayer = CreateMainTab("PLAYER")
@@ -1607,29 +1577,39 @@ local SubTween = CreateSubTab(TabMobility, "Tween")
 
 local SecIslandTP = CreateSection(SubTween, "Spider Tween (Islands)")
 CreateSearchableDropdown(SecIslandTP, "Selected Island", InitIslands, "TargetIsland")
-CreateSlider(SecIslandTP, "Tween Speed (Max 80)", 10, 80, 65, function(val) RyuConfig.IslandSpeed = val end)
+CreateSlider(SecIslandTP, "Tween Speed (Max 65)", 10, 65, 65, function(val) RyuConfig.IslandSpeed = val end)
 CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
     if _G.RyuIsTweening then return end
     _G.RyuIsTweening = true
     task.spawn(function()
         local targetIslandName = RyuConfig.TargetIsland
-        local island = nil
-        local islandsFolder = Workspace:FindFirstChild("Islands")
-        if islandsFolder then
-            for _, v in pairs(islandsFolder:GetChildren()) do
-                if string.lower(v.Name) == string.lower(targetIslandName) then 
-                    island = v
-                    break 
+        local targetPos = nil
+        local islandPosForRobo = nil
+        
+        if string.lower(targetIslandName) == "fishman cave" then
+            targetPos = Vector3.new(1836.48, 4.08, -12170.25)
+            islandPosForRobo = targetPos
+        else
+            local island = nil
+            local islandsFolder = Workspace:FindFirstChild("Islands")
+            if islandsFolder then
+                for _, v in pairs(islandsFolder:GetChildren()) do
+                    if string.lower(v.Name) == string.lower(targetIslandName) then 
+                        island = v
+                        break 
+                    end
                 end
             end
-        end
-        if not island then 
-            _G.RyuIsTweening = false
-            return 
+            if not island then 
+                _G.RyuIsTweening = false
+                return 
+            end
+            
+            targetPos = island:IsA("Model") and island:GetPivot().Position or island.Position
+            islandPosForRobo = targetPos
         end
         
-        local targetPos = island:IsA("Model") and island:GetPivot().Position or island.Position
-        SmartTween(targetPos, RyuConfig.IslandSpeed, 5, targetPos)
+        SmartTween(targetPos, RyuConfig.IslandSpeed, 5, islandPosForRobo)
         _G.RyuIsTweening = false
     end)
 end)
