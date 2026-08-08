@@ -46,7 +46,6 @@ local function GetDynamicLists()
     end
     table.sort(islands)
     return islands
-
 end
 
 local InitIslands = GetDynamicLists()
@@ -720,11 +719,11 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             
             local origin = Vector3.new(x, 4000, z)
             
-            for i = 1, 10 do
+            for i = 1, 15 do
                 rParams.FilterDescendantsInstances = currentFilter
                 local hit = Workspace:Raycast(origin, Vector3.new(0, -5000, 0), rParams)
                 if hit then 
-                    if hit.Instance.Transparency < 1 then
+                    if hit.Instance.Transparency < 0.9 then
                         return hit.Position.Y 
                     else
                         table.insert(currentFilter, hit.Instance)
@@ -739,7 +738,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         local currentSpeed = RyuConfig.IslandSpeed
         local floorOffset = 5 
         local lastFootstep = tick()
-        local isClimbingState = false
+        local lastClimbSpam = tick()
         
         local foundRobo = false
         local nextRoboCheck = tick()
@@ -756,6 +755,15 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         while elapsedTime < t do
             local dt = RunService.Heartbeat:Wait()
             dt = math.clamp(dt, 0.001, 0.05)
+
+            if tick() - lastClimbSpam > 0.15 then
+                lastClimbSpam = tick()
+                if climbEvent then
+                    task.spawn(function()
+                        pcall(function() climbEvent:InvokeServer(true) end)
+                    end)
+                end
+            end
             
             local currentFlat = Vector3.new(root.Position.X, 0, root.Position.Z)
             local targetFlat = Vector3.new(targetPos.X, 0, targetPos.Z)
@@ -814,38 +822,35 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
 
             local isHittingWall1Stud = false
             
-            -- 1 Stud Wall Check für das Klettern (Aktivieren & Halten)
-            local rayParamsDown = RaycastParams.new()
-            rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), fakeFloor}
-            rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
-            local wallHit = Workspace:Raycast(calcPos, moveDir * 1, rayParamsDown)
+            -- RAYCAST PIERCING FÜR WAND-ERKENNUNG (Ignoriert unsichtbare Hitboxen)
+            local wallFilter = {char, Workspace:FindFirstChild("Effects"), fakeFloor}
+            local wallParams = RaycastParams.new()
+            wallParams.FilterType = Enum.RaycastFilterType.Exclude
             
-            if wallHit then
-                local hitName = wallHit.Instance.Name
-                local parentName = wallHit.Instance.Parent and wallHit.Instance.Parent.Name or ""
-                if wallHit.Instance.Transparency < 1 and hitName ~= "Ocean" and parentName ~= "WaterStuff" then
-                    isHittingWall1Stud = true
-                    local wallTopY = GetTrueTopY(wallHit.Position.X, wallHit.Position.Z) + floorOffset
-                    if wallTopY > currentY then
-                        targetY = math.max(targetY, wallTopY)
+            for i = 1, 10 do
+                wallParams.FilterDescendantsInstances = wallFilter
+                local wallHit = Workspace:Raycast(calcPos, moveDir * 1, wallParams)
+                
+                if wallHit then
+                    local hitName = wallHit.Instance.Name
+                    local parentName = wallHit.Instance.Parent and wallHit.Instance.Parent.Name or ""
+                    
+                    if wallHit.Instance.Transparency < 0.9 and hitName ~= "Ocean" and parentName ~= "WaterStuff" then
+                        isHittingWall1Stud = true
+                        local wallTopY = GetTrueTopY(wallHit.Position.X, wallHit.Position.Z) + floorOffset
+                        if wallTopY > currentY then
+                            targetY = math.max(targetY, wallTopY)
+                        end
+                        break -- Wir haben die echte Wand gefunden
+                    else
+                        table.insert(wallFilter, wallHit.Instance) -- Unsichtbare Hitbox ignorieren
                     end
+                else
+                    break
                 end
             end
             
             local isWallInFront = (targetY > currentY + 1) or isHittingWall1Stud
-            
-            -- KLETTERN AKTIVIEREN & HALTEN (Kein Spam, einmaliges Triggern)
-            if isWallInFront and not isClimbingState then
-                isClimbingState = true
-                if climbEvent then 
-                    task.spawn(function() pcall(function() climbEvent:InvokeServer(true) end) end)
-                end
-            elseif not isWallInFront and isClimbingState then
-                isClimbingState = false
-                if climbEvent then 
-                    task.spawn(function() pcall(function() climbEvent:InvokeServer(false) end) end)
-                end
-            end
 
             -- Vorwärts-Stop, wenn Wand blockiert
             if targetY > currentY + 1 then 
@@ -898,7 +903,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         -- Cleanup nach dem TP
         if fakeFloor then fakeFloor:Destroy() end
         if hum then hum:Move(Vector3.new(0,0,0), false) end
-        if climbEvent and isClimbingState then pcall(function() climbEvent:InvokeServer(false) end) end
+        if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
         ToggleHover(false, root)
         char:SetAttribute("evading", nil)
         root.Velocity = Vector3.new(0, 0, 0)
