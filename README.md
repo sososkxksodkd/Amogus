@@ -738,7 +738,6 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         local currentSpeed = RyuConfig.IslandSpeed
         local floorOffset = 5 
         local lastFootstep = tick()
-        local isClimbingState = false
         
         local foundRobo = false
         local nextRoboCheck = tick()
@@ -751,6 +750,9 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         local totalDist = (flatStart - flatTarget).Magnitude
         local t = totalDist / currentSpeed
         local currentY = root.Position.Y
+
+        -- Start Climbing permanently for the tween
+        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
         
         while elapsedTime < t do
             local dt = RunService.Heartbeat:Wait()
@@ -829,13 +831,6 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             end
             
             local isWallInFront = (targetY > currentY + 1)
-            if isWallInFront and not isClimbingState then
-                isClimbingState = true
-                if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
-            elseif not isWallInFront and isClimbingState then
-                isClimbingState = false
-                if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
-            end
 
             -- Vorwärts-Stop, wenn Wand blockiert
             if isWallInFront then 
@@ -888,7 +883,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         -- Cleanup nach dem TP
         if fakeFloor then fakeFloor:Destroy() end
         if hum then hum:Move(Vector3.new(0,0,0), false) end
-        if climbEvent and isClimbingState then pcall(function() climbEvent:InvokeServer(false) end) end
+        if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
         ToggleHover(false, root)
         char:SetAttribute("evading", nil)
         root.Velocity = Vector3.new(0, 0, 0)
