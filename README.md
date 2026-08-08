@@ -814,6 +814,36 @@ local function CreateButton(section, text, color, callback)
     return btn
 end
 
+local function CreateTextBox(section, placeholder, callback)
+    itemOrderCounter = itemOrderCounter + 1
+    local frame = Instance.new("Frame", section)
+    frame.LayoutOrder = itemOrderCounter
+    frame.Size = UDim2.new(0.92, 0, 0, 34)
+    frame.BackgroundTransparency = 1
+    
+    local box = Instance.new("TextBox", frame)
+    box.Size = UDim2.new(1, 0, 1, 0)
+    box.BackgroundColor3 = Theme.Background
+    box.PlaceholderText = placeholder
+    box.Text = ""
+    box.TextColor3 = Theme.Text
+    box.Font = Enum.Font.GothamMedium
+    box.TextSize = 12
+    box.ClearTextOnFocus = false
+    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
+    
+    local stroke = Instance.new("UIStroke", box)
+    stroke.Color = Theme.Stroke
+    stroke.Transparency = 0.2
+    
+    if callback then 
+        box.FocusLost:Connect(function() 
+            callback(box.Text) 
+        end) 
+    end
+    return box
+end
+
 local function CreateDropdown(section, headerText, itemsList, defaultVal, callback)
     itemOrderCounter = itemOrderCounter + 1
     local frame = Instance.new("Frame", section)
@@ -1141,8 +1171,36 @@ local function SmartTween(targetPos, speedLimit, floorOffset, islandPos)
 end
 
 --// =======================
---// AUTO FARM LOGIC (Damage Remotes, Quests, Evade)
+--// AUTO FARM LOGIC (Damage Remotes, Quests, Evade, Anti-Fling)
 --// =======================
+
+-- Helper function um eine Plattform unter dem Spieler während des Farms zu spawnen
+local function ManageFarmPlatform(active, char)
+    local floorName = "RyuAutoFarmFloor"
+    local floor = Workspace:FindFirstChild(floorName)
+    if not active then
+        if floor then floor:Destroy() end
+        return
+    end
+    if not floor then
+        floor = Instance.new("Part")
+        floor.Name = floorName
+        floor.Size = Vector3.new(15, 1, 15)
+        floor.Anchored = true
+        floor.CanCollide = true
+        floor.Transparency = 1
+        floor.Parent = Workspace
+    end
+    if char then
+        local root = char:FindFirstChild("HumanoidRootPart")
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if root and hum then
+            floor.CFrame = root.CFrame * CFrame.new(0, -((hum.HipHeight or 2) + (root.Size.Y / 2) + 0.05), 0)
+            hum:ChangeState(Enum.HumanoidStateType.Running)
+        end
+    end
+end
+
 local currentComboIndex = 1
 local lastSwing = 0
 local comboWait = 0.45
@@ -1195,7 +1253,7 @@ local function PerformAttack(targets)
         currentComboIndex = currentComboIndex + 1
         if currentComboIndex > 4 then 
             currentComboIndex = 1 
-            comboWait = 2 -- Exakt 2 Sekunden Delay nach der 4-Hit Combo!
+            comboWait = 2 -- Exakt 2 Sekunden Delay nach der 4-Hit Combo
         else
             comboWait = 0.45 -- 0.45 Sekunden Delay zwischen Schlägen
         end
@@ -1230,7 +1288,10 @@ task.spawn(function()
     local lastPlayerHP = nil
     while true do
         task.wait() -- Maximal schnelle Reaktionszeit
-        if not RyuConfig.AutoFarm then continue end
+        if not RyuConfig.AutoFarm then 
+            ManageFarmPlatform(false, nil)
+            continue 
+        end
         
         local char = LocalPlayer.Character
         local root = char and char:FindFirstChild("HumanoidRootPart")
@@ -1264,7 +1325,7 @@ task.spawn(function()
                         QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
                         QuestEvent:InvokeServer({"acceptquest"})
                     end)
-                    task.wait(0.5) -- Kurze Pause zum Verarbeiten der Quest
+                    task.wait(0.5)
                 end
                 continue
             end
@@ -1297,12 +1358,17 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and mHum.Health > 0 and CheckQuestActive() do
                                 local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 15 then
+                                    ManageFarmPlatform(false, char)
                                     SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
                                 else
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
                                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                                    -- Anti Fling Logik & Plattform
                                     root.Velocity = Vector3.new(0,0,0)
+                                    root.RotVelocity = Vector3.new(0,0,0)
+                                    ManageFarmPlatform(true, char)
+                                    
                                     PerformAttack({mob})
                                 end
                                 
@@ -1313,9 +1379,10 @@ task.spawn(function()
                                 end
                                 lastPlayerHP = hum.Health
                             end
-                            
+                            ManageFarmPlatform(false, char)
                         end
                     end
+                    
                 elseif RyuConfig.FarmMode == "Underground" then
                     for _, mob in ipairs(targetMobs) do
                         if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
@@ -1326,19 +1393,25 @@ task.spawn(function()
                             while RyuConfig.AutoFarm and mHum.Health > 0 and CheckQuestActive() do
                                 local targetP = mRoot.Position - Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 15 then
+                                    ManageFarmPlatform(false, char)
                                     SmartTween(targetP, 65, 0, nil)
                                 else
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
                                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                                    -- Anti Fling Logik & Plattform
                                     root.Velocity = Vector3.new(0,0,0)
+                                    root.RotVelocity = Vector3.new(0,0,0)
+                                    ManageFarmPlatform(true, char)
+                                    
                                     PerformAttack({mob})
                                 end
                                 task.wait()
                             end
-                            
+                            ManageFarmPlatform(false, char)
                         end
                     end
+                    
                 elseif RyuConfig.FarmMode == "Group" then
                     local primaryMob = targetMobs[1]
                     if primaryMob and primaryMob:FindFirstChild("HumanoidRootPart") then
@@ -1361,12 +1434,17 @@ task.spawn(function()
                             if anyAlive and primaryMob:FindFirstChild("HumanoidRootPart") then 
                                 local targetP = primaryMob.HumanoidRootPart.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
                                 if (root.Position - targetP).Magnitude > 20 then
+                                    ManageFarmPlatform(false, char)
                                     SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
                                 else
                                     local bp = ToggleHover(true, root)
                                     bp.Position = targetP
                                     root.CFrame = CFrame.lookAt(root.Position, Vector3.new(primaryMob.HumanoidRootPart.Position.X, root.Position.Y, primaryMob.HumanoidRootPart.Position.Z))
+                                    -- Anti Fling Logik & Plattform
                                     root.Velocity = Vector3.new(0,0,0)
+                                    root.RotVelocity = Vector3.new(0,0,0)
+                                    ManageFarmPlatform(true, char)
+                                    
                                     PerformAttack(hitTargets)
                                 end
                                 
@@ -1378,8 +1456,11 @@ task.spawn(function()
                                 lastPlayerHP = hum.Health
                             end
                         end
+                        ManageFarmPlatform(false, char)
                     end
                 end
+            else
+                ManageFarmPlatform(false, char)
             end
         end
     end
