@@ -692,20 +692,41 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         
         if sprintEvent then pcall(function() sprintEvent:FireServer("rbxassetid://15382065457") end) end
         
+        --// FAKE FLOOR FÜR PERFEKTE LAUF-ANIMATION //--
+        local fakeFloor = Instance.new("Part")
+        fakeFloor.Name = "RyuFakeFloor"
+        fakeFloor.Size = Vector3.new(4, 1, 4)
+        fakeFloor.Anchored = true
+        fakeFloor.CanCollide = true
+        fakeFloor.Transparency = 1
+        fakeFloor.Parent = Workspace
+        
         local function GetTrueTopY(x, z)
             local rParams = RaycastParams.new()
-            rParams.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles")}
+            local currentFilter = {char, Workspace:FindFirstChild("Effects"), Workspace:FindFirstChild("Projectiles"), fakeFloor}
             rParams.FilterType = Enum.RaycastFilterType.Exclude
-            rParams.IgnoreWater = false -- HIER GEÄNDERT: Ignoriert Wasser nicht mehr, dadurch hovern wir sicher 5 Studs über Wasser!
+            rParams.IgnoreWater = false -- WICHTIG: Wasser wird als Boden anerkannt!
             
             local origin = Vector3.new(x, 4000, z)
-            local hit = Workspace:Raycast(origin, Vector3.new(0, -5000, 0), rParams)
-            if hit then 
-                if hit.Instance and hit.Instance.Transparency < 1 or hit.Material == Enum.Material.Water then
-                    return hit.Position.Y 
+            
+            for i = 1, 10 do
+                rParams.FilterDescendantsInstances = currentFilter
+                local hit = Workspace:Raycast(origin, Vector3.new(0, -5000, 0), rParams)
+                if hit then 
+                    local hitName = hit.Instance.Name
+                    local parentName = hit.Instance.Parent and hit.Instance.Parent.Name or ""
+                    
+                    -- Check für Wasser & normale Böden (Selbst wenn leicht transparent)
+                    if hit.Instance.Transparency < 1 or hitName == "Ocean" or hitName == "Sand" or parentName == "WaterStuff" or hit.Material == Enum.Material.Water then
+                        return hit.Position.Y 
+                    else
+                        table.insert(currentFilter, hit.Instance)
+                    end
+                else
+                    break
                 end
             end
-            return 15 -- GPO Default Wasser-Höhe als absoluter Fallback
+            return 15 -- GPO Default Wasser-Höhe Fallback
         end
 
         local currentSpeed = RyuConfig.IslandSpeed
@@ -718,18 +739,20 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         
         char:SetAttribute("evading", true)
         
-        local elapsedTime = 0
-        local flatStart = Vector3.new(root.Position.X, 0, root.Position.Z)
-        local flatTarget = Vector3.new(targetPos.X, 0, targetPos.Z)
-        local totalDist = (flatStart - flatTarget).Magnitude
-        local t = totalDist / currentSpeed
-        local currentY = root.Position.Y
-        
-        while elapsedTime < t do
+        -- Exakter Distance-Check anstatt unzuverlässiger Zeit-Schleife
+        while true do
             local dt = RunService.Heartbeat:Wait()
             dt = math.clamp(dt, 0.001, 0.05)
             
             local currentFlat = Vector3.new(root.Position.X, 0, root.Position.Z)
+            local targetFlat = Vector3.new(targetPos.X, 0, targetPos.Z)
+            local distToTarget = (targetFlat - currentFlat).Magnitude
+            
+            -- STRIKTER ABBRUCH-CHECK: Stoppt erst, wenn wir wirklich am Ziel sind (< 3 Studs)
+            if distToTarget < 3 then 
+                break 
+            end
+            
             local islandFlat = Vector3.new(rawPos.X, 0, rawPos.Z)
             local distToIsland = (currentFlat - islandFlat).Magnitude
             
@@ -752,23 +775,19 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                     if bestRobo then
                         foundRobo = true
                         targetPos = bestRobo.HumanoidRootPart.Position
-                        -- Recalculate tween trajectory to Robo
-                        flatStart = Vector3.new(root.Position.X, 0, root.Position.Z)
-                        flatTarget = Vector3.new(targetPos.X, 0, targetPos.Z)
-                        totalDist = (flatStart - flatTarget).Magnitude
-                        t = totalDist / currentSpeed
-                        elapsedTime = 0
+                        targetFlat = Vector3.new(targetPos.X, 0, targetPos.Z)
                     end
                 end
             end
             
-            local moveDir = (flatTarget - currentFlat).Unit
-            if flatTarget == currentFlat or (flatTarget - currentFlat).Magnitude < 0.1 then
+            local moveDir = (targetFlat - currentFlat).Unit
+            if targetFlat == currentFlat or (targetFlat - currentFlat).Magnitude < 0.1 then
                 moveDir = root.CFrame.LookVector
             end
             
             local currentX = root.Position.X + (moveDir.X * currentSpeed * dt)
             local currentZ = root.Position.Z + (moveDir.Z * currentSpeed * dt)
+            local currentY = root.Position.Y
             local calcPos = Vector3.new(currentX, currentY, currentZ)
             
             local roofY = GetTrueTopY(currentX, currentZ) + floorOffset
@@ -778,16 +797,20 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             local yVelocity = 0
             local addTime = dt
 
-            -- 3 Stud Wall Check
+            -- 3 Stud Wall Check (Kletter-Abstand)
             local rayParamsDown = RaycastParams.new()
-            rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects")}
+            rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), fakeFloor}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
             local wallHit = Workspace:Raycast(calcPos, moveDir * 3, rayParamsDown)
             
-            if wallHit and wallHit.Instance.Transparency < 1 then
-                local wallTopY = GetTrueTopY(wallHit.Position.X, wallHit.Position.Z) + floorOffset
-                if wallTopY > currentY then
-                    targetY = math.max(targetY, wallTopY)
+            if wallHit then
+                local hitName = wallHit.Instance.Name
+                local parentName = wallHit.Instance.Parent and wallHit.Instance.Parent.Name or ""
+                if wallHit.Instance.Transparency < 1 and hitName ~= "Ocean" and parentName ~= "WaterStuff" then
+                    local wallTopY = GetTrueTopY(wallHit.Position.X, wallHit.Position.Z) + floorOffset
+                    if wallTopY > currentY then
+                        targetY = math.max(targetY, wallTopY)
+                    end
                 end
             end
             
@@ -800,7 +823,11 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                 if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
             end
 
-            if isWallInFront then addTime = 0 end 
+            -- Vorwärts-Stop, wenn Wand blockiert
+            if isWallInFront then 
+                currentX = root.Position.X 
+                currentZ = root.Position.Z 
+            end 
 
             -- Zack-Hoch (600) vs Sicher-Runter (60)
             local safeVerticalSpeedUp = 600
@@ -818,20 +845,16 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                 yVelocity = 0
             end
             
-            elapsedTime = elapsedTime + addTime
-            
             local finalPos = Vector3.new(currentX, currentY, currentZ)
             bp.Position = finalPos
             root.CFrame = CFrame.lookAt(root.Position, Vector3.new(targetPos.X, root.Position.Y, targetPos.Z))
             
-            -- ERZWINGT LAUF-ANIMATION & VERHINDERT FALL-ANIMATION
-            if hum then 
-                if hum:GetState() ~= Enum.HumanoidStateType.Running then
-                    hum:ChangeState(Enum.HumanoidStateType.Running)
-                end
-                hum:Move(moveDir, false) 
+            -- Setze Fake Floor exakt unter die Füße des Spielers
+            if fakeFloor then
+                fakeFloor.CFrame = root.CFrame * CFrame.new(0, -((hum.HipHeight or 2) + (root.Size.Y / 2) + 0.05), 0)
             end
             
+            if hum then hum:Move(moveDir, false) end
             root.Velocity = Vector3.new(moveDir.X * currentSpeed, 0, moveDir.Z * currentSpeed)
             
             if tick() - lastFootstep > 0.35 then
@@ -840,6 +863,8 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             end
         end
         
+        -- Cleanup nach dem TP
+        if fakeFloor then fakeFloor:Destroy() end
         if hum then hum:Move(Vector3.new(0,0,0), false) end
         if climbEvent and isClimbingState then pcall(function() climbEvent:InvokeServer(false) end) end
         ToggleHover(false, root)
