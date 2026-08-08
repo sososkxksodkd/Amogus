@@ -738,6 +738,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         local currentSpeed = RyuConfig.IslandSpeed
         local floorOffset = 5 
         local lastFootstep = tick()
+        local lastClimbSpam = tick()
         
         local foundRobo = false
         local nextRoboCheck = tick()
@@ -755,11 +756,14 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             local dt = RunService.Heartbeat:Wait()
             dt = math.clamp(dt, 0.001, 0.05)
 
-            -- SPAM DAS CLIMB REMOTE WIE GEWÜNSCHT (Im task.spawn gegen Lags)
-            if climbEvent then
-                task.spawn(function()
-                    pcall(function() climbEvent:InvokeServer(true) end)
-                end)
+            -- Kletter Remote Spam ein kleines bisschen langsamer (ca. alle 0.15 Sekunden)
+            if tick() - lastClimbSpam > 0.15 then
+                lastClimbSpam = tick()
+                if climbEvent then
+                    task.spawn(function()
+                        pcall(function() climbEvent:InvokeServer(true) end)
+                    end)
+                end
             end
             
             local currentFlat = Vector3.new(root.Position.X, 0, root.Position.Z)
@@ -817,11 +821,11 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             local yVelocity = 0
             local addTime = dt
 
-            -- 3 Stud Wall Check
+            -- Kletter-Range entfernt (0.1 für absoluten Minimal-Touch)
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), fakeFloor}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
-            local wallHit = Workspace:Raycast(calcPos, moveDir * 3, rayParamsDown)
+            local wallHit = Workspace:Raycast(calcPos, moveDir * 0.1, rayParamsDown)
             
             if wallHit then
                 local hitName = wallHit.Instance.Name
