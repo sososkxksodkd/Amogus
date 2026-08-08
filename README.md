@@ -67,7 +67,7 @@ local guiParent = LocalPlayer:WaitForChild("PlayerGui")
 pcall(function() if gethui then guiParent = gethui() elseif syn and syn.protect_gui then guiParent = CoreGui end end)
 for _, v in pairs(guiParent:GetChildren()) do if v.Name == "RyuHubPremium" then v:Destroy() end end
 
---// DYNAMISCHER WORKSPACE SCANNER FÜR INSELN
+--// DYNAMISCHER WORKSPACE SCANNER FÜR INSELN & NPCs
 local function GetDynamicLists()
     local islands = {}
     local islandsFolder = Workspace:FindFirstChild("Islands")
@@ -90,6 +90,21 @@ local function GetDynamicLists()
     end
     table.sort(islands)
     return islands
+end
+
+local function GetNPCNames()
+    local names = {}
+    local dict = {}
+    if Workspace:FindFirstChild("NPCs") then
+        for _, v in pairs(Workspace.NPCs:GetChildren()) do
+            if v:IsA("Model") and v:FindFirstChild("HumanoidRootPart") and not dict[v.Name] then
+                dict[v.Name] = true
+                table.insert(names, v.Name)
+            end
+        end
+    end
+    table.sort(names)
+    return names
 end
 
 local InitIslands = GetDynamicLists()
@@ -799,36 +814,6 @@ local function CreateButton(section, text, color, callback)
     return btn
 end
 
-local function CreateTextBox(section, placeholder, callback)
-    itemOrderCounter = itemOrderCounter + 1
-    local frame = Instance.new("Frame", section)
-    frame.LayoutOrder = itemOrderCounter
-    frame.Size = UDim2.new(0.92, 0, 0, 34)
-    frame.BackgroundTransparency = 1
-    
-    local box = Instance.new("TextBox", frame)
-    box.Size = UDim2.new(1, 0, 1, 0)
-    box.BackgroundColor3 = Theme.Background
-    box.PlaceholderText = placeholder
-    box.Text = ""
-    box.TextColor3 = Theme.Text
-    box.Font = Enum.Font.GothamMedium
-    box.TextSize = 12
-    box.ClearTextOnFocus = false
-    Instance.new("UICorner", box).CornerRadius = UDim.new(0, 6)
-    
-    local stroke = Instance.new("UIStroke", box)
-    stroke.Color = Theme.Stroke
-    stroke.Transparency = 0.2
-    
-    if callback then 
-        box.FocusLost:Connect(function() 
-            callback(box.Text) 
-        end) 
-    end
-    return box
-end
-
 local function CreateDropdown(section, headerText, itemsList, defaultVal, callback)
     itemOrderCounter = itemOrderCounter + 1
     local frame = Instance.new("Frame", section)
@@ -885,7 +870,7 @@ local function CreateDropdown(section, headerText, itemsList, defaultVal, callba
     end)
 end
 
-local function CreateSearchableDropdown(section, headerText, itemsList, targetConfigKey)
+local function CreateSearchableDropdown(section, headerText, itemsListFunc, targetConfigKey)
     local frame = Instance.new("Frame", section)
     frame.Size = UDim2.new(0.92, 0, 0, 200)
     frame.BackgroundTransparency = 1
@@ -904,7 +889,7 @@ local function CreateSearchableDropdown(section, headerText, itemsList, targetCo
     searchBox.Position = UDim2.new(0, 0, 0, 25)
     searchBox.BackgroundColor3 = Theme.ToggleOff
     searchBox.TextColor3 = Theme.Text
-    searchBox.PlaceholderText = "Island name"
+    searchBox.PlaceholderText = "Search Name..."
     searchBox.Font = Enum.Font.Gotham
     searchBox.TextSize = 12
     Instance.new("UICorner", searchBox).CornerRadius = UDim.new(0, 4)
@@ -924,7 +909,9 @@ local function CreateSearchableDropdown(section, headerText, itemsList, targetCo
         for _, child in pairs(scroll:GetChildren()) do 
             if child:IsA("TextButton") then child:Destroy() end 
         end
-        for _, itemName in ipairs(itemsList) do
+        local currentList = type(itemsListFunc) == "function" and itemsListFunc() or itemsListFunc
+        
+        for _, itemName in ipairs(currentList) do
             if filter == "" or string.lower(itemName):find(string.lower(filter)) then
                 local btn = Instance.new("TextButton", scroll)
                 btn.Size = UDim2.new(0.94, 0, 0, 26)
@@ -947,16 +934,10 @@ local function CreateSearchableDropdown(section, headerText, itemsList, targetCo
         end)
     end
     
-    searchBox:GetPropertyChangedSignal("Text"):Connect(function() 
-        populate(searchBox.Text) 
-    end)
-    
-    listLayout:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function() 
-        scroll.CanvasSize = UDim2.new(0, 0, 0, listLayout.AbsoluteContentSize.Y + 10) 
-    end)
+    searchBox.Focused:Connect(function() populate(searchBox.Text) end)
+    searchBox:GetPropertyChangedSignal("Text"):Connect(function() populate(searchBox.Text) end)
     populate("")
 end
-
 
 --// =======================
 --// SMART TWEEN ENGINE (CHECKPOINT 1 PERFECTED)
@@ -1159,7 +1140,6 @@ local function SmartTween(targetPos, speedLimit, floorOffset, islandPos)
     return true
 end
 
-
 --// =======================
 --// AUTO FARM LOGIC (Damage Remotes, Quests, Evade)
 --// =======================
@@ -1190,7 +1170,7 @@ local function PerformAttack(targets)
         
         local animName = "Punch" .. currentComboIndex
         if currentComboIndex == 4 then animName = "GroundPunch4" end
-        if currentComboIndex == 5 then animName = "GroundPunch5" end
+        -- Schlag 5 komplett entfernt, nach 4 ist Schluss!
         
         local speedArg = (currentComboIndex >= 3) and 1.75 or 2
         
@@ -1213,11 +1193,11 @@ local function PerformAttack(targets)
         end)
         
         currentComboIndex = currentComboIndex + 1
-        if currentComboIndex > 5 then 
+        if currentComboIndex > 4 then 
             currentComboIndex = 1 
-            comboWait = 2 -- Cooldown nach ganzer Combo
+            comboWait = 2 -- Exakt 2 Sekunden Delay nach der 4-Hit Combo!
         else
-            comboWait = 0.45 -- Zwischen normalen Schlägen
+            comboWait = 0.45 -- 0.45 Sekunden Delay zwischen Schlägen
         end
     end)
 end
@@ -1249,7 +1229,7 @@ end
 task.spawn(function()
     local lastPlayerHP = nil
     while true do
-        task.wait(0.1)
+        task.wait() -- Maximal schnelle Reaktionszeit
         if not RyuConfig.AutoFarm then continue end
         
         local char = LocalPlayer.Character
@@ -1257,7 +1237,7 @@ task.spawn(function()
         local hum = char and char:FindFirstChildOfClass("Humanoid")
         if not root or not hum then continue end
         
-        -- Smart Evade
+        -- Smart Evade Check
         local currentHP = hum.Health
         if lastPlayerHP and currentHP < lastPlayerHP then
             local bp = root:FindFirstChild("RyuHover")
@@ -1278,19 +1258,19 @@ task.spawn(function()
                     pcall(function()
                         local QuestEvent = ReplicatedStorage.Events.Quest
                         QuestEvent:InvokeServer({"getNPCQuestLocations"})
-                        task.wait(0.5)
+                        task.wait(0.2)
                         QuestEvent:InvokeServer({"npcChat", true})
                         QuestEvent:InvokeServer({"takequest", "Help " .. RyuConfig.TargetNPC})
                         QuestEvent:InvokeServer({"takequest", RyuConfig.TargetNPC})
                         QuestEvent:InvokeServer({"acceptquest"})
                     end)
-                    task.wait(1)
+                    task.wait(0.5) -- Kurze Pause zum Verarbeiten der Quest
                 end
                 continue
             end
         end
         
-        -- MOB FARMING
+        -- MOB FARMING LOOP
         if RyuConfig.TargetMob ~= "" then
             local npcs = Workspace:FindFirstChild("NPCs")
             if not npcs then continue end
@@ -1309,77 +1289,91 @@ task.spawn(function()
             if #targetMobs > 0 then
                 if RyuConfig.FarmMode == "Solo" then
                     for _, mob in ipairs(targetMobs) do
-                        if not RyuConfig.AutoFarm then break end
+                        if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         if mHum and mRoot and mHum.Health > 0 then
-                            SmartTween(mRoot.Position, 65, RyuConfig.FarmHoverHeight, nil)
-                            while RyuConfig.AutoFarm and mHum.Health > 0 do
-                                PerformAttack({mob})
-                                local bp = root:FindFirstChild("RyuHover")
-                                if bp then 
-                                    bp.Position = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0) 
+                            
+                            while RyuConfig.AutoFarm and mHum.Health > 0 and CheckQuestActive() do
+                                local targetP = mRoot.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
+                                if (root.Position - targetP).Magnitude > 15 then
+                                    SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
+                                else
+                                    local bp = ToggleHover(true, root)
+                                    bp.Position = targetP
+                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                                    root.Velocity = Vector3.new(0,0,0)
+                                    PerformAttack({mob})
                                 end
-                                task.wait(0.1)
                                 
+                                task.wait()
                                 if hum.Health < lastPlayerHP then 
-                                    if bp then 
-                                        bp.Position = bp.Position + Vector3.new(0, 2, 0)
-                                        task.wait(0.2) 
-                                    end 
+                                    local bp = root:FindFirstChild("RyuHover")
+                                    if bp then bp.Position = bp.Position + Vector3.new(0, 2, 0); task.wait(0.2) end 
                                 end
                                 lastPlayerHP = hum.Health
                             end
+                            
                         end
                     end
                 elseif RyuConfig.FarmMode == "Underground" then
                     for _, mob in ipairs(targetMobs) do
-                        if not RyuConfig.AutoFarm then break end
+                        if not RyuConfig.AutoFarm or not CheckQuestActive() then break end
                         local mHum = mob:FindFirstChildOfClass("Humanoid")
                         local mRoot = mob:FindFirstChild("HumanoidRootPart")
                         if mHum and mRoot and mHum.Health > 0 then
-                            local underPos = mRoot.Position - Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
-                            SmartTween(underPos, 65, 0, nil)
-                            while RyuConfig.AutoFarm and mHum.Health > 0 do
-                                PerformAttack({mob})
-                                local bp = root:FindFirstChild("RyuHover")
-                                if bp then 
-                                    bp.Position = mRoot.Position - Vector3.new(0, RyuConfig.FarmHoverHeight, 0) 
+                            
+                            while RyuConfig.AutoFarm and mHum.Health > 0 and CheckQuestActive() do
+                                local targetP = mRoot.Position - Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
+                                if (root.Position - targetP).Magnitude > 15 then
+                                    SmartTween(targetP, 65, 0, nil)
+                                else
+                                    local bp = ToggleHover(true, root)
+                                    bp.Position = targetP
+                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(mRoot.Position.X, root.Position.Y, mRoot.Position.Z))
+                                    root.Velocity = Vector3.new(0,0,0)
+                                    PerformAttack({mob})
                                 end
-                                task.wait(0.1)
+                                task.wait()
                             end
+                            
                         end
                     end
                 elseif RyuConfig.FarmMode == "Group" then
                     local primaryMob = targetMobs[1]
                     if primaryMob and primaryMob:FindFirstChild("HumanoidRootPart") then
-                        SmartTween(primaryMob.HumanoidRootPart.Position, 65, RyuConfig.FarmHoverHeight, nil)
-                        
                         local anyAlive = true
-                        while RyuConfig.AutoFarm and anyAlive do
+                        while RyuConfig.AutoFarm and anyAlive and CheckQuestActive() do
                             anyAlive = false
+                            local hitTargets = {}
+                            
                             for _, mob in ipairs(targetMobs) do
                                 local mHum = mob:FindFirstChildOfClass("Humanoid")
                                 local mRoot = mob:FindFirstChild("HumanoidRootPart")
                                 if mHum and mRoot and mHum.Health > 0 then
                                     anyAlive = true
-                                    mRoot.Size = Vector3.new(20, 20, 20)
+                                    mRoot.Size = Vector3.new(60, 60, 60) -- Group Expander!
                                     mRoot.CanCollide = false
+                                    table.insert(hitTargets, mob)
                                 end
                             end
-                            if anyAlive then 
-                                PerformAttack(targetMobs)
-                                local bp = root:FindFirstChild("RyuHover")
-                                if primaryMob.HumanoidRootPart and bp then 
-                                    bp.Position = primaryMob.HumanoidRootPart.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0) 
+                            
+                            if anyAlive and primaryMob:FindFirstChild("HumanoidRootPart") then 
+                                local targetP = primaryMob.HumanoidRootPart.Position + Vector3.new(0, RyuConfig.FarmHoverHeight, 0)
+                                if (root.Position - targetP).Magnitude > 20 then
+                                    SmartTween(targetP, 65, RyuConfig.FarmHoverHeight, nil)
+                                else
+                                    local bp = ToggleHover(true, root)
+                                    bp.Position = targetP
+                                    root.CFrame = CFrame.lookAt(root.Position, Vector3.new(primaryMob.HumanoidRootPart.Position.X, root.Position.Y, primaryMob.HumanoidRootPart.Position.Z))
+                                    root.Velocity = Vector3.new(0,0,0)
+                                    PerformAttack(hitTargets)
                                 end
-                                task.wait(0.1)
                                 
+                                task.wait()
                                 if hum.Health < lastPlayerHP then 
-                                    if bp then 
-                                        bp.Position = bp.Position + Vector3.new(0, 2, 0)
-                                        task.wait(0.2) 
-                                    end 
+                                    local bp = root:FindFirstChild("RyuHover")
+                                    if bp then bp.Position = bp.Position + Vector3.new(0, 2, 0); task.wait(0.2) end 
                                 end
                                 lastPlayerHP = hum.Health
                             end
@@ -1390,7 +1384,6 @@ task.spawn(function()
         end
     end
 end)
-
 
 --// =======================
 --// TABS & SECTIONS UI
@@ -1403,8 +1396,8 @@ local SubNPCFarm = CreateSubTab(TabFarm, "NPC Farm")
 local SecNPC = CreateSection(SubNPCFarm, "Auto Farm Settings")
 CreateToggle(SecNPC, "Enable NPC Farm", false, function(state) RyuConfig.AutoFarm = state end)
 CreateDropdown(SecNPC, "Farm Mode", {"Solo", "Group", "Underground"}, "Solo", function(val) RyuConfig.FarmMode = val end)
-CreateTextBox(SecNPC, "Quest NPC Name", function(val) RyuConfig.TargetNPC = val end)
-CreateTextBox(SecNPC, "Target Mob Name", function(val) RyuConfig.TargetMob = val end)
+CreateSearchableDropdown(SecNPC, "Quest NPC Name", GetNPCNames, "TargetNPC")
+CreateSearchableDropdown(SecNPC, "Target Mob Name", GetNPCNames, "TargetMob")
 CreateSlider(SecNPC, "Farm Hover Distance", 3, 30, 5, function(val) RyuConfig.FarmHoverHeight = val end)
 
 -- TAB 2: PLAYER
