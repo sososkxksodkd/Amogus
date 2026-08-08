@@ -32,7 +32,17 @@ local function GetDynamicLists()
             table.insert(islands, v.Name)
         end
     else
-        islands = {"Town of Beginnings", "Sandora", "Shell's Town", "Coco Island"} -- Fallbacks
+        islands = {
+            "???? Shrine", "A rock", "Coco Island", "Colosseum", "Colosseum of Arc", 
+            "Desert Kingdom", "Dokkan Island", "Fishman Cave", "Fishman Island", 
+            "Foro Island", "Impel Base", "Marine Base G-1", "Marine Fort F-1", 
+            "Mirror World", "Mysterious Cliff", "Mysterious Reef", "Orange Town", 
+            "Restaurant Baratie", "Reverse Mountain", "Roca Island", "Rose Kingdom", 
+            "Rovo Island", "Sakura Stronghold", "Sandora", "Sashi Island", 
+            "Sett's Arena", "Shark Park", "Shell's Town", "Sphinx Island", 
+            "Spirit Island", "Thriller Bark", "Town of Beginnings", 
+            "Turtleback Cave", "Umi Island", "Whole Cake Island"
+        }
     end
     table.sort(islands)
     return islands
