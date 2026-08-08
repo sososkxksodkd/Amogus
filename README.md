@@ -46,6 +46,7 @@ local function GetDynamicLists()
     end
     table.sort(islands)
     return islands
+
 end
 
 local InitIslands = GetDynamicLists()
@@ -738,7 +739,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         local currentSpeed = RyuConfig.IslandSpeed
         local floorOffset = 5 
         local lastFootstep = tick()
-        local lastClimbSpam = tick()
+        local isClimbingState = false
         
         local foundRobo = false
         local nextRoboCheck = tick()
@@ -755,16 +756,6 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         while elapsedTime < t do
             local dt = RunService.Heartbeat:Wait()
             dt = math.clamp(dt, 0.001, 0.05)
-
-            -- Kletter Remote Spam ein kleines bisschen langsamer (ca. alle 0.15 Sekunden)
-            if tick() - lastClimbSpam > 0.15 then
-                lastClimbSpam = tick()
-                if climbEvent then
-                    task.spawn(function()
-                        pcall(function() climbEvent:InvokeServer(true) end)
-                    end)
-                end
-            end
             
             local currentFlat = Vector3.new(root.Position.X, 0, root.Position.Z)
             local targetFlat = Vector3.new(targetPos.X, 0, targetPos.Z)
@@ -821,16 +812,19 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
             local yVelocity = 0
             local addTime = dt
 
-            -- Kletter-Range entfernt (0.1 für absoluten Minimal-Touch)
+            local isHittingWall1Stud = false
+            
+            -- 1 Stud Wall Check für das Klettern (Aktivieren & Halten)
             local rayParamsDown = RaycastParams.new()
             rayParamsDown.FilterDescendantsInstances = {char, Workspace:FindFirstChild("Effects"), fakeFloor}
             rayParamsDown.FilterType = Enum.RaycastFilterType.Exclude
-            local wallHit = Workspace:Raycast(calcPos, moveDir * 0.1, rayParamsDown)
+            local wallHit = Workspace:Raycast(calcPos, moveDir * 1, rayParamsDown)
             
             if wallHit then
                 local hitName = wallHit.Instance.Name
                 local parentName = wallHit.Instance.Parent and wallHit.Instance.Parent.Name or ""
                 if wallHit.Instance.Transparency < 1 and hitName ~= "Ocean" and parentName ~= "WaterStuff" then
+                    isHittingWall1Stud = true
                     local wallTopY = GetTrueTopY(wallHit.Position.X, wallHit.Position.Z) + floorOffset
                     if wallTopY > currentY then
                         targetY = math.max(targetY, wallTopY)
@@ -838,10 +832,23 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
                 end
             end
             
-            local isWallInFront = (targetY > currentY + 1)
+            local isWallInFront = (targetY > currentY + 1) or isHittingWall1Stud
+            
+            -- KLETTERN AKTIVIEREN & HALTEN (Kein Spam, einmaliges Triggern)
+            if isWallInFront and not isClimbingState then
+                isClimbingState = true
+                if climbEvent then 
+                    task.spawn(function() pcall(function() climbEvent:InvokeServer(true) end) end)
+                end
+            elseif not isWallInFront and isClimbingState then
+                isClimbingState = false
+                if climbEvent then 
+                    task.spawn(function() pcall(function() climbEvent:InvokeServer(false) end) end)
+                end
+            end
 
             -- Vorwärts-Stop, wenn Wand blockiert
-            if isWallInFront then 
+            if targetY > currentY + 1 then 
                 currentX = root.Position.X 
                 currentZ = root.Position.Z 
             end 
@@ -891,7 +898,7 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         -- Cleanup nach dem TP
         if fakeFloor then fakeFloor:Destroy() end
         if hum then hum:Move(Vector3.new(0,0,0), false) end
-        if climbEvent then pcall(function() climbEvent:InvokeServer(false) end) end
+        if climbEvent and isClimbingState then pcall(function() climbEvent:InvokeServer(false) end) end
         ToggleHover(false, root)
         char:SetAttribute("evading", nil)
         root.Velocity = Vector3.new(0, 0, 0)
