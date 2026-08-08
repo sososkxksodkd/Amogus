@@ -750,13 +750,17 @@ CreateButton(SecIslandTP, "Start Spider Tween", Theme.SectionBG, function()
         local totalDist = (flatStart - flatTarget).Magnitude
         local t = totalDist / currentSpeed
         local currentY = root.Position.Y
-
-        -- Start Climbing permanently for the tween
-        if climbEvent then pcall(function() climbEvent:InvokeServer(true) end) end
         
         while elapsedTime < t do
             local dt = RunService.Heartbeat:Wait()
             dt = math.clamp(dt, 0.001, 0.05)
+
+            -- SPAM DAS CLIMB REMOTE WIE GEWÜNSCHT (Im task.spawn gegen Lags)
+            if climbEvent then
+                task.spawn(function()
+                    pcall(function() climbEvent:InvokeServer(true) end)
+                end)
+            end
             
             local currentFlat = Vector3.new(root.Position.X, 0, root.Position.Z)
             local targetFlat = Vector3.new(targetPos.X, 0, targetPos.Z)
